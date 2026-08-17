@@ -1,0 +1,22 @@
+{
+  "name": "georgie-carputer",
+  "version": "0.1.0",
+  "description": "Custom automotive head unit (Carputer) software for Raspberry Pi 4",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "python -m uvicorn app.main:app --app-dir backend --reload --port 8000",
+    "build:frontend": "npm run build --prefix frontend",
+    "simulate:call": "python dev-tools/simulate_call.py",
+    "simulate:track": "python dev-tools/simulate_track.py"
+  },
+  "keywords": [
+    "carputer",
+    "raspberry-pi",
+    "mapbox",
+    "fastapi",
+    "react"
+  ],
+  "author": "Anas Hamidoglu",
+  "license": "MIT"
+}

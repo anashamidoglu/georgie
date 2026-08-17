@@ -1,0 +1,19 @@
+# Raspberry Pi 4 GPU & Display Configuration for Georgie Carputer
+# Append to /boot/firmware/config.txt
+
+# Allocate dedicated GPU memory for Mapbox GL JS WebGL rendering
+gpu_mem=192
+
+# Enable Full KMS 3D driver
+dtoverlay=vc4-kms-v3d
+
+# Disable splash & speed up boot
+disable_splash=1
+boot_delay=0
+
+# Ensure HDMI output is forced active on boot
+hdmi_force_hotplug=1
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt 1024 600 60 6 0 0 0
+hdmi_drive=1
