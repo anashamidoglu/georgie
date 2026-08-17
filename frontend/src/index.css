@@ -1,82 +1,86 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    /* Color Palette - Dark Base (Warm near-black) */
-    --bg-base: #0c0d0e;
-    --bg-base-lum: 1.0;
-    --surface-raised: #16181b;
-    --surface-raised-border: rgba(255, 255, 255, 0.08);
-    --surface-glass: linear-gradient(180deg, rgba(32, 35, 40, 0.92) 0%, rgba(20, 22, 25, 0.95) 100%);
-    --surface-glass-highlight: rgba(255, 255, 255, 0.14);
-    
-    /* Accents */
-    --accent-amber: #f59e0b;
-    --accent-amber-glow: rgba(245, 158, 11, 0.25);
-    --accent-red: #ef4444;
-    --accent-red-dim: rgba(239, 68, 68, 0.25);
-    --accent-green: #10b981;
-    --accent-blue: #3b82f6;
+@theme {
+  --color-bg-base: #0c0d0e;
+  --color-surface-raised: #16181b;
+  --color-surface-raised-border: rgba(255, 255, 255, 0.08);
+  --color-accent-amber: #f59e0b;
+  --color-accent-red: #ef4444;
+  --color-accent-green: #10b981;
+  --color-accent-blue: #3b82f6;
+  --color-text-primary: #f3f4f6;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+}
 
-    /* Typography Colors */
-    --text-primary: #f3f4f6;
-    --text-secondary: #9ca3af;
-    --text-muted: #6b7280;
+:root {
+  /* Color Palette - Dark Base (Warm near-black) */
+  --bg-base: #0c0d0e;
+  --surface-raised: #16181b;
+  --surface-raised-border: rgba(255, 255, 255, 0.08);
+  --surface-glass: linear-gradient(180deg, rgba(32, 35, 40, 0.92) 0%, rgba(20, 22, 25, 0.95) 100%);
+  --surface-glass-highlight: rgba(255, 255, 255, 0.14);
+  
+  /* Accents */
+  --accent-amber: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-green: #10b981;
+  --accent-blue: #3b82f6;
 
-    /* Elevation Shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  /* Typography Colors */
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
 
-    /* Radii Base */
-    --radius-pane: 20px;
-    --radius-pill: 9999px;
+  /* Elevation Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
 
-    /* Timing / Easings (Apple Fluid Curves) */
-    --ease-spring: cubic-bezier(0.25, 1, 0.5, 1);
-    --duration-standard: 300ms;
-  }
+  /* Radii Base */
+  --radius-pane: 20px;
+  --radius-pill: 9999px;
+}
 
-  /* Day Theme Luminance Multiplier */
-  [data-theme="day"] {
-    --bg-base: #181a1d;
-    --surface-raised: #24272c;
-    --surface-raised-border: rgba(255, 255, 255, 0.16);
-    --text-primary: #ffffff;
-    --text-secondary: #d1d5db;
-    --text-muted: #9ca3af;
-  }
+/* Day Theme Luminance Multiplier */
+[data-theme="day"] {
+  --bg-base: #181a1d;
+  --surface-raised: #24272c;
+  --surface-raised-border: rgba(255, 255, 255, 0.16);
+  --text-primary: #ffffff;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+}
 
-  /* Kiosk Touch & Typography Resets */
-  * {
-    box-sizing: border-box;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    touch-action: manipulation;
-  }
+/* Kiosk Touch & Typography Resets */
+* {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
 
-  body {
-    margin: 0;
-    padding: 0;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    background-color: var(--bg-base);
-    color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
 
-  /* Road Data / Speed Limit / Live Numbers */
-  .font-road {
-    font-family: "DIN 1451", "DIN Alternate", "Trebuchet MS", sans-serif;
-    font-variant-numeric: tabular-nums;
-  }
+/* Road Data / Speed Limit / Live Numbers */
+.font-road {
+  font-family: "DIN 1451", "DIN Alternate", "Trebuchet MS", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
 
-  .font-sf-display {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-  }
+.font-sf-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
 }
 
 /* Glass Approximation Utilities */
@@ -99,4 +103,17 @@
   transform: scale(0.96);
   opacity: 0.88;
   transition: transform 100ms ease, opacity 100ms ease;
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
 }
