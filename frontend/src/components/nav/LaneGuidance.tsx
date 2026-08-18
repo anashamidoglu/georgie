@@ -23,15 +23,17 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
   const renderLaneGlyph = (directions: string[], active: boolean) => {
     const dList = directions.map((d) => d.toLowerCase());
     const isStraight = dList.some((d) => d.includes('straight') || d.includes('through'));
-    const isLeft = dList.some((d) => d.includes('left'));
-    const isRight = dList.some((d) => d.includes('right'));
+    const isSlightLeft = dList.some((d) => d.includes('slight left'));
+    const isSlightRight = dList.some((d) => d.includes('slight right'));
+    const isLeft = dList.some((d) => d.includes('left')) && !isSlightLeft;
+    const isRight = dList.some((d) => d.includes('right')) && !isSlightRight;
     const isUturn = dList.some((d) => d.includes('uturn') || d.includes('u-turn'));
 
-    const strokeColor = active ? '#ffffff' : 'rgba(255, 255, 255, 0.28)';
-    const strokeWidth = active ? '2.4' : '2.0';
+    const strokeColor = active ? '#ffffff' : 'rgba(255, 255, 255, 0.3)';
+    const strokeWidth = active ? '2.5' : '2.0';
 
     // 1. Dual Indication: Straight + Right
-    if (isStraight && isRight) {
+    if (isStraight && (isRight || isSlightRight)) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
           <path d="M12 21V5M12 5L8 9M12 5L16 9" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
@@ -41,7 +43,7 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
     }
 
     // 2. Dual Indication: Straight + Left
-    if (isStraight && isLeft) {
+    if (isStraight && (isLeft || isSlightLeft)) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
           <path d="M12 21V5M12 5L8 9M12 5L16 9" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
@@ -50,7 +52,25 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
       );
     }
 
-    // 3. Left Turn
+    // 3. Slight Left
+    if (isSlightLeft) {
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
+          <path d="M15 21V13C15 10.5 13.5 8.5 11 7.5L6 5M6 5H11M6 5V10" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    // 4. Slight Right
+    if (isSlightRight) {
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
+          <path d="M9 21V13C9 10.5 10.5 8.5 13 7.5L18 5M18 5H13M18 5V10" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    // 5. Left Turn (90 deg)
     if (isLeft) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
@@ -59,7 +79,7 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
       );
     }
 
-    // 4. Right Turn
+    // 6. Right Turn (90 deg)
     if (isRight) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
@@ -68,7 +88,7 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
       );
     }
 
-    // 5. U-Turn
+    // 7. U-Turn
     if (isUturn) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
@@ -77,7 +97,7 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
       );
     }
 
-    // 6. Straight / Default
+    // 8. Straight / Default
     return (
       <svg viewBox="0 0 24 24" fill="none" className={iconDimensions}>
         <path d="M12 21V5M12 5L7 10M12 5L17 10" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
@@ -87,18 +107,18 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
 
   return (
     <div
-      className={`inline-flex items-center space-x-1.5 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10 ${className}`}
-      title="Lane Guidance"
+      className={`inline-flex items-center space-x-1 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10 shadow-lg ${className}`}
+      title="Physical Lane Guidance"
     >
       {lanes.map((lane, idx) => (
         <div
           key={idx}
-          className={`flex items-center justify-center p-0.5 transition-all ${
+          className={`flex items-center justify-center p-0.5 rounded transition-all duration-150 ${
             lane.active
-              ? 'opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]'
+              ? 'opacity-100 drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] bg-white/[0.12]'
               : lane.valid === false
-              ? 'opacity-20 line-through'
-              : 'opacity-40'
+              ? 'opacity-20'
+              : 'opacity-40 hover:opacity-60'
           }`}
         >
           {renderLaneGlyph(lane.directions, lane.active)}

@@ -56,44 +56,68 @@ function getHaversineDistance(c1: [number, number], c2: [number, number]): numbe
 
 function parseManeuverDetails(step: any): { lanes?: LaneInfo[]; shield?: string; exitNumber?: string } {
   if (!step) return {};
-  const banner = step.bannerInstructions?.[0];
-  const subComponents = banner?.sub?.components || [];
-  const primaryComponents = banner?.primary?.components || [];
+  const banners = step.bannerInstructions || [];
 
-  // 1. Extract Lanes
-  const lanes: LaneInfo[] = [];
-  for (const comp of subComponents) {
-    if (comp.type === 'lane') {
-      lanes.push({
+  // 1. Extract Lanes (check all banner instructions along the step, then fallback to intersections)
+  let lanes: LaneInfo[] = [];
+  for (const banner of banners) {
+    const subComponents = banner?.sub?.components || [];
+    const laneComps = subComponents.filter((c: any) => c.type === 'lane');
+    if (laneComps.length > 0) {
+      lanes = laneComps.map((comp: any) => ({
         active: Boolean(comp.active),
         valid: comp.valid !== false,
         directions: comp.directions || ['straight'],
         activeDirection: comp.active_direction,
-      });
+      }));
+      break;
     }
   }
 
-  // 2. Extract Shield (e.g. E11, D71, S113)
-  let shield: string | undefined;
-  for (const comp of primaryComponents) {
-    if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
-      shield = comp.mapbox_shield.display_ref;
-      break;
-    } else if (comp.type === 'icon' && comp.text && comp.text.length <= 6) {
-      shield = comp.text;
-      break;
+  // Fallback to intersections lane array if bannerInstructions didn't specify lanes
+  if (lanes.length === 0 && step.intersections) {
+    for (const inter of step.intersections) {
+      if (inter.lanes && inter.lanes.length > 0) {
+        lanes = inter.lanes.map((l: any) => ({
+          active: Boolean(l.active || l.valid_indication),
+          valid: l.valid !== false,
+          directions: l.indications || ['straight'],
+          activeDirection: l.valid_indication,
+        }));
+        break;
+      }
     }
+  }
+
+  // 2. Extract Shield (e.g. E11, D71, S113, E311)
+  let shield: string | undefined;
+  for (const banner of banners) {
+    const primaryComponents = banner?.primary?.components || [];
+    for (const comp of primaryComponents) {
+      if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
+        shield = comp.mapbox_shield.display_ref;
+        break;
+      } else if (comp.type === 'icon' && comp.text && comp.text.length <= 8) {
+        shield = comp.text;
+        break;
+      }
+    }
+    if (shield) break;
   }
 
   // 3. Extract Exit Number (e.g. Exit 50, Exit 29)
   let exitNumber: string | undefined;
-  const exitNumComp = primaryComponents.find((c: any) => c.type === 'exit-number');
-  if (exitNumComp?.text) {
-    exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
-  } else {
+  for (const banner of banners) {
+    const primaryComponents = banner?.primary?.components || [];
+    const exitNumComp = primaryComponents.find((c: any) => c.type === 'exit-number');
+    if (exitNumComp?.text) {
+      exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
+      break;
+    }
     const exitComp = primaryComponents.find((c: any) => c.type === 'exit');
     if (exitComp?.text && /\d+/.test(exitComp.text)) {
       exitNumber = exitComp.text;
+      break;
     }
   }
 
