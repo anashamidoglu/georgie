@@ -132,19 +132,19 @@ html, body {
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
 }
 
-/* Clean Tactile Glass Button with Balanced Liquid Glass Tint */
+/* Clean Tactile Glass Button with Balanced Translucent Tint */
 .glass-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(22, 24, 30, 0.70);
+  background-color: rgba(22, 24, 30, 0.72);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
   box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   cursor: pointer;
   touch-action: manipulation;
@@ -152,11 +152,11 @@ html, body {
 }
 
 .glass-btn:hover {
-  background-color: rgba(32, 35, 44, 0.85);
-  border-color: rgba(255, 255, 255, 0.20);
+  background-color: rgba(30, 33, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .glass-btn:active {
   transform: scale(0.95);
-  background-color: rgba(38, 42, 52, 0.92);
+  background-color: rgba(35, 38, 48, 0.92);
 }

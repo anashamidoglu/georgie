@@ -68,11 +68,11 @@ export const MapboxCanvas: React.FC = () => {
 
       mapRef.current = map;
 
-      // Clean solid Apple-style vehicle position puck (no pulsing ping animation)
+      // Clean, non-pulsing Apple Maps style vehicle position puck
       const puckEl = document.createElement('div');
       puckEl.className = 'relative flex items-center justify-center';
       puckEl.innerHTML = `
-        <div class="w-6 h-6 rounded-full bg-sky-500 border-2 border-white shadow-[0_0_10px_rgba(14,165,233,0.8)] flex items-center justify-center">
+        <div class="w-6 h-6 rounded-full bg-[#0ea5e9] border-[2.5px] border-white shadow-[0_2px_10px_rgba(14,165,233,0.9)] flex items-center justify-center">
           <div class="w-2 h-2 rounded-full bg-white"></div>
         </div>
       `;
@@ -175,7 +175,7 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [destination, navStatus]);
 
-  // Render & update live Route GeoJSON line on Mapbox (inserted underneath POI symbol labels)
+  // Render & update live Route GeoJSON line on Mapbox below POI and label layers
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
@@ -187,6 +187,16 @@ export const MapboxCanvas: React.FC = () => {
     if (navStatus !== 'idle' && activeRoute?.geoJson) {
       const geoJsonData = activeRoute.geoJson;
 
+      // Find first symbol layer to place route underneath POIs and text labels
+      const styleLayers = map.getStyle()?.layers || [];
+      let firstSymbolLayerId: string | undefined;
+      for (const layer of styleLayers) {
+        if (layer.type === 'symbol') {
+          firstSymbolLayerId = layer.id;
+          break;
+        }
+      }
+
       const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource;
       if (existingSource) {
         existingSource.setData(geoJsonData);
@@ -196,17 +206,7 @@ export const MapboxCanvas: React.FC = () => {
           data: geoJsonData,
         });
 
-        // Find first symbol/label layer so the route line renders embedded underneath POI icons & text
-        const layers = map.getStyle().layers || [];
-        let firstSymbolId: string | undefined;
-        for (const layer of layers) {
-          if (layer.type === 'symbol') {
-            firstSymbolId = layer.id;
-            break;
-          }
-        }
-
-        // Outer crisp dark casing
+        // 1. Subtle soft glow casing matching the vehicle puck blue
         map.addLayer(
           {
             id: casingLayerId,
@@ -217,15 +217,16 @@ export const MapboxCanvas: React.FC = () => {
               'line-cap': 'round',
             },
             paint: {
-              'line-color': '#0369a1',
+              'line-color': '#38bdf8',
               'line-width': 10,
-              'line-opacity': 0.8,
+              'line-opacity': 0.35,
+              'line-blur': 2,
             },
           },
-          firstSymbolId
+          firstSymbolLayerId
         );
 
-        // Inner solid sky blue core line (matches exact sky-500 #0ea5e9 color of vehicle puck)
+        // 2. Bright solid sky-blue core matching the exact vehicle puck color (#0ea5e9)
         map.addLayer(
           {
             id: coreLayerId,
@@ -241,7 +242,7 @@ export const MapboxCanvas: React.FC = () => {
               'line-opacity': 1.0,
             },
           },
-          firstSymbolId
+          firstSymbolLayerId
         );
       }
 
