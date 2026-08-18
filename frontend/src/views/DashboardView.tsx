@@ -5,12 +5,12 @@ import { DateTimeCard } from '../components/common/DateTimeCard';
 import { MediaDockedCard } from '../components/media/MediaDockedCard';
 import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
-import { Music, PlusCircle } from 'lucide-react';
+import { Music, PlusCircle, MapPin } from 'lucide-react';
 import { useNav } from '../context/NavContext';
 import type { MediaTrack } from '../types';
 
 export const DashboardView: React.FC = () => {
-  const { isNavExpanded, hasActiveRoute, setHasActiveRoute, calculateRouteTo } = useNav();
+  const { isNavExpanded, navStatus, previewRouteTo, endNavigation, destinationName } = useNav();
 
   // Mock states for interactive dev testing
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
@@ -43,7 +43,7 @@ export const DashboardView: React.FC = () => {
             <button
               key={p.label}
               type="button"
-              onClick={() => calculateRouteTo(p.coords)}
+              onClick={() => previewRouteTo(p.coords, p.label)}
               className="text-[9px] font-sf font-medium px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/20 text-white/80 transition-colors"
             >
               {p.label}
@@ -54,14 +54,20 @@ export const DashboardView: React.FC = () => {
         {/* Toggle Nav State */}
         <button
           type="button"
-          onClick={() => setHasActiveRoute(!hasActiveRoute)}
+          onClick={() => {
+            if (navStatus === 'idle') {
+              previewRouteTo([55.2785, 25.1972], 'Dubai Mall');
+            } else {
+              endNavigation();
+            }
+          }}
           className={`text-[10px] font-sf font-semibold px-2.5 py-0.5 rounded-full border transition-colors ${
-            hasActiveRoute
+            navStatus !== 'idle'
               ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
               : 'bg-white/10 text-white/70 border-white/10'
           }`}
         >
-          [DEV] Nav ({hasActiveRoute ? 'Active' : 'Idle'})
+          [DEV] Nav ({navStatus === 'idle' ? 'Idle' : navStatus === 'preview' ? 'Preview' : 'Active'})
         </button>
 
         {/* Toggle Media State */}
@@ -92,10 +98,26 @@ export const DashboardView: React.FC = () => {
         {/* Right Column: Stacked Turn/Date Card & Media/Turns/Placeholder */}
         {!isNavExpanded && (
           <div className="col-span-5 h-full flex flex-col space-y-3.5 transition-all duration-300">
-            {/* Top Right: Active Turn Preview OR Big Date/Time Card (When Nav is Idle) */}
+            {/* Top Right: Active Turn (Navigating) OR Destination Preview Card OR Free-sitting Date/Time (Idle) */}
             <div className="flex-shrink-0">
-              {hasActiveRoute ? (
+              {navStatus === 'navigating' ? (
                 <NavPreviewCard />
+              ) : navStatus === 'preview' ? (
+                <LiquidGlassCard padding="lg" className="w-full flex items-center select-none font-sf">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                      <MapPin className="w-6 h-6" />
+                    </div>
+                    <div className="flex flex-col justify-center min-w-0">
+                      <span className="text-xs font-semibold text-white/40 uppercase tracking-wider">
+                        Destination
+                      </span>
+                      <span className="text-lg font-bold font-sf-display text-white truncate max-w-[210px] mt-0.5">
+                        {destinationName}
+                      </span>
+                    </div>
+                  </div>
+                </LiquidGlassCard>
               ) : (
                 <DateTimeCard />
               )}
@@ -131,8 +153,8 @@ export const DashboardView: React.FC = () => {
                     })
                   }
                 />
-              ) : hasActiveRoute ? (
-                /* When Nav is active and no media is playing -> Upcoming maneuvers */
+              ) : navStatus !== 'idle' ? (
+                /* When Nav is preview/active and no media is playing -> Full Upcoming Maneuvers list */
                 <UpcomingManeuversCard />
               ) : (
                 /* When Nav is idle and no media is playing -> Clean audio placeholder */

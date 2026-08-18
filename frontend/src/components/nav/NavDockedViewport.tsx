@@ -1,11 +1,21 @@
 import React from 'react';
-import { Maximize2, Minimize2, CornerUpRight, Navigation } from 'lucide-react';
+import { Maximize2, Minimize2, CornerUpRight, Navigation, Play, X } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { MapboxCanvas } from './MapboxCanvas';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
-  const { isNavExpanded, setIsNavExpanded, hasActiveRoute, eta, primaryManeuver, recenterMap } = useNav();
+  const {
+    isNavExpanded,
+    setIsNavExpanded,
+    navStatus,
+    eta,
+    primaryManeuver,
+    startNavigation,
+    endNavigation,
+    recenterMap,
+    destinationName,
+  } = useNav();
 
   return (
     <LiquidGlassCard
@@ -17,8 +27,8 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 2. Top Floating Overlays */}
       <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between pointer-events-none z-10">
-        {/* Floating Turn Instruction Banner when Map is Expanded */}
-        {isNavExpanded && hasActiveRoute && primaryManeuver ? (
+        {/* Floating Turn Instruction Banner when Map is Expanded & Navigating */}
+        {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
           <div className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none animate-in fade-in duration-200">
             <CornerUpRight className="w-10 h-10 text-white stroke-[3] flex-shrink-0" />
             <div className="flex flex-col">
@@ -34,8 +44,22 @@ export const NavDockedViewport: React.FC = () => {
           <div />
         )}
 
-        {/* Action Controls: Recenter Button & Expand/Collapse Toggle */}
+        {/* Action Controls: Recenter Button, End Nav Button (if navigating), & Expand/Collapse Toggle */}
         <div className="flex items-center space-x-2.5 pointer-events-auto">
+          {/* End Navigation Button */}
+          {navStatus !== 'idle' && (
+            <button
+              type="button"
+              onClick={endNavigation}
+              className="glass-btn h-11 px-3 text-red-400 hover:text-red-300 flex items-center space-x-1.5 transition-all text-xs font-semibold"
+              aria-label="End Navigation"
+              title="End Route"
+            >
+              <X className="w-4 h-4" />
+              <span>End</span>
+            </button>
+          )}
+
           {/* Recenter Location Button */}
           <button
             type="button"
@@ -63,8 +87,54 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating ETA Banner Overlay */}
-      {hasActiveRoute && (
+      {/* 3. Bottom Floating Overlays: Preview Confirmation vs. Active Nav ETA Banner */}
+      {navStatus === 'preview' && (
+        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center pointer-events-none z-20 animate-in slide-in-from-bottom duration-300">
+          <div className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-3 flex items-center justify-between font-sf select-none w-full max-w-[560px]">
+            {/* Route Summary */}
+            <div className="flex flex-col min-w-0 mr-4">
+              <span className="text-xs text-white/50 truncate font-semibold uppercase tracking-wider">
+                {destinationName}
+              </span>
+              <div className="flex items-baseline space-x-3 mt-0.5">
+                <span className="text-xl font-bold font-sf-display text-emerald-400 tabular-nums">
+                  {eta.duration}
+                </span>
+                <span className="text-sm font-semibold font-sf-display text-white/80 tabular-nums">
+                  {eta.distance}
+                </span>
+                <span className="text-xs text-white/50 tabular-nums">
+                  {eta.arrival}
+                </span>
+              </div>
+            </div>
+
+            {/* Start Navigation Action */}
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={endNavigation}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                aria-label="Cancel route"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={startNavigation}
+                className="h-11 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center space-x-2 shadow-[0_0_20px_rgba(16,185,129,0.5)] transition-all font-sf tracking-tight"
+              >
+                <Play className="w-4 h-4 fill-black" />
+                <span>Start</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Navigation ETA Banner (Never disappears when navigating, regardless of media state) */}
+      {navStatus === 'navigating' && (
         <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center pointer-events-none z-10">
           <div 
             className={`pointer-events-auto rounded-3xl bg-black/90 border border-white/15 shadow-2xl backdrop-blur-md flex items-center justify-around font-sf select-none transition-all duration-300 ${
@@ -80,7 +150,7 @@ export const NavDockedViewport: React.FC = () => {
               </span>
             </div>
 
-            {/* Duration with prominent numeral */}
+            {/* Duration with prominent green numeral */}
             <div className="flex items-baseline">
               <span className={`font-bold font-sf-display tabular-nums text-emerald-400 ${isNavExpanded ? 'text-xl' : 'text-base'}`}>
                 {eta.duration}

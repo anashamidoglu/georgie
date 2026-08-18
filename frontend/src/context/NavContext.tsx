@@ -6,6 +6,8 @@ import type { RouteResult, ManeuverInfo } from '../services/navService';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
+export type NavStatus = 'idle' | 'preview' | 'navigating';
+
 interface EtaInfo {
   arrival: string;
   duration: string;
@@ -15,10 +17,11 @@ interface EtaInfo {
 interface NavContextType {
   isNavExpanded: boolean;
   setIsNavExpanded: (val: boolean | ((prev: boolean) => boolean)) => void;
-  hasActiveRoute: boolean;
-  setHasActiveRoute: (val: boolean | ((prev: boolean) => boolean)) => void;
+  navStatus: NavStatus;
+  setNavStatus: (status: NavStatus) => void;
   coords: [number, number];
   destination: [number, number] | null;
+  destinationName: string;
   setDestination: (dest: [number, number] | null) => void;
   heading: number | null;
   speed: number | null;
@@ -28,18 +31,19 @@ interface NavContextType {
   primaryManeuver: ManeuverInfo | null;
   upcomingSteps: ManeuverInfo[];
   activeRoute: RouteResult | null;
-  calculateRouteTo: (dest: [number, number]) => Promise<void>;
-  clearRoute: () => void;
+  previewRouteTo: (dest: [number, number], name?: string) => Promise<void>;
+  startNavigation: () => void;
+  endNavigation: () => void;
   recenterMap: () => void;
 }
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
 
-// Initial destination set to null so it doesn't jump to a random destination on start
 export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
-  const [hasActiveRoute, setHasActiveRoute] = useState<boolean>(false);
+  const [navStatus, setNavStatus] = useState<NavStatus>('idle');
   const [destination, setDestination] = useState<[number, number] | null>(null);
+  const [destinationName, setDestinationName] = useState<string>('Selected Destination');
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -55,22 +59,20 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const position = useCurrentPosition();
 
-  // Instant calculation to target destination
-  const calculateRouteTo = async (destCoords: [number, number]) => {
-    // 1. Immediately update destination state so destination pin appears with 0ms lag
+  // Step 2: Preview route to target destination with route overview
+  const previewRouteTo = async (destCoords: [number, number], name?: string) => {
     setDestination(destCoords);
-    setHasActiveRoute(true);
+    setDestinationName(name || 'Selected Location');
+    setNavStatus('preview');
 
     if (!MAPBOX_TOKEN) return;
 
-    // 2. Abort any previous pending request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // 3. Immediately fetch route
     const result = await fetchDirections(position.coords, destCoords, MAPBOX_TOKEN, controller.signal);
     if (result) {
       setActiveRoute(result);
@@ -84,15 +86,40 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const clearRoute = () => {
+  // Step 3: Start live 3D navigation
+  const startNavigation = () => {
+    setNavStatus('navigating');
+    if (mapInstance && position.coords) {
+      mapInstance.easeTo({
+        center: position.coords,
+        zoom: 16,
+        pitch: 55,
+        bearing: position.heading || 0,
+        duration: 800,
+      });
+    }
+  };
+
+  // End or cancel navigation back to idle
+  const endNavigation = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     setDestination(null);
-    setHasActiveRoute(false);
+    setNavStatus('idle');
     setActiveRoute(null);
     setPrimaryManeuver(null);
     setUpcomingSteps([]);
+
+    if (mapInstance && position.coords) {
+      mapInstance.easeTo({
+        center: position.coords,
+        zoom: 15.5,
+        pitch: 50,
+        bearing: 0,
+        duration: 800,
+      });
+    }
   };
 
   // Recenter map back to vehicle's live position
@@ -100,8 +127,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (mapInstance && position.coords) {
       mapInstance.easeTo({
         center: position.coords,
-        zoom: 15.5,
-        pitch: 50,
+        zoom: navStatus === 'navigating' ? 16 : 15.5,
+        pitch: navStatus === 'navigating' ? 55 : 50,
         bearing: position.heading || 0,
         duration: 500,
       });
@@ -113,10 +140,11 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         isNavExpanded,
         setIsNavExpanded,
-        hasActiveRoute,
-        setHasActiveRoute,
+        navStatus,
+        setNavStatus,
         coords: position.coords,
         destination,
+        destinationName,
         setDestination,
         heading: position.heading,
         speed: position.speed,
@@ -126,8 +154,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         primaryManeuver,
         upcomingSteps,
         activeRoute,
-        calculateRouteTo,
-        clearRoute,
+        previewRouteTo,
+        startNavigation,
+        endNavigation,
         recenterMap,
       }}
     >

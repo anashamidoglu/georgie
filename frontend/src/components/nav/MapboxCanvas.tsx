@@ -28,8 +28,8 @@ export const MapboxCanvas: React.FC = () => {
     setMapInstance,
     activeRoute,
     destination,
-    calculateRouteTo,
-    hasActiveRoute,
+    previewRouteTo,
+    navStatus,
   } = useNav();
 
   const applyLighting = (map: mapboxgl.Map) => {
@@ -85,10 +85,10 @@ export const MapboxCanvas: React.FC = () => {
 
       markerRef.current = marker;
 
-      // Tap on map to set destination and route
+      // Tap on map to preview route
       map.on('click', (e) => {
         const clickedLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-        calculateRouteTo(clickedLngLat);
+        previewRouteTo(clickedLngLat, 'Pinned Location');
       });
 
       map.on('style.load', () => {
@@ -150,7 +150,7 @@ export const MapboxCanvas: React.FC = () => {
     const map = mapRef.current;
     if (!map) return;
 
-    if (destination && hasActiveRoute) {
+    if (destination && navStatus !== 'idle') {
       if (!destMarkerRef.current) {
         const destEl = document.createElement('div');
         destEl.className = 'w-7 h-7 rounded-full bg-emerald-500 border-2 border-white shadow-[0_0_12px_rgba(16,185,129,0.8)] flex items-center justify-center';
@@ -168,7 +168,7 @@ export const MapboxCanvas: React.FC = () => {
         destMarkerRef.current = null;
       }
     }
-  }, [destination, hasActiveRoute]);
+  }, [destination, navStatus]);
 
   // Render & update live Route GeoJSON line on Mapbox
   useEffect(() => {
@@ -179,7 +179,7 @@ export const MapboxCanvas: React.FC = () => {
     const casingLayerId = 'active-route-casing';
     const coreLayerId = 'active-route-core';
 
-    if (hasActiveRoute && activeRoute?.geoJson) {
+    if (navStatus !== 'idle' && activeRoute?.geoJson) {
       const geoJsonData = activeRoute.geoJson;
 
       const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource;
@@ -225,20 +225,23 @@ export const MapboxCanvas: React.FC = () => {
         });
       }
 
-      // Smoothly frame bounds around the new route
-      const coordinates = geoJsonData.geometry.coordinates;
-      if (coordinates.length > 0) {
-        const firstCoord = coordinates[0] as [number, number];
-        const bounds = new mapboxgl.LngLatBounds(firstCoord, firstCoord);
-        coordinates.forEach((coord) => {
-          bounds.extend(coord as [number, number]);
-        });
+      // If in preview mode, smoothly fit the whole route overview
+      if (navStatus === 'preview') {
+        const coordinates = geoJsonData.geometry.coordinates;
+        if (coordinates.length > 0) {
+          const firstCoord = coordinates[0] as [number, number];
+          const bounds = new mapboxgl.LngLatBounds(firstCoord, firstCoord);
+          coordinates.forEach((coord) => {
+            bounds.extend(coord as [number, number]);
+          });
 
-        map.fitBounds(bounds, {
-          padding: { top: 80, bottom: 90, left: 60, right: 60 },
-          maxZoom: 16,
-          duration: 1200,
-        });
+          map.fitBounds(bounds, {
+            padding: { top: 70, bottom: 85, left: 50, right: 50 },
+            maxZoom: 15,
+            pitch: 15,
+            duration: 800,
+          });
+        }
       }
     } else {
       // Remove route layers if route is cleared/idle
@@ -246,7 +249,7 @@ export const MapboxCanvas: React.FC = () => {
       if (map.getLayer(casingLayerId)) map.removeLayer(casingLayerId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     }
-  }, [activeRoute, hasActiveRoute]);
+  }, [activeRoute, navStatus]);
 
   // Trigger smooth resize on view-state changes
   useEffect(() => {
