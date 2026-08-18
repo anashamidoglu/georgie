@@ -58,8 +58,8 @@ function parseManeuverDetails(step: any): { lanes?: LaneInfo[]; shield?: string;
   if (!step) return {};
   const banners = step.bannerInstructions || [];
 
-  // 1. Extract Lanes (check all banner instructions along the step, then fallback to intersections)
-  let lanes: LaneInfo[] = [];
+  // 1. Extract physical lanes strictly from Mapbox banner_instructions.sub.components (spec Section 5.2)
+  let lanes: LaneInfo[] | undefined;
   for (const banner of banners) {
     const subComponents = banner?.sub?.components || [];
     const laneComps = subComponents.filter((c: any) => c.type === 'lane');
@@ -71,21 +71,6 @@ function parseManeuverDetails(step: any): { lanes?: LaneInfo[]; shield?: string;
         activeDirection: comp.active_direction,
       }));
       break;
-    }
-  }
-
-  // Fallback to intersections lane array if bannerInstructions didn't specify lanes
-  if (lanes.length === 0 && step.intersections) {
-    for (const inter of step.intersections) {
-      if (inter.lanes && inter.lanes.length > 0) {
-        lanes = inter.lanes.map((l: any) => ({
-          active: Boolean(l.active || l.valid_indication),
-          valid: l.valid !== false,
-          directions: l.indications || ['straight'],
-          activeDirection: l.valid_indication,
-        }));
-        break;
-      }
     }
   }
 
@@ -105,7 +90,7 @@ function parseManeuverDetails(step: any): { lanes?: LaneInfo[]; shield?: string;
     if (shield) break;
   }
 
-  // 3. Extract Exit Number (e.g. Exit 50, Exit 29)
+  // 3. Extract Exit Number (e.g. Exit 50, Exit 58B, Exit 29)
   let exitNumber: string | undefined;
   for (const banner of banners) {
     const primaryComponents = banner?.primary?.components || [];
@@ -122,7 +107,7 @@ function parseManeuverDetails(step: any): { lanes?: LaneInfo[]; shield?: string;
   }
 
   return {
-    lanes: lanes.length > 0 ? lanes : undefined,
+    lanes,
     shield,
     exitNumber,
   };
