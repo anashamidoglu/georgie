@@ -15,21 +15,21 @@ class MockBluetoothListener:
         self.running = False
         self.task: Optional[asyncio.Task] = None
         self.current_track = TrackMetadata(
-            title="Starboy",
-            artist="The Weeknd",
-            album="Starboy",
-            duration=230,
+            title="Beneath the Mask",
+            artist="Lyn",
+            album="Persona 5 (Original Soundtrack)",
+            duration=278,
             position=45,
             status="playing",
-            artwork_url="https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/25/11/bf2511fe-6f19-9aa8-9f17-f58c4dc3ef33/16UMGIM61012.rgb.jpg/600x600bb.jpg"
+            artwork_url="https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ad/10/fe/ad10fee6-76eb-7eaa-a632-c2afece21b53/LNCM-1175_PERSONA5-OST_h1_new.jpg/600x600bb.jpg"
         )
         self.call_state = CallState(state="idle")
         self.playlist = [
-            ("Blinding Lights", "The Weeknd", "After Hours", 200),
-            ("Save Your Tears", "The Weeknd", "After Hours", 215),
-            ("Get Lucky", "Daft Punk", "Random Access Memories", 248),
-            ("Midnight City", "M83", "Hurry Up, We're Dreaming", 244),
-            ("Nightcall", "Kavinsky", "OutRun", 259),
+            ("Beneath the Mask", "Lyn", "Persona 5 (Original Soundtrack)", 278),
+            ("Life Will Change", "Lyn", "Persona 5 (Original Soundtrack)", 143),
+            ("Last Surprise", "Lyn", "Persona 5 (Original Soundtrack)", 235),
+            ("Wake Up, Get Up, Get Out There", "Lyn", "Persona 5 (Original Soundtrack)", 278),
+            ("Rivers in the Desert", "Lyn", "Persona 5 (Original Soundtrack)", 315),
         ]
         self.playlist_idx = 0
 

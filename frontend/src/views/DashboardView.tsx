@@ -15,12 +15,12 @@ export const DashboardView: React.FC = () => {
   // Mock states for interactive dev testing
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
   const [currentTrack, setCurrentTrack] = useState<MediaTrack>({
-    title: 'LoveFrom,',
-    artist: 'California',
-    duration: 215,
+    title: 'Beneath the Mask',
+    artist: 'Lyn',
+    duration: 278,
     currentTime: 45,
     isPlaying: true,
-    artworkUrl: null,
+    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ad/10/fe/ad10fee6-76eb-7eaa-a632-c2afece21b53/LNCM-1175_PERSONA5-OST_h1_new.jpg/600x600bb.jpg',
   });
 
   // Calculate realistic nearby presets based on user's current coordinates
@@ -136,20 +136,26 @@ export const DashboardView: React.FC = () => {
                   }
                   onNext={() =>
                     setCurrentTrack({
-                      title: 'Glow',
-                      artist: 'Echo',
-                      duration: 180,
-                      currentTime: 12,
+                      title: 'Last Surprise',
+                      artist: 'Lyn',
+                      album: 'Persona 5 (Original Soundtrack)',
+                      duration: 235,
+                      currentTime: 14,
                       isPlaying: true,
+                      artworkUrl:
+                        'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ad/10/fe/ad10fee6-76eb-7eaa-a632-c2afece21b53/LNCM-1175_PERSONA5-OST_h1_new.jpg/600x600bb.jpg',
                     })
                   }
                   onPrev={() =>
                     setCurrentTrack({
-                      title: 'LoveFrom,',
-                      artist: 'California',
-                      duration: 215,
+                      title: 'Beneath the Mask',
+                      artist: 'Lyn',
+                      album: 'Persona 5 (Original Soundtrack)',
+                      duration: 278,
                       currentTime: 45,
                       isPlaying: true,
+                      artworkUrl:
+                        'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ad/10/fe/ad10fee6-76eb-7eaa-a632-c2afece21b53/LNCM-1175_PERSONA5-OST_h1_new.jpg/600x600bb.jpg',
                     })
                   }
                 />

@@ -12,12 +12,12 @@ interface MediaDockedCardProps {
 
 export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
   track = {
-    title: 'LoveFrom,',
-    artist: 'California',
-    duration: 215,
+    title: 'Beneath the Mask',
+    artist: 'Lyn',
+    duration: 278,
     currentTime: 45,
     isPlaying: true,
-    artworkUrl: null,
+    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ad/10/fe/ad10fee6-76eb-7eaa-a632-c2afece21b53/LNCM-1175_PERSONA5-OST_h1_new.jpg/600x600bb.jpg',
   },
   onPlayPause,
   onNext,

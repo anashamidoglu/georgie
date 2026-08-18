@@ -197,7 +197,7 @@ export const MapboxCanvas: React.FC = () => {
           data: geoJsonData,
         });
 
-        // Outer translucent glowing blue casing
+        // Outer translucent glowing vivid blue casing
         map.addLayer({
           id: casingLayerId,
           type: 'line',
@@ -207,14 +207,14 @@ export const MapboxCanvas: React.FC = () => {
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#0284c7',
-            'line-width': 10,
-            'line-opacity': 0.4,
-            'line-blur': 2,
+            'line-color': '#0070f3',
+            'line-width': 12,
+            'line-opacity': 0.55,
+            'line-blur': 3,
           },
         });
 
-        // Inner solid electric blue core line
+        // Inner solid bright electric cyan-blue core line
         map.addLayer({
           id: coreLayerId,
           type: 'line',
@@ -224,9 +224,9 @@ export const MapboxCanvas: React.FC = () => {
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#38bdf8',
-            'line-width': 5.5,
-            'line-opacity': 0.95,
+            'line-color': '#00d2ff',
+            'line-width': 6,
+            'line-opacity': 1.0,
           },
         });
       }
