@@ -29,7 +29,11 @@ export const NavDockedViewport: React.FC = () => {
       <div className="absolute top-0 left-0 right-0 p-3.5 flex items-start justify-between pointer-events-none z-20">
         {/* Floating Turn Instruction Banner when Map is Expanded & Navigating */}
         {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
-          <div className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none">
+          <div 
+            className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <CornerUpRight className="w-10 h-10 text-white stroke-[3] flex-shrink-0" />
             <div className="flex flex-col">
               <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none">
@@ -44,13 +48,20 @@ export const NavDockedViewport: React.FC = () => {
           <div />
         )}
 
-        {/* Action Controls: End Route Button (if active), Recenter Button, & Expand/Collapse Toggle */}
-        <div className="flex items-center space-x-2 pointer-events-auto">
+        {/* Action Controls: End Route Button, Recenter Button, & Expand/Collapse Toggle */}
+        <div 
+          className="flex items-center space-x-2 pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {/* End Navigation Button */}
           {navStatus !== 'idle' && (
             <button
               type="button"
-              onClick={endNavigation}
+              onClick={(e) => {
+                e.stopPropagation();
+                endNavigation();
+              }}
               className="glass-btn h-11 px-3.5 text-red-400 hover:text-red-300 flex items-center space-x-1.5 transition-all text-xs font-semibold"
               aria-label="End Route"
               title="End Route"
@@ -63,7 +74,10 @@ export const NavDockedViewport: React.FC = () => {
           {/* Recenter Location Button */}
           <button
             type="button"
-            onClick={recenterMap}
+            onClick={(e) => {
+              e.stopPropagation();
+              recenterMap();
+            }}
             className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
             aria-label="Recenter location"
             title="Recenter location"
@@ -74,7 +88,10 @@ export const NavDockedViewport: React.FC = () => {
           {/* Expand / Collapse Map Toggle Button */}
           <button
             type="button"
-            onClick={() => setIsNavExpanded(!isNavExpanded)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsNavExpanded(!isNavExpanded);
+            }}
             className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
             aria-label={isNavExpanded ? 'Collapse Map' : 'Expand Map'}
           >
@@ -90,7 +107,11 @@ export const NavDockedViewport: React.FC = () => {
       {/* 3. Bottom Floating Banner: Preview Confirmation Mode */}
       {navStatus === 'preview' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
-          <div className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[540px]">
+          <div 
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[540px]"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             {/* Route Summary */}
             <div className="flex flex-col min-w-0 mr-3">
               <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
@@ -113,7 +134,10 @@ export const NavDockedViewport: React.FC = () => {
             <div className="flex items-center space-x-1.5 flex-shrink-0">
               <button
                 type="button"
-                onClick={endNavigation}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  endNavigation();
+                }}
                 className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
                 aria-label="Cancel route"
               >
@@ -122,7 +146,10 @@ export const NavDockedViewport: React.FC = () => {
 
               <button
                 type="button"
-                onClick={startNavigation}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startNavigation();
+                }}
                 className="h-10 px-5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center space-x-1.5 shadow-[0_0_20px_rgba(16,185,129,0.5)] transition-all font-sf text-sm tracking-tight"
               >
                 <Play className="w-3.5 h-3.5 fill-black" />
@@ -133,7 +160,7 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       )}
 
-      {/* 4. Bottom Floating Banner: Active Navigation ETA Mode (Permanently locked during navigation) */}
+      {/* 4. Bottom Floating Banner: Active Navigation ETA Mode */}
       {navStatus === 'navigating' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
@@ -142,6 +169,8 @@ export const NavDockedViewport: React.FC = () => {
                 ? 'h-14 px-8 w-full max-w-[620px]' 
                 : 'h-12 px-6 w-full'
             }`}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Arrival Time */}
             <div className="flex items-baseline">

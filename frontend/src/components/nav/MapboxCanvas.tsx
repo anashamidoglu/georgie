@@ -88,8 +88,12 @@ export const MapboxCanvas: React.FC = () => {
 
       markerRef.current = marker;
 
-      // Map click handler (always references latest previewRouteTo)
+      // Map click handler (guarded against clicks on UI overlay buttons)
       map.on('click', (e) => {
+        const originalTarget = e.originalEvent?.target as HTMLElement | null;
+        if (originalTarget && originalTarget.closest('.pointer-events-auto')) {
+          return; // Ignore if user clicked an overlay button or banner
+        }
         const clickedLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
         previewRouteToRef.current(clickedLngLat, 'Pinned Location');
       });
