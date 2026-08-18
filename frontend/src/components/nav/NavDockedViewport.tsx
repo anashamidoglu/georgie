@@ -133,7 +133,7 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       )}
 
-      {/* 4. Bottom Floating Banner: Active Navigation Mode */}
+      {/* 4. Bottom Floating Banner: Active Navigation ETA Mode (Permanently locked during navigation) */}
       {navStatus === 'navigating' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30 animate-in fade-in duration-200">
           <div 

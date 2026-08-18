@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCurrentPosition } from '../hooks/useCurrentPosition';
 import { fetchDirections } from '../services/navService';
@@ -19,6 +19,7 @@ interface NavContextType {
   setIsNavExpanded: (val: boolean | ((prev: boolean) => boolean)) => void;
   navStatus: NavStatus;
   setNavStatus: (status: NavStatus) => void;
+  hasActiveRoute: boolean;
   coords: [number, number];
   destination: [number, number] | null;
   destinationName: string;
@@ -38,11 +39,15 @@ interface NavContextType {
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
 
+// Initial demo destination: Dubai Mall
+const DEFAULT_DESTINATION: [number, number] = [55.2785, 25.1972];
+
 export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
-  const [navStatus, setNavStatus] = useState<NavStatus>('idle');
-  const [destination, setDestination] = useState<[number, number] | null>(null);
-  const [destinationName, setDestinationName] = useState<string>('Selected Location');
+  // Default to active navigation on load
+  const [navStatus, setNavStatus] = useState<NavStatus>('navigating');
+  const [destination, setDestination] = useState<[number, number] | null>(DEFAULT_DESTINATION);
+  const [destinationName, setDestinationName] = useState<string>('Dubai Mall');
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -53,14 +58,21 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     distance: '47 km',
   });
 
-  const [primaryManeuver, setPrimaryManeuver] = useState<ManeuverInfo | null>(null);
+  const [primaryManeuver, setPrimaryManeuver] = useState<ManeuverInfo | null>({
+    instruction: 'Bear Valley Rd',
+    roadName: 'Turn Right',
+    distanceStr: '1.5 km',
+    type: 'turn',
+    modifier: 'right',
+  });
+
   const [upcomingSteps, setUpcomingSteps] = useState<ManeuverInfo[]>([]);
 
   const position = useCurrentPosition();
   const positionRef = useRef(position);
   positionRef.current = position;
 
-  // Step 2: Route preview mode (calculates route and displays confirmation banner)
+  // Step 2: Route Preview with Confirmation Banner
   const previewRouteTo = async (destCoords: [number, number], name?: string) => {
     setDestination(destCoords);
     setDestinationName(name || 'Pinned Location');
@@ -137,6 +149,24 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Fetch initial route on initial mount if destination is configured
+  useEffect(() => {
+    if (destination && MAPBOX_TOKEN) {
+      fetchDirections(position.coords, destination, MAPBOX_TOKEN).then((result) => {
+        if (result) {
+          setActiveRoute(result);
+          setEta({
+            arrival: result.arrivalStr,
+            duration: result.durationStr,
+            distance: result.distanceStr,
+          });
+          setPrimaryManeuver(result.primaryManeuver);
+          setUpcomingSteps(result.upcomingSteps);
+        }
+      });
+    }
+  }, []);
+
   return (
     <NavContext.Provider
       value={{
@@ -144,6 +174,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsNavExpanded,
         navStatus,
         setNavStatus,
+        hasActiveRoute: navStatus !== 'idle',
         coords: position.coords,
         destination,
         destinationName,
