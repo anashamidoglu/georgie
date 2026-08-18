@@ -30,7 +30,7 @@ export const NavDockedViewport: React.FC = () => {
         {/* Floating Turn Instruction Banner when Map is Expanded & Navigating */}
         {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
           <div 
-            className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none"
+            className="pointer-events-auto px-6 py-4 rounded-3xl bg-[#16181e]/85 border border-white/15 shadow-[0_12px_36px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl flex items-center space-x-5 font-sf select-none"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -104,18 +104,18 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Banner: Preview Confirmation Mode */}
+      {/* 3. Bottom Floating Banner: Preview Confirmation Mode (Liquid glass aesthetic) */}
       {navStatus === 'preview' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[540px]"
+            className="pointer-events-auto rounded-3xl bg-[#16181e]/85 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[540px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Route Summary */}
             <div className="flex flex-col min-w-0 mr-3">
               <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
-                {destinationName}
+                {destinationName || 'Pinned Location'}
               </span>
               <div className="flex items-baseline space-x-2.5 mt-0.5">
                 <span className="text-lg font-bold font-sf-display text-emerald-400 tabular-nums">
@@ -160,11 +160,11 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       )}
 
-      {/* 4. Bottom Floating Banner: Active Navigation ETA Mode */}
+      {/* 4. Bottom Floating Banner: Active Navigation ETA Mode (Liquid glass aesthetic) */}
       {navStatus === 'navigating' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
-            className={`pointer-events-auto rounded-3xl bg-black/90 border border-white/15 shadow-2xl backdrop-blur-md flex items-center justify-around font-sf select-none transition-all duration-300 ${
+            className={`pointer-events-auto rounded-3xl bg-[#16181e]/85 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl flex items-center justify-around font-sf select-none transition-all duration-300 ${
               isNavExpanded 
                 ? 'h-14 px-8 w-full max-w-[620px]' 
                 : 'h-12 px-6 w-full'

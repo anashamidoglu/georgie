@@ -68,12 +68,11 @@ export const MapboxCanvas: React.FC = () => {
 
       mapRef.current = map;
 
-      // High-precision pulsing Apple-style vehicle position puck
+      // Clean solid Apple-style vehicle position puck (no pulsing ping animation)
       const puckEl = document.createElement('div');
       puckEl.className = 'relative flex items-center justify-center';
       puckEl.innerHTML = `
-        <div class="w-8 h-8 rounded-full bg-sky-400/25 animate-ping absolute"></div>
-        <div class="w-6 h-6 rounded-full bg-sky-500 border-2 border-white shadow-[0_0_12px_rgba(56,189,248,0.9)] flex items-center justify-center">
+        <div class="w-6 h-6 rounded-full bg-sky-500 border-2 border-white shadow-[0_0_10px_rgba(14,165,233,0.8)] flex items-center justify-center">
           <div class="w-2 h-2 rounded-full bg-white"></div>
         </div>
       `;
@@ -176,7 +175,7 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [destination, navStatus]);
 
-  // Render & update live Route GeoJSON line on Mapbox
+  // Render & update live Route GeoJSON line on Mapbox (inserted underneath POI symbol labels)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
@@ -197,38 +196,53 @@ export const MapboxCanvas: React.FC = () => {
           data: geoJsonData,
         });
 
-        // Outer translucent glowing vivid blue casing
-        map.addLayer({
-          id: casingLayerId,
-          type: 'line',
-          source: sourceId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#0070f3',
-            'line-width': 12,
-            'line-opacity': 0.55,
-            'line-blur': 3,
-          },
-        });
+        // Find first symbol/label layer so the route line renders embedded underneath POI icons & text
+        const layers = map.getStyle().layers || [];
+        let firstSymbolId: string | undefined;
+        for (const layer of layers) {
+          if (layer.type === 'symbol') {
+            firstSymbolId = layer.id;
+            break;
+          }
+        }
 
-        // Inner solid bright electric cyan-blue core line
-        map.addLayer({
-          id: coreLayerId,
-          type: 'line',
-          source: sourceId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
+        // Outer crisp dark casing
+        map.addLayer(
+          {
+            id: casingLayerId,
+            type: 'line',
+            source: sourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round',
+            },
+            paint: {
+              'line-color': '#0369a1',
+              'line-width': 10,
+              'line-opacity': 0.8,
+            },
           },
-          paint: {
-            'line-color': '#00d2ff',
-            'line-width': 6,
-            'line-opacity': 1.0,
+          firstSymbolId
+        );
+
+        // Inner solid sky blue core line (matches exact sky-500 #0ea5e9 color of vehicle puck)
+        map.addLayer(
+          {
+            id: coreLayerId,
+            type: 'line',
+            source: sourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round',
+            },
+            paint: {
+              'line-color': '#0ea5e9',
+              'line-width': 6,
+              'line-opacity': 1.0,
+            },
           },
-        });
+          firstSymbolId
+        );
       }
 
       // If in preview mode, smoothly fit the whole route overview
