@@ -10,7 +10,7 @@ import { useNav } from '../context/NavContext';
 import type { MediaTrack } from '../types';
 
 export const DashboardView: React.FC = () => {
-  const { isNavExpanded, navStatus, previewRouteTo, endNavigation, destinationName } = useNav();
+  const { isNavExpanded, navStatus, startNavigationTo, previewRouteTo, endNavigation, destinationName } = useNav();
 
   // Mock states for interactive dev testing
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
@@ -56,7 +56,7 @@ export const DashboardView: React.FC = () => {
           type="button"
           onClick={() => {
             if (navStatus === 'idle') {
-              previewRouteTo([55.2785, 25.1972], 'Dubai Mall');
+              startNavigationTo([55.2785, 25.1972], 'Dubai Mall');
             } else {
               endNavigation();
             }
@@ -67,7 +67,7 @@ export const DashboardView: React.FC = () => {
               : 'bg-white/10 text-white/70 border-white/10'
           }`}
         >
-          [DEV] Nav ({navStatus === 'idle' ? 'Idle' : navStatus === 'preview' ? 'Preview' : 'Active'})
+          [DEV] Nav ({navStatus === 'idle' ? 'Idle' : 'Active'})
         </button>
 
         {/* Toggle Media State */}

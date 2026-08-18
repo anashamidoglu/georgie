@@ -26,7 +26,7 @@ export const NavDockedViewport: React.FC = () => {
       <MapboxCanvas />
 
       {/* 2. Top Floating Overlays */}
-      <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between pointer-events-none z-10">
+      <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between pointer-events-none z-20">
         {/* Floating Turn Instruction Banner when Map is Expanded & Navigating */}
         {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
           <div className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none animate-in fade-in duration-200">
@@ -44,15 +44,15 @@ export const NavDockedViewport: React.FC = () => {
           <div />
         )}
 
-        {/* Action Controls: Recenter Button, End Nav Button (if navigating), & Expand/Collapse Toggle */}
-        <div className="flex items-center space-x-2.5 pointer-events-auto">
+        {/* Action Controls: Recenter Button, End Nav Button (if active), & Expand/Collapse Toggle */}
+        <div className="flex items-center space-x-2 pointer-events-auto">
           {/* End Navigation Button */}
           {navStatus !== 'idle' && (
             <button
               type="button"
               onClick={endNavigation}
-              className="glass-btn h-11 px-3 text-red-400 hover:text-red-300 flex items-center space-x-1.5 transition-all text-xs font-semibold"
-              aria-label="End Navigation"
+              className="glass-btn h-11 px-3.5 text-red-400 hover:text-red-300 flex items-center space-x-1.5 transition-all text-xs font-semibold"
+              aria-label="End Route"
               title="End Route"
             >
               <X className="w-4 h-4" />
@@ -87,45 +87,45 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Overlays: Preview Confirmation vs. Active Nav ETA Banner */}
+      {/* 3. Bottom Floating Overlays: ALWAYS visible whenever navStatus is NOT idle */}
       {navStatus === 'preview' && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center pointer-events-none z-20 animate-in slide-in-from-bottom duration-300">
-          <div className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-3 flex items-center justify-between font-sf select-none w-full max-w-[560px]">
+        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center pointer-events-none z-30 animate-in slide-in-from-bottom duration-200">
+          <div className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[540px]">
             {/* Route Summary */}
-            <div className="flex flex-col min-w-0 mr-4">
-              <span className="text-xs text-white/50 truncate font-semibold uppercase tracking-wider">
+            <div className="flex flex-col min-w-0 mr-3">
+              <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
                 {destinationName}
               </span>
-              <div className="flex items-baseline space-x-3 mt-0.5">
-                <span className="text-xl font-bold font-sf-display text-emerald-400 tabular-nums">
+              <div className="flex items-baseline space-x-2.5 mt-0.5">
+                <span className="text-lg font-bold font-sf-display text-emerald-400 tabular-nums">
                   {eta.duration}
                 </span>
                 <span className="text-sm font-semibold font-sf-display text-white/80 tabular-nums">
                   {eta.distance}
                 </span>
-                <span className="text-xs text-white/50 tabular-nums">
+                <span className="text-xs text-white/40 tabular-nums">
                   {eta.arrival}
                 </span>
               </div>
             </div>
 
             {/* Start Navigation Action */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 flex-shrink-0">
               <button
                 type="button"
                 onClick={endNavigation}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
                 aria-label="Cancel route"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
 
               <button
                 type="button"
                 onClick={startNavigation}
-                className="h-11 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center space-x-2 shadow-[0_0_20px_rgba(16,185,129,0.5)] transition-all font-sf tracking-tight"
+                className="h-10 px-5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center space-x-1.5 shadow-[0_0_20px_rgba(16,185,129,0.5)] transition-all font-sf text-sm tracking-tight"
               >
-                <Play className="w-4 h-4 fill-black" />
+                <Play className="w-3.5 h-3.5 fill-black" />
                 <span>Start</span>
               </button>
             </div>
@@ -133,9 +133,9 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       )}
 
-      {/* Active Navigation ETA Banner (Never disappears when navigating, regardless of media state) */}
+      {/* Active Navigation ETA Banner (Permanently locked and visible during active navigation) */}
       {navStatus === 'navigating' && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center pointer-events-none z-10">
+        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center pointer-events-none z-30">
           <div 
             className={`pointer-events-auto rounded-3xl bg-black/90 border border-white/15 shadow-2xl backdrop-blur-md flex items-center justify-around font-sf select-none transition-all duration-300 ${
               isNavExpanded 
@@ -150,7 +150,7 @@ export const NavDockedViewport: React.FC = () => {
               </span>
             </div>
 
-            {/* Duration with prominent green numeral */}
+            {/* Duration with prominent emerald numeral */}
             <div className="flex items-baseline">
               <span className={`font-bold font-sf-display tabular-nums text-emerald-400 ${isNavExpanded ? 'text-xl' : 'text-base'}`}>
                 {eta.duration}
