@@ -5,12 +5,23 @@ import { DateTimeCard } from '../components/common/DateTimeCard';
 import { MediaDockedCard } from '../components/media/MediaDockedCard';
 import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
-import { Music, PlusCircle, MapPin } from 'lucide-react';
+import { Music, PlusCircle, MapPin, StepForward, StepBack } from 'lucide-react';
 import { useNav } from '../context/NavContext';
 import type { MediaTrack } from '../types';
 
 export const DashboardView: React.FC = () => {
-  const { isNavExpanded, navStatus, previewRouteTo, endNavigation, destinationName } = useNav();
+  const {
+    isNavExpanded,
+    navStatus,
+    previewRouteTo,
+    endNavigation,
+    destinationName,
+    inspectedStep,
+    nextSimulationStep,
+    prevSimulationStep,
+    activeStepIndex,
+    allSteps,
+  } = useNav();
 
   // Mock states for interactive dev testing
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
@@ -34,6 +45,33 @@ export const DashboardView: React.FC = () => {
     <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between max-h-full">
       {/* Dev Control Bar */}
       <div className="absolute top-1.5 right-4 z-40 flex items-center space-x-2">
+        {/* Step Simulation Controls (Active during Navigation) */}
+        {navStatus === 'navigating' && allSteps.length > 0 && (
+          <div className="flex items-center space-x-1 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-sky-500/30">
+            <button
+              type="button"
+              onClick={prevSimulationStep}
+              disabled={activeStepIndex <= 0}
+              className="p-1 text-white/70 hover:text-white disabled:opacity-30"
+              title="Previous Step"
+            >
+              <StepBack className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[9px] font-sf font-semibold text-sky-300 px-1">
+              Step {activeStepIndex + 1}/{allSteps.length}
+            </span>
+            <button
+              type="button"
+              onClick={nextSimulationStep}
+              disabled={activeStepIndex >= allSteps.length - 1}
+              className="p-1 text-white/70 hover:text-white disabled:opacity-30"
+              title="Next Step"
+            >
+              <StepForward className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Quick Destination Presets */}
         <div className="flex items-center space-x-1 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
           <span className="text-[9px] font-sf font-semibold text-white/40 uppercase tracking-wider mr-1">
@@ -98,9 +136,9 @@ export const DashboardView: React.FC = () => {
         {/* Right Column: Stacked Turn/Date Card & Media/Turns/Placeholder */}
         {!isNavExpanded && (
           <div className="col-span-5 h-full min-h-0 max-h-full flex flex-col space-y-3.5 overflow-hidden transition-all duration-300">
-            {/* Top Right: Active Turn (Navigating) OR Destination Preview Card OR Free-sitting Date/Time (Idle) */}
+            {/* Top Right: Active Turn (Navigating OR Step Preview) OR Destination Card OR Free-sitting Date/Time */}
             <div className="flex-shrink-0">
-              {navStatus === 'navigating' ? (
+              {navStatus === 'navigating' || inspectedStep !== null ? (
                 <NavPreviewCard />
               ) : navStatus === 'preview' ? (
                 <LiquidGlassCard padding="lg" className="w-full flex items-center select-none font-sf">
@@ -123,7 +161,7 @@ export const DashboardView: React.FC = () => {
               )}
             </div>
 
-            {/* Bottom Right: Media Card OR Upcoming Maneuvers (if Nav active) OR Clean Placeholder (if Nav idle) */}
+            {/* Bottom Right: Media Card OR Upcoming Steps (if Nav active) OR Clean Placeholder (if Nav idle) */}
             <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden">
               {hasActiveMedia ? (
                 <MediaDockedCard
@@ -160,7 +198,7 @@ export const DashboardView: React.FC = () => {
                   }
                 />
               ) : navStatus !== 'idle' ? (
-                /* When Nav is preview/active and no media is playing -> Full Upcoming Maneuvers list */
+                /* When Nav is preview/active and no media is playing -> Full Upcoming Steps list */
                 <UpcomingManeuversCard />
               ) : (
                 /* When Nav is idle and no media is playing -> Clean audio placeholder */

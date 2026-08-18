@@ -6,14 +6,17 @@ export interface LaneInfo {
 }
 
 export interface ManeuverInfo {
+  id: number;
   instruction: string;
   roadName: string;
   distanceStr: string;
+  distanceMeters: number;
   type: string;
   modifier?: string;
   lanes?: LaneInfo[];
   shield?: string;
   exitNumber?: string;
+  location: [number, number];
 }
 
 export interface RouteGeometry {
@@ -36,6 +39,7 @@ export interface RouteResult {
   arrivalStr: string;
   primaryManeuver: ManeuverInfo;
   upcomingSteps: ManeuverInfo[];
+  allSteps: ManeuverInfo[];
 }
 
 function getHaversineDistance(c1: [number, number], c2: [number, number]): number {
@@ -141,39 +145,39 @@ export async function fetchDirections(
 
           const leg = route.legs?.[0];
           const steps = leg?.steps || [];
-          const firstStep = steps[0];
-          const banner = firstStep?.bannerInstructions?.[0]?.primary;
-          const firstStepDetails = parseManeuverDetails(firstStep);
 
-          const primaryManeuver: ManeuverInfo = {
-            instruction: banner?.text || firstStep?.maneuver?.instruction || 'Proceed on route',
-            roadName: firstStep?.name || 'Current Road',
-            distanceStr: firstStep?.distance
-              ? firstStep.distance >= 1000
-                ? `${(firstStep.distance / 1000).toFixed(1)} km`
-                : `${Math.round(firstStep.distance)} m`
-              : '500 m',
-            type: banner?.type || firstStep?.maneuver?.type || 'turn',
-            modifier: banner?.modifier || firstStep?.maneuver?.modifier || 'straight',
-            lanes: firstStepDetails.lanes,
-            shield: firstStepDetails.shield,
-            exitNumber: firstStepDetails.exitNumber,
-          };
-
-          const upcomingSteps: ManeuverInfo[] = steps.slice(1).map((step: any) => {
+          const allSteps: ManeuverInfo[] = steps.map((step: any, idx: number) => {
             const stepDist = Math.round(step.distance);
             const stepDetails = parseManeuverDetails(step);
+            const stepLoc: [number, number] = step.maneuver?.location || [origin[0], origin[1]];
+
             return {
-              instruction: step.bannerInstructions?.[0]?.primary?.text || step.maneuver?.instruction || 'Continue',
+              id: idx,
+              instruction: step.maneuver?.instruction || step.bannerInstructions?.[0]?.primary?.text || 'Proceed on route',
               roadName: step.name || 'Road',
               distanceStr: stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`,
+              distanceMeters: stepDist,
               type: step.maneuver?.type || 'turn',
               modifier: step.maneuver?.modifier || 'straight',
               lanes: stepDetails.lanes,
               shield: stepDetails.shield,
               exitNumber: stepDetails.exitNumber,
+              location: stepLoc,
             };
           });
+
+          const primaryManeuver = allSteps[0] || {
+            id: 0,
+            instruction: 'Proceed on route',
+            roadName: 'Current Road',
+            distanceStr: '500 m',
+            distanceMeters: 500,
+            type: 'straight',
+            modifier: 'straight',
+            location: origin,
+          };
+
+          const upcomingSteps = allSteps.slice(1);
 
           const geoJson: RouteGeoJSON = {
             type: 'Feature',
@@ -190,6 +194,7 @@ export async function fetchDirections(
             arrivalStr,
             primaryManeuver,
             upcomingSteps,
+            allSteps,
           };
         }
       }
@@ -210,6 +215,17 @@ export async function fetchDirections(
   const arrHours = arrivalDate.getHours().toString().padStart(2, '0');
   const arrMin = arrivalDate.getMinutes().toString().padStart(2, '0');
 
+  const fallbackStep: ManeuverInfo = {
+    id: 0,
+    instruction: 'Proceed to destination',
+    roadName: 'Main Road',
+    distanceStr: `${distKm} km`,
+    distanceMeters: distMeters,
+    type: 'turn',
+    modifier: 'straight',
+    location: origin,
+  };
+
   return {
     geoJson: {
       type: 'Feature',
@@ -224,13 +240,8 @@ export async function fetchDirections(
     distanceStr: `${distKm} km`,
     durationStr: `${durMin} min`,
     arrivalStr: `${arrHours}:${arrMin} arrival`,
-    primaryManeuver: {
-      instruction: 'Proceed to destination',
-      roadName: 'Main Road',
-      distanceStr: `${distKm} km`,
-      type: 'turn',
-      modifier: 'straight',
-    },
+    primaryManeuver: fallbackStep,
     upcomingSteps: [],
+    allSteps: [fallbackStep],
   };
 }
