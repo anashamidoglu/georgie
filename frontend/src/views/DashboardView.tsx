@@ -10,7 +10,7 @@ import { useNav } from '../context/NavContext';
 import type { MediaTrack } from '../types';
 
 export const DashboardView: React.FC = () => {
-  const { isNavExpanded, navStatus, previewRouteTo, endNavigation, destinationName, coords } = useNav();
+  const { isNavExpanded, navStatus, previewRouteTo, endNavigation, destinationName } = useNav();
 
   // Mock states for interactive dev testing
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
@@ -23,11 +23,11 @@ export const DashboardView: React.FC = () => {
     artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ad/10/fe/ad10fee6-76eb-7eaa-a632-c2afece21b53/LNCM-1175_PERSONA5-OST_h1_new.jpg/600x600bb.jpg',
   });
 
-  // Calculate realistic nearby presets based on user's current coordinates
+  // Key local landmark presets
   const PRESETS: { label: string; coords: [number, number] }[] = [
-    { label: 'Downtown', coords: [coords[0] + 0.02, coords[1] + 0.015] },
-    { label: 'Airport', coords: [coords[0] + 0.05, coords[1] + 0.04] },
-    { label: 'Harbor', coords: [coords[0] - 0.03, coords[1] + 0.02] },
+    { label: 'UOS Medical', coords: [55.4855, 25.2917] },
+    { label: 'MCC', coords: [55.4077, 25.2155] },
+    { label: 'Dubai Mall', coords: [55.2785, 25.1972] },
   ];
 
   return (
@@ -44,7 +44,7 @@ export const DashboardView: React.FC = () => {
               key={p.label}
               type="button"
               onClick={() => previewRouteTo(p.coords, p.label)}
-              className="text-[9px] font-sf font-medium px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/20 text-white/80 transition-colors"
+              className="text-[9px] font-sf font-medium px-2.5 py-0.5 rounded-full bg-white/5 hover:bg-white/20 text-white/80 transition-colors"
             >
               {p.label}
             </button>
@@ -56,7 +56,7 @@ export const DashboardView: React.FC = () => {
           type="button"
           onClick={() => {
             if (navStatus === 'idle') {
-              previewRouteTo([coords[0] + 0.02, coords[1] + 0.015], 'Downtown Destination');
+              previewRouteTo([55.4855, 25.2917], 'UOS Medical');
             } else {
               endNavigation();
             }
