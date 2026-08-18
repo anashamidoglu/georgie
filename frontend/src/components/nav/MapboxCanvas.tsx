@@ -196,12 +196,12 @@ export const MapboxCanvas: React.FC = () => {
           data: geoJsonData,
         });
 
-        // 1. Soft glowing outer casing in Mapbox Standard 'top' slot (beneath POIs/labels)
+        // 1. Soft glowing outer casing in Mapbox Standard 'middle' slot (above roads, beneath POIs/buildings)
         map.addLayer({
           id: casingLayerId,
           type: 'line',
           source: sourceId,
-          slot: 'top',
+          slot: 'middle',
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
@@ -220,7 +220,7 @@ export const MapboxCanvas: React.FC = () => {
           id: coreLayerId,
           type: 'line',
           source: sourceId,
-          slot: 'top',
+          slot: 'middle',
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
