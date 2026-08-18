@@ -196,7 +196,7 @@ export const MapboxCanvas: React.FC = () => {
           data: geoJsonData,
         });
 
-        // 1. Soft glowing outer casing in Mapbox Standard 'middle' slot (above roads, beneath POIs/buildings)
+        // 1. Crisp contrast outline casing in Mapbox Standard 'middle' slot (zoom-adaptive, zero blur)
         map.addLayer({
           id: casingLayerId,
           type: 'line',
@@ -207,15 +207,22 @@ export const MapboxCanvas: React.FC = () => {
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#38bdf8',
-            'line-width': 12,
-            'line-opacity': 0.6,
-            'line-blur': 2.5,
-            'line-emissive-strength': 1.0,
+            'line-color': '#0284c7',
+            'line-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              10, 5.0,
+              14, 7.0,
+              17, 9.5,
+            ],
+            'line-opacity': 0.9,
+            'line-blur': 0,
+            'line-emissive-strength': 0.8,
           },
         });
 
-        // 2. Solid bright self-luminous sky-blue core matching vehicle puck (#0ea5e9)
+        // 2. Solid bright self-luminous sky-blue core (zoom-adaptive: slim on overview, bolder on 3D zoom)
         map.addLayer({
           id: coreLayerId,
           type: 'line',
@@ -227,28 +234,50 @@ export const MapboxCanvas: React.FC = () => {
           },
           paint: {
             'line-color': '#0ea5e9',
-            'line-width': 7.5,
+            'line-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              10, 3.2,
+              14, 4.8,
+              17, 6.8,
+            ],
             'line-opacity': 1.0,
             'line-emissive-strength': 1.0,
           },
         });
       }
 
-      // Dynamically enforce emissive paint properties so lighting never dims the line
+      // Dynamically enforce emissive paint properties & zoom-interpolation on active layer
       if (map.getLayer(coreLayerId)) {
         try {
           map.setPaintProperty(coreLayerId, 'line-color', '#0ea5e9');
-          map.setPaintProperty(coreLayerId, 'line-width', 7.5);
+          map.setPaintProperty(coreLayerId, 'line-width', [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10, 3.2,
+            14, 4.8,
+            17, 6.8,
+          ]);
           map.setPaintProperty(coreLayerId, 'line-opacity', 1.0);
           map.setPaintProperty(coreLayerId, 'line-emissive-strength', 1.0);
         } catch {}
       }
       if (map.getLayer(casingLayerId)) {
         try {
-          map.setPaintProperty(casingLayerId, 'line-color', '#38bdf8');
-          map.setPaintProperty(casingLayerId, 'line-width', 12);
-          map.setPaintProperty(casingLayerId, 'line-opacity', 0.6);
-          map.setPaintProperty(casingLayerId, 'line-emissive-strength', 1.0);
+          map.setPaintProperty(casingLayerId, 'line-color', '#0284c7');
+          map.setPaintProperty(casingLayerId, 'line-width', [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10, 5.0,
+            14, 7.0,
+            17, 9.5,
+          ]);
+          map.setPaintProperty(casingLayerId, 'line-opacity', 0.9);
+          map.setPaintProperty(casingLayerId, 'line-blur', 0);
+          map.setPaintProperty(casingLayerId, 'line-emissive-strength', 0.8);
         } catch {}
       }
 
