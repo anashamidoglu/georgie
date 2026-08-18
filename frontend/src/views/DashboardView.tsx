@@ -10,7 +10,7 @@ import { useNav } from '../context/NavContext';
 import type { MediaTrack } from '../types';
 
 export const DashboardView: React.FC = () => {
-  const { isNavExpanded, navStatus, previewRouteTo, endNavigation, destinationName } = useNav();
+  const { isNavExpanded, navStatus, previewRouteTo, endNavigation, destinationName, coords } = useNav();
 
   // Mock states for interactive dev testing
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
@@ -23,15 +23,15 @@ export const DashboardView: React.FC = () => {
     artworkUrl: null,
   });
 
+  // Calculate realistic nearby presets based on user's current coordinates
   const PRESETS: { label: string; coords: [number, number] }[] = [
-    { label: 'Dubai Mall', coords: [55.2785, 25.1972] },
-    { label: 'Marina', coords: [55.1403, 25.0805] },
-    { label: 'DIFC', coords: [55.2831, 25.2155] },
-    { label: 'Airport', coords: [55.3644, 25.2532] },
+    { label: 'Downtown', coords: [coords[0] + 0.02, coords[1] + 0.015] },
+    { label: 'Airport', coords: [coords[0] + 0.05, coords[1] + 0.04] },
+    { label: 'Harbor', coords: [coords[0] - 0.03, coords[1] + 0.02] },
   ];
 
   return (
-    <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between">
+    <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between max-h-full">
       {/* Dev Control Bar */}
       <div className="absolute top-1.5 right-4 z-40 flex items-center space-x-2">
         {/* Quick Destination Presets */}
@@ -56,7 +56,7 @@ export const DashboardView: React.FC = () => {
           type="button"
           onClick={() => {
             if (navStatus === 'idle') {
-              previewRouteTo([55.2785, 25.1972], 'Dubai Mall');
+              previewRouteTo([coords[0] + 0.02, coords[1] + 0.015], 'Downtown Destination');
             } else {
               endNavigation();
             }
@@ -84,11 +84,11 @@ export const DashboardView: React.FC = () => {
         </button>
       </div>
 
-      {/* Main Grid: Left Primary Map vs Right Stacked Cards */}
-      <div className="w-full h-full grid grid-cols-12 gap-3.5 items-stretch">
+      {/* Main Grid: Left Primary Map vs Right Stacked Cards (min-h-0 & overflow-hidden prevent grid blowout) */}
+      <div className="w-full h-full min-h-0 max-h-full grid grid-cols-12 gap-3.5 items-stretch overflow-hidden">
         {/* Left Column: Navigation Docked / Expanded Viewport */}
         <div
-          className={`h-full transition-all duration-300 ${
+          className={`h-full min-h-0 max-h-full overflow-hidden transition-all duration-300 ${
             isNavExpanded ? 'col-span-12' : 'col-span-7'
           }`}
         >
@@ -97,7 +97,7 @@ export const DashboardView: React.FC = () => {
 
         {/* Right Column: Stacked Turn/Date Card & Media/Turns/Placeholder */}
         {!isNavExpanded && (
-          <div className="col-span-5 h-full flex flex-col space-y-3.5 transition-all duration-300">
+          <div className="col-span-5 h-full min-h-0 max-h-full flex flex-col space-y-3.5 overflow-hidden transition-all duration-300">
             {/* Top Right: Active Turn (Navigating) OR Destination Preview Card OR Free-sitting Date/Time (Idle) */}
             <div className="flex-shrink-0">
               {navStatus === 'navigating' ? (
@@ -113,7 +113,7 @@ export const DashboardView: React.FC = () => {
                         Destination
                       </span>
                       <span className="text-lg font-bold font-sf-display text-white truncate max-w-[210px] mt-0.5">
-                        {destinationName}
+                        {destinationName || 'Pinned Location'}
                       </span>
                     </div>
                   </div>
@@ -124,7 +124,7 @@ export const DashboardView: React.FC = () => {
             </div>
 
             {/* Bottom Right: Media Card OR Upcoming Maneuvers (if Nav active) OR Clean Placeholder (if Nav idle) */}
-            <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden">
               {hasActiveMedia ? (
                 <MediaDockedCard
                   track={currentTrack}

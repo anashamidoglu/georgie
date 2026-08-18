@@ -5,10 +5,11 @@ export interface PositionState {
   heading: number | null;
   speed: number | null; // in m/s
   accuracy: number | null;
+  isLocated: boolean;
   error: string | null;
 }
 
-// Default fallback coordinates (Dubai / UAE center)
+// Default fallback coordinates if geolocation is completely unavailable
 const DEFAULT_COORDS: [number, number] = [55.2708, 25.2048];
 
 export function useCurrentPosition(): PositionState {
@@ -17,6 +18,7 @@ export function useCurrentPosition(): PositionState {
     heading: 0,
     speed: 0,
     accuracy: null,
+    isLocated: false,
     error: null,
   });
 
@@ -24,15 +26,15 @@ export function useCurrentPosition(): PositionState {
     if (!('geolocation' in navigator)) {
       setPosition((prev) => ({
         ...prev,
-        error: 'Geolocation not supported by browser',
+        error: 'Geolocation not supported',
       }));
       return;
     }
 
     const geoOptions: PositionOptions = {
       enableHighAccuracy: true,
-      maximumAge: 1000,
-      timeout: 10000,
+      maximumAge: 0,
+      timeout: 8000,
     };
 
     let lastCoords: [number, number] | null = null;
@@ -43,7 +45,7 @@ export function useCurrentPosition(): PositionState {
         pos.coords.latitude,
       ];
 
-      // Stationary throttling / noise filter: only update if moved > ~0.000005 deg (~0.5m)
+      // Jitter filter
       if (lastCoords) {
         const deltaLng = Math.abs(newCoords[0] - lastCoords[0]);
         const deltaLat = Math.abs(newCoords[1] - lastCoords[1]);
@@ -56,21 +58,25 @@ export function useCurrentPosition(): PositionState {
 
       setPosition({
         coords: newCoords,
-        heading: pos.coords.heading,
-        speed: pos.coords.speed,
+        heading: pos.coords.heading || 0,
+        speed: pos.coords.speed || 0,
         accuracy: pos.coords.accuracy,
+        isLocated: true,
         error: null,
       });
     };
 
     const handleError = (err: GeolocationPositionError) => {
-      // In dev desktop mode, keep default coordinates without breaking UI
       setPosition((prev) => ({
         ...prev,
         error: err.message,
       }));
     };
 
+    // Immediate one-time high-accuracy lookup on start
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, geoOptions);
+
+    // Continuous watch
     const watchId = navigator.geolocation.watchPosition(
       handleSuccess,
       handleError,
