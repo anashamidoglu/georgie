@@ -29,7 +29,7 @@ export const NavDockedViewport: React.FC = () => {
       <div className="absolute top-0 left-0 right-0 p-3.5 flex items-start justify-between pointer-events-none z-20">
         {/* Floating Turn Instruction Banner when Map is Expanded & Navigating */}
         {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
-          <div className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none animate-in fade-in duration-200">
+          <div className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none">
             <CornerUpRight className="w-10 h-10 text-white stroke-[3] flex-shrink-0" />
             <div className="flex flex-col">
               <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none">
@@ -89,7 +89,7 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 3. Bottom Floating Banner: Preview Confirmation Mode */}
       {navStatus === 'preview' && (
-        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30 animate-in slide-in-from-bottom duration-200">
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[540px]">
             {/* Route Summary */}
             <div className="flex flex-col min-w-0 mr-3">
@@ -135,7 +135,7 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 4. Bottom Floating Banner: Active Navigation ETA Mode (Permanently locked during navigation) */}
       {navStatus === 'navigating' && (
-        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30 animate-in fade-in duration-200">
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
             className={`pointer-events-auto rounded-3xl bg-black/90 border border-white/15 shadow-2xl backdrop-blur-md flex items-center justify-around font-sf select-none transition-all duration-300 ${
               isNavExpanded 
