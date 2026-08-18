@@ -187,13 +187,27 @@ export const MapboxCanvas: React.FC = () => {
     if (navStatus !== 'idle' && activeRoute?.geoJson) {
       const geoJsonData = activeRoute.geoJson;
 
-      // Find first symbol layer to place route underneath POIs and text labels
+      // Find the first POI/road label symbol layer to place route underneath text & icons
       const styleLayers = map.getStyle()?.layers || [];
-      let firstSymbolLayerId: string | undefined;
+      let labelLayerId: string | undefined;
       for (const layer of styleLayers) {
-        if (layer.type === 'symbol') {
-          firstSymbolLayerId = layer.id;
+        if (
+          layer.type === 'symbol' &&
+          (layer.id.includes('poi') ||
+            layer.id.includes('label') ||
+            layer.id.includes('road') ||
+            layer.id.includes('place'))
+        ) {
+          labelLayerId = layer.id;
           break;
+        }
+      }
+      if (!labelLayerId) {
+        for (const layer of styleLayers) {
+          if (layer.type === 'symbol') {
+            labelLayerId = layer.id;
+            break;
+          }
         }
       }
 
@@ -218,12 +232,12 @@ export const MapboxCanvas: React.FC = () => {
             },
             paint: {
               'line-color': '#38bdf8',
-              'line-width': 10,
-              'line-opacity': 0.35,
+              'line-width': 11,
+              'line-opacity': 0.45,
               'line-blur': 2,
             },
           },
-          firstSymbolLayerId
+          labelLayerId
         );
 
         // 2. Bright solid sky-blue core matching the exact vehicle puck color (#0ea5e9)
@@ -238,12 +252,24 @@ export const MapboxCanvas: React.FC = () => {
             },
             paint: {
               'line-color': '#0ea5e9',
-              'line-width': 6,
+              'line-width': 7,
               'line-opacity': 1.0,
             },
           },
-          firstSymbolLayerId
+          labelLayerId
         );
+      }
+
+      // Ensure paint colors are always fresh
+      if (map.getLayer(coreLayerId)) {
+        map.setPaintProperty(coreLayerId, 'line-color', '#0ea5e9');
+        map.setPaintProperty(coreLayerId, 'line-width', 7);
+        map.setPaintProperty(coreLayerId, 'line-opacity', 1.0);
+      }
+      if (map.getLayer(casingLayerId)) {
+        map.setPaintProperty(casingLayerId, 'line-color', '#38bdf8');
+        map.setPaintProperty(casingLayerId, 'line-width', 11);
+        map.setPaintProperty(casingLayerId, 'line-opacity', 0.45);
       }
 
       // If in preview mode, smoothly fit the whole route overview
