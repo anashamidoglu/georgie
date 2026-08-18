@@ -2,6 +2,7 @@ import React from 'react';
 import { Maximize2, Minimize2, CornerUpRight, Navigation, Play, X } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { MapboxCanvas } from './MapboxCanvas';
+import { LaneGuidance } from './LaneGuidance';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
@@ -30,19 +31,43 @@ export const NavDockedViewport: React.FC = () => {
         {/* Floating Turn Instruction Banner when Map is Expanded & Navigating */}
         {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
           <div 
-            className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-5 font-sf select-none"
+            className="pointer-events-auto px-6 py-3.5 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex flex-col space-y-2 font-sf select-none max-w-[420px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <CornerUpRight className="w-10 h-10 text-white stroke-[3] flex-shrink-0" />
-            <div className="flex flex-col">
-              <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none">
-                {primaryManeuver.distanceStr}
-              </span>
-              <span className="text-base font-semibold text-white/85 mt-1 truncate max-w-[280px]">
-                {primaryManeuver.instruction || primaryManeuver.roadName}
-              </span>
+            <div className="flex items-center space-x-4">
+              <CornerUpRight className="w-9 h-9 text-white stroke-[3] flex-shrink-0" />
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none">
+                    {primaryManeuver.distanceStr}
+                  </span>
+                  {primaryManeuver.shield && (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-300 uppercase">
+                      {primaryManeuver.shield}
+                    </span>
+                  )}
+                  {primaryManeuver.exitNumber && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 uppercase">
+                      {primaryManeuver.exitNumber}
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-semibold text-white/85 mt-0.5 truncate max-w-[280px]">
+                  {primaryManeuver.instruction || primaryManeuver.roadName}
+                </span>
+              </div>
             </div>
+
+            {/* Embedded Lane Strip in Expanded Mode */}
+            {primaryManeuver.lanes && primaryManeuver.lanes.length > 0 && (
+              <div className="pt-1.5 border-t border-white/10 flex items-center justify-between">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-white/40">
+                  Lanes
+                </span>
+                <LaneGuidance lanes={primaryManeuver.lanes} size="sm" />
+              </div>
+            )}
           </div>
         ) : (
           <div />

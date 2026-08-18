@@ -1,9 +1,19 @@
+export interface LaneInfo {
+  active: boolean;
+  valid?: boolean;
+  directions: string[];
+  activeDirection?: string;
+}
+
 export interface ManeuverInfo {
   instruction: string;
   roadName: string;
   distanceStr: string;
   type: string;
   modifier?: string;
+  lanes?: LaneInfo[];
+  shield?: string;
+  exitNumber?: string;
 }
 
 export interface RouteGeometry {
@@ -38,6 +48,56 @@ function getHaversineDistance(c1: [number, number], c2: [number, number]): numbe
     Math.cos(c1[1] * rad) * Math.cos(c2[1] * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c);
+}
+
+function parseManeuverDetails(step: any): { lanes?: LaneInfo[]; shield?: string; exitNumber?: string } {
+  if (!step) return {};
+  const banner = step.bannerInstructions?.[0];
+  const subComponents = banner?.sub?.components || [];
+  const primaryComponents = banner?.primary?.components || [];
+
+  // 1. Extract Lanes
+  const lanes: LaneInfo[] = [];
+  for (const comp of subComponents) {
+    if (comp.type === 'lane') {
+      lanes.push({
+        active: Boolean(comp.active),
+        valid: comp.valid !== false,
+        directions: comp.directions || ['straight'],
+        activeDirection: comp.active_direction,
+      });
+    }
+  }
+
+  // 2. Extract Shield (e.g. E11, D71, S113)
+  let shield: string | undefined;
+  for (const comp of primaryComponents) {
+    if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
+      shield = comp.mapbox_shield.display_ref;
+      break;
+    } else if (comp.type === 'icon' && comp.text && comp.text.length <= 6) {
+      shield = comp.text;
+      break;
+    }
+  }
+
+  // 3. Extract Exit Number (e.g. Exit 50, Exit 29)
+  let exitNumber: string | undefined;
+  const exitNumComp = primaryComponents.find((c: any) => c.type === 'exit-number');
+  if (exitNumComp?.text) {
+    exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
+  } else {
+    const exitComp = primaryComponents.find((c: any) => c.type === 'exit');
+    if (exitComp?.text && /\d+/.test(exitComp.text)) {
+      exitNumber = exitComp.text;
+    }
+  }
+
+  return {
+    lanes: lanes.length > 0 ? lanes : undefined,
+    shield,
+    exitNumber,
+  };
 }
 
 export async function fetchDirections(
@@ -83,6 +143,7 @@ export async function fetchDirections(
           const steps = leg?.steps || [];
           const firstStep = steps[0];
           const banner = firstStep?.bannerInstructions?.[0]?.primary;
+          const firstStepDetails = parseManeuverDetails(firstStep);
 
           const primaryManeuver: ManeuverInfo = {
             instruction: banner?.text || firstStep?.maneuver?.instruction || 'Proceed on route',
@@ -94,16 +155,23 @@ export async function fetchDirections(
               : '500 m',
             type: banner?.type || firstStep?.maneuver?.type || 'turn',
             modifier: banner?.modifier || firstStep?.maneuver?.modifier || 'straight',
+            lanes: firstStepDetails.lanes,
+            shield: firstStepDetails.shield,
+            exitNumber: firstStepDetails.exitNumber,
           };
 
           const upcomingSteps: ManeuverInfo[] = steps.slice(1).map((step: any) => {
             const stepDist = Math.round(step.distance);
+            const stepDetails = parseManeuverDetails(step);
             return {
               instruction: step.bannerInstructions?.[0]?.primary?.text || step.maneuver?.instruction || 'Continue',
               roadName: step.name || 'Road',
               distanceStr: stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`,
               type: step.maneuver?.type || 'turn',
               modifier: step.maneuver?.modifier || 'straight',
+              lanes: stepDetails.lanes,
+              shield: stepDetails.shield,
+              exitNumber: stepDetails.exitNumber,
             };
           });
 

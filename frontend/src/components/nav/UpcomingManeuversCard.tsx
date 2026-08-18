@@ -2,13 +2,14 @@ import React from 'react';
 import { ArrowUp, CornerUpRight, CornerUpLeft, MapPin, RotateCcw } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
+import type { ManeuverInfo } from '../../services/navService';
 
 export const UpcomingManeuversCard: React.FC = () => {
   const { upcomingSteps } = useNav();
 
-  const fallbackSteps = [
-    { distanceStr: '4.2 km', roadName: 'Main Highway', instruction: 'Continue on Main Highway', type: 'straight', modifier: 'straight' },
-    { distanceStr: '11.8 km', roadName: 'Financial Centre Exit', instruction: 'Take Exit 29', type: 'turn', modifier: 'right' },
+  const fallbackSteps: ManeuverInfo[] = [
+    { distanceStr: '4.2 km', roadName: 'Main Highway', instruction: 'Continue on Main Highway', type: 'straight', modifier: 'straight', shield: 'E11' },
+    { distanceStr: '11.8 km', roadName: 'Financial Centre Exit', instruction: 'Take Exit 29', type: 'turn', modifier: 'right', exitNumber: 'Exit 29' },
     { distanceStr: '14.5 km', roadName: 'Destination', instruction: 'Arrive at destination', type: 'destination', modifier: 'destination' },
   ];
 
@@ -55,9 +56,21 @@ export const UpcomingManeuversCard: React.FC = () => {
 
             {/* Instruction and Distance Details */}
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-bold font-sf-display tabular-nums text-white tracking-tight leading-snug">
-                In {step.distanceStr}
-              </span>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-xs font-bold font-sf-display tabular-nums text-white tracking-tight leading-snug">
+                  In {step.distanceStr}
+                </span>
+                {step.shield && (
+                  <span className="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-[9px] font-bold text-amber-300 uppercase">
+                    {step.shield}
+                  </span>
+                )}
+                {step.exitNumber && (
+                  <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-bold text-emerald-300 uppercase">
+                    {step.exitNumber}
+                  </span>
+                )}
+              </div>
               <span className="text-[11px] font-medium text-white/70 truncate mt-0.5">
                 {step.instruction || step.roadName}
               </span>
