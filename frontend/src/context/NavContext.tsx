@@ -44,7 +44,6 @@ const DEFAULT_DESTINATION: [number, number] = [55.2785, 25.1972];
 
 export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
-  // Default to active navigation on load
   const [navStatus, setNavStatus] = useState<NavStatus>('navigating');
   const [destination, setDestination] = useState<[number, number] | null>(DEFAULT_DESTINATION);
   const [destinationName, setDestinationName] = useState<string>('Dubai Mall');
@@ -86,9 +85,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    const currentCoords = positionRef.current.coords;
-    const result = await fetchDirections(currentCoords, destCoords, MAPBOX_TOKEN, controller.signal);
-    if (result) {
+    try {
+      const currentCoords = positionRef.current.coords;
+      const result = await fetchDirections(currentCoords, destCoords, MAPBOX_TOKEN, controller.signal);
       setActiveRoute(result);
       setEta({
         arrival: result.arrivalStr,
@@ -97,6 +96,10 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       setPrimaryManeuver(result.primaryManeuver);
       setUpcomingSteps(result.upcomingSteps);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('Routing calculation error:', e);
+      }
     }
   };
 
@@ -149,20 +152,18 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Fetch initial route on initial mount if destination is configured
+  // Initial mount route calculation
   useEffect(() => {
     if (destination && MAPBOX_TOKEN) {
       fetchDirections(position.coords, destination, MAPBOX_TOKEN).then((result) => {
-        if (result) {
-          setActiveRoute(result);
-          setEta({
-            arrival: result.arrivalStr,
-            duration: result.durationStr,
-            distance: result.distanceStr,
-          });
-          setPrimaryManeuver(result.primaryManeuver);
-          setUpcomingSteps(result.upcomingSteps);
-        }
+        setActiveRoute(result);
+        setEta({
+          arrival: result.arrivalStr,
+          duration: result.durationStr,
+          distance: result.distanceStr,
+        });
+        setPrimaryManeuver(result.primaryManeuver);
+        setUpcomingSteps(result.upcomingSteps);
       });
     }
   }, []);
