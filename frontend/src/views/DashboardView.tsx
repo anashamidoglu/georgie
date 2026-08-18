@@ -10,7 +10,7 @@ import { useNav } from '../context/NavContext';
 import type { MediaTrack } from '../types';
 
 export const DashboardView: React.FC = () => {
-  const { isNavExpanded, hasActiveRoute, setHasActiveRoute } = useNav();
+  const { isNavExpanded, hasActiveRoute, setHasActiveRoute, calculateRouteTo } = useNav();
 
   // Mock states for interactive dev testing
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
@@ -23,10 +23,34 @@ export const DashboardView: React.FC = () => {
     artworkUrl: null,
   });
 
+  const PRESETS: { label: string; coords: [number, number] }[] = [
+    { label: 'Dubai Mall', coords: [55.2785, 25.1972] },
+    { label: 'Marina', coords: [55.1403, 25.0805] },
+    { label: 'DIFC', coords: [55.2831, 25.2155] },
+    { label: 'Airport', coords: [55.3644, 25.2532] },
+  ];
+
   return (
     <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between">
       {/* Dev Control Bar */}
       <div className="absolute top-1.5 right-4 z-40 flex items-center space-x-2">
+        {/* Quick Destination Presets */}
+        <div className="flex items-center space-x-1 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
+          <span className="text-[9px] font-sf font-semibold text-white/40 uppercase tracking-wider mr-1">
+            Route To:
+          </span>
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => calculateRouteTo(p.coords)}
+              className="text-[9px] font-sf font-medium px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/20 text-white/80 transition-colors"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
         {/* Toggle Nav State */}
         <button
           type="button"
@@ -37,7 +61,7 @@ export const DashboardView: React.FC = () => {
               : 'bg-white/10 text-white/70 border-white/10'
           }`}
         >
-          [DEV] Nav ({hasActiveRoute ? 'Active Route' : 'Idle Map'})
+          [DEV] Nav ({hasActiveRoute ? 'Active' : 'Idle'})
         </button>
 
         {/* Toggle Media State */}
@@ -71,11 +95,7 @@ export const DashboardView: React.FC = () => {
             {/* Top Right: Active Turn Preview OR Big Date/Time Card (When Nav is Idle) */}
             <div className="flex-shrink-0">
               {hasActiveRoute ? (
-                <NavPreviewCard
-                  distance="1.5 km"
-                  roadName="Bear Valley Rd"
-                  maneuver="Turn Right"
-                />
+                <NavPreviewCard />
               ) : (
                 <DateTimeCard />
               )}

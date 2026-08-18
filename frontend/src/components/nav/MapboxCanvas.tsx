@@ -12,22 +12,32 @@ function getComputedLightPreset(): 'day' | 'dusk' | 'night' | 'dawn' {
   if (hour >= 6 && hour < 7) return 'dawn';
   if (hour >= 7 && hour < 18) return 'day';
   if (hour >= 18 && hour < 20) return 'dusk';
-  return 'night'; // 8:00 PM to 6:00 AM
+  return 'night';
 }
 
 export const MapboxCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const destMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const { isNavExpanded, coords, setMapInstance } = useNav();
+
+  const {
+    isNavExpanded,
+    coords,
+    setMapInstance,
+    activeRoute,
+    destination,
+    calculateRouteTo,
+    hasActiveRoute,
+  } = useNav();
 
   const applyLighting = (map: mapboxgl.Map) => {
     const preset = getComputedLightPreset();
     try {
       map.setConfigProperty('basemap', 'lightPreset', preset);
     } catch {
-      // In case style is not using the Mapbox Standard schema
+      // Custom style might not use Standard lighting schema
     }
   };
 
@@ -35,7 +45,7 @@ export const MapboxCanvas: React.FC = () => {
     if (!containerRef.current) return;
 
     if (!MAPBOX_TOKEN || !MAPBOX_TOKEN.startsWith('pk.')) {
-      setErrorMsg('Mapbox requires a Public Access Token starting with "pk." (e.g. pk.eyJ1...). Please copy your default public token from account.mapbox.com into frontend/.env.local');
+      setErrorMsg('Mapbox requires a Public Access Token starting with "pk." (e.g. pk.eyJ1...). Please copy your default public token into frontend/.env.local');
       return;
     }
 
@@ -75,6 +85,12 @@ export const MapboxCanvas: React.FC = () => {
 
       markerRef.current = marker;
 
+      // Tap on map to set destination and route
+      map.on('click', (e) => {
+        const clickedLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+        calculateRouteTo(clickedLngLat);
+      });
+
       map.on('style.load', () => {
         applyLighting(map);
       });
@@ -108,6 +124,10 @@ export const MapboxCanvas: React.FC = () => {
           markerRef.current.remove();
           markerRef.current = null;
         }
+        if (destMarkerRef.current) {
+          destMarkerRef.current.remove();
+          destMarkerRef.current = null;
+        }
         map.remove();
         mapRef.current = null;
         setMapInstance(null);
@@ -124,6 +144,109 @@ export const MapboxCanvas: React.FC = () => {
       markerRef.current.setLngLat(coords);
     }
   }, [coords]);
+
+  // Update destination marker
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (destination && hasActiveRoute) {
+      if (!destMarkerRef.current) {
+        const destEl = document.createElement('div');
+        destEl.className = 'w-7 h-7 rounded-full bg-emerald-500 border-2 border-white shadow-[0_0_12px_rgba(16,185,129,0.8)] flex items-center justify-center';
+        destEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-white"></div>';
+
+        destMarkerRef.current = new mapboxgl.Marker({ element: destEl })
+          .setLngLat(destination)
+          .addTo(map);
+      } else {
+        destMarkerRef.current.setLngLat(destination);
+      }
+    } else {
+      if (destMarkerRef.current) {
+        destMarkerRef.current.remove();
+        destMarkerRef.current = null;
+      }
+    }
+  }, [destination, hasActiveRoute]);
+
+  // Render & update live Route GeoJSON line on Mapbox
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const sourceId = 'active-route-source';
+    const casingLayerId = 'active-route-casing';
+    const coreLayerId = 'active-route-core';
+
+    if (hasActiveRoute && activeRoute?.geoJson) {
+      const geoJsonData = activeRoute.geoJson;
+
+      const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource;
+      if (existingSource) {
+        existingSource.setData(geoJsonData);
+      } else {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: geoJsonData,
+        });
+
+        // Outer translucent glowing blue casing
+        map.addLayer({
+          id: casingLayerId,
+          type: 'line',
+          source: sourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#0284c7',
+            'line-width': 10,
+            'line-opacity': 0.4,
+            'line-blur': 2,
+          },
+        });
+
+        // Inner solid electric blue core line
+        map.addLayer({
+          id: coreLayerId,
+          type: 'line',
+          source: sourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#38bdf8',
+            'line-width': 5.5,
+            'line-opacity': 0.95,
+          },
+        });
+      }
+
+      // Smoothly frame bounds around the new route
+      const coordinates = geoJsonData.geometry.coordinates;
+      if (coordinates.length > 0) {
+        const firstCoord = coordinates[0] as [number, number];
+        const bounds = new mapboxgl.LngLatBounds(firstCoord, firstCoord);
+        coordinates.forEach((coord) => {
+          bounds.extend(coord as [number, number]);
+        });
+
+        map.fitBounds(bounds, {
+          padding: { top: 80, bottom: 90, left: 60, right: 60 },
+          maxZoom: 16,
+          duration: 1200,
+        });
+      }
+    } else {
+      // Remove route layers if route is cleared/idle
+      if (map.getLayer(coreLayerId)) map.removeLayer(coreLayerId);
+      if (map.getLayer(casingLayerId)) map.removeLayer(casingLayerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    }
+  }, [activeRoute, hasActiveRoute]);
 
   // Trigger smooth resize on view-state changes
   useEffect(() => {
