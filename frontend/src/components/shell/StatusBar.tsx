@@ -1,76 +1,69 @@
-import React, { useState, useEffect } from "react";
-import { Wifi, Bluetooth, BatteryCharging } from "lucide-react";
-import { MediaPill } from "./MediaPill";
-import { useWebSocket } from "../../context/WebSocketContext";
+import React, { useState, useEffect } from 'react';
+import { Wifi, Bluetooth } from 'lucide-react';
+import type { ConnectivityStatus } from '../../types';
 
-export const StatusBar: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSettings }) => {
-  const { systemStatus } = useWebSocket();
-  const [time, setTime] = useState("");
+interface StatusBarProps {
+  connectivity?: ConnectivityStatus;
+}
+
+export const StatusBar: React.FC<StatusBarProps> = ({
+  connectivity = {
+    cellular: '5G',
+    wifi: true,
+    bluetooth: true,
+    gpsActive: true,
+  },
+}) => {
+  const [timeStr, setTimeStr] = useState<string>('');
+  const [dateStr, setDateStr] = useState<string>('');
 
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setTime(
-        now.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false
-        })
-      );
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      setTimeStr(`${hours}:${minutes}`);
+
+      const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+      const day = days[now.getDay()];
+      const date = now.getDate();
+      setDateStr(`${day} ${date}`);
     };
+
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <header className="h-14 px-6 flex items-center justify-between z-30 select-none border-b border-surface-raised-border/40 bg-bg-base/80">
-      {/* Left: Clock with DIN 1451 tabular numerals */}
-      <div
-        onClick={onOpenSettings}
-        className="flex items-center gap-3 cursor-pointer touch-press"
-      >
-        <span className="font-road text-2xl font-bold tracking-tight tabular-nums text-text-primary">
-          {time || "12:00"}
-        </span>
-      </div>
+    <header className="w-full h-12 px-6 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-30 font-sf">
+      {/* Left Area (Clean, no carputer text) */}
+      <div className="flex items-center" />
 
-      {/* Center: Expandable Media Pill */}
-      <div className="flex-1 flex justify-center px-4">
-        <MediaPill />
-      </div>
-
-      {/* Right: Telemetry & Connection Indicators */}
-      <div className="flex items-center gap-4 text-text-secondary">
-        <div className="flex items-center gap-1.5 text-xs font-medium">
-          <Bluetooth
-            size={16}
-            className={
-              systemStatus.bluetooth_connected
-                ? "text-accent-blue opacity-100"
-                : "text-text-muted opacity-40"
-            }
-          />
-          {systemStatus.connected_device_name && (
-            <span className="truncate max-w-[100px]">
-              {systemStatus.connected_device_name}
-            </span>
+      {/* Right: Connectivity & Large SF Pro Clock */}
+      <div className="flex items-center space-x-4">
+        {/* Connectivity Status */}
+        <div className="flex items-center space-x-2.5 text-white/50">
+          <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-white/[0.08] text-white/90 tracking-tight">
+            {connectivity.cellular}
+          </span>
+          {connectivity.wifi && (
+            <Wifi className="w-4 h-4 text-white/80" />
+          )}
+          {connectivity.bluetooth && (
+            <Bluetooth className="w-4 h-4 text-white/80" />
           )}
         </div>
 
-        <Wifi
-          size={16}
-          className={
-            systemStatus.connectivity
-              ? "text-text-primary opacity-90"
-              : "text-text-muted opacity-40"
-          }
-        />
+        <div className="h-4 w-[1px] bg-white/10" />
 
-        <div className="flex items-center gap-1">
-          <BatteryCharging size={16} className="text-accent-green" />
-          <span className="font-road text-xs font-semibold tabular-nums text-text-primary">
-            {systemStatus.battery_level ?? 100}%
+        {/* Live SF Pro Clock */}
+        <div className="flex items-baseline space-x-2 text-right">
+          <span className="text-xs text-white/40 font-medium tracking-wide uppercase">
+            {dateStr}
+          </span>
+          <span className="text-lg font-semibold text-white tabular-nums tracking-normal">
+            {timeStr || '12:00'}
           </span>
         </div>
       </div>

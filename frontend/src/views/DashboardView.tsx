@@ -1,58 +1,148 @@
-import React from "react";
-import { useNav } from "../context/NavContext";
-import { NavBanner } from "../components/nav/NavBanner";
-import { SpeedLimitBadge } from "../components/nav/SpeedLimitBadge";
-import { MediaDockedCard } from "../components/media/MediaDockedCard";
-import { Maximize2, Minimize2 } from "lucide-react";
+import React, { useState } from 'react';
+import { NavDockedViewport } from '../components/nav/NavDockedViewport';
+import { NavPreviewCard } from '../components/nav/NavPreviewCard';
+import { DateTimeCard } from '../components/common/DateTimeCard';
+import { MediaDockedCard } from '../components/media/MediaDockedCard';
+import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
+import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
+import { Music, PlusCircle } from 'lucide-react';
+import { useNav } from '../context/NavContext';
+import type { MediaTrack } from '../types';
 
 export const DashboardView: React.FC = () => {
-  const { navExpanded, toggleNavExpanded, activeRoute, currentSpeed } = useNav();
+  const { isNavExpanded, hasActiveRoute, setHasActiveRoute } = useNav();
+
+  // Mock states for interactive dev testing
+  const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
+  const [currentTrack, setCurrentTrack] = useState<MediaTrack>({
+    title: 'LoveFrom,',
+    artist: 'California',
+    duration: 215,
+    currentTime: 45,
+    isPlaying: true,
+    artworkUrl: null,
+  });
 
   return (
-    <div className="w-full h-full relative p-4 flex gap-4 overflow-hidden">
-      {/* Navigation / Map Pane Container */}
-      <div
-        className={`relative transition-all duration-300 rounded-[20px] overflow-hidden border border-surface-raised-border shadow-md ${
-          navExpanded ? "w-full h-full" : "w-[62%] h-full"
-        }`}
-      >
-        {/* Floating Controls over Map */}
-        <div className="absolute top-4 left-4 z-20">
-          <NavBanner
-            instruction={activeRoute?.next_maneuver?.instruction}
-            distanceMeters={activeRoute?.next_maneuver?.distance_meters}
-            lanes={activeRoute?.lanes}
-          />
-        </div>
-
-        {/* Speed Limit Badge */}
-        <div className="absolute bottom-4 left-4 z-20">
-          <div className="glass-surface p-2.5 rounded-2xl">
-            <SpeedLimitBadge
-              speedLimit={activeRoute?.speed_limit || 100}
-              currentSpeed={currentSpeed}
-            />
-          </div>
-        </div>
-
-        {/* Expand / Collapse Map View State Button */}
+    <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between">
+      {/* Dev Control Bar */}
+      <div className="absolute top-1.5 right-4 z-40 flex items-center space-x-2">
+        {/* Toggle Nav State */}
         <button
-          onClick={toggleNavExpanded}
-          className="absolute top-4 right-4 z-20 w-11 h-11 rounded-xl glass-surface flex items-center justify-center text-text-primary touch-press"
-          aria-label={navExpanded ? "Dock Nav" : "Expand Nav"}
+          type="button"
+          onClick={() => setHasActiveRoute(!hasActiveRoute)}
+          className={`text-[10px] font-sf font-semibold px-2.5 py-0.5 rounded-full border transition-colors ${
+            hasActiveRoute
+              ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+              : 'bg-white/10 text-white/70 border-white/10'
+          }`}
         >
-          {navExpanded ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+          [DEV] Nav ({hasActiveRoute ? 'Active Route' : 'Idle Map'})
+        </button>
+
+        {/* Toggle Media State */}
+        <button
+          type="button"
+          onClick={() => setHasActiveMedia(!hasActiveMedia)}
+          className={`text-[10px] font-sf font-semibold px-2.5 py-0.5 rounded-full border transition-colors ${
+            hasActiveMedia
+              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+              : 'bg-white/10 text-white/70 border-white/10'
+          }`}
+        >
+          [DEV] Media ({hasActiveMedia ? 'Playing' : 'No Media'})
         </button>
       </div>
 
-      {/* Media Docked Pane (Hidden when nav is expanded) */}
-      {!navExpanded && (
-        <div className="w-[38%] h-full flex flex-col gap-4 animate-in fade-in duration-300">
-          <div className="flex-1">
-            <MediaDockedCard />
-          </div>
+      {/* Main Grid: Left Primary Map vs Right Stacked Cards */}
+      <div className="w-full h-full grid grid-cols-12 gap-3.5 items-stretch">
+        {/* Left Column: Navigation Docked / Expanded Viewport */}
+        <div
+          className={`h-full transition-all duration-300 ${
+            isNavExpanded ? 'col-span-12' : 'col-span-7'
+          }`}
+        >
+          <NavDockedViewport />
         </div>
-      )}
+
+        {/* Right Column: Stacked Turn/Date Card & Media/Turns/Placeholder */}
+        {!isNavExpanded && (
+          <div className="col-span-5 h-full flex flex-col space-y-3.5 transition-all duration-300">
+            {/* Top Right: Active Turn Preview OR Big Date/Time Card (When Nav is Idle) */}
+            <div className="flex-shrink-0">
+              {hasActiveRoute ? (
+                <NavPreviewCard
+                  distance="1.5 km"
+                  roadName="Bear Valley Rd"
+                  maneuver="Turn Right"
+                />
+              ) : (
+                <DateTimeCard />
+              )}
+            </div>
+
+            {/* Bottom Right: Media Card OR Upcoming Maneuvers (if Nav active) OR Clean Placeholder (if Nav idle) */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              {hasActiveMedia ? (
+                <MediaDockedCard
+                  track={currentTrack}
+                  onPlayPause={() =>
+                    setCurrentTrack((prev) => ({
+                      ...prev,
+                      isPlaying: !prev.isPlaying,
+                    }))
+                  }
+                  onNext={() =>
+                    setCurrentTrack({
+                      title: 'Glow',
+                      artist: 'Echo',
+                      duration: 180,
+                      currentTime: 12,
+                      isPlaying: true,
+                    })
+                  }
+                  onPrev={() =>
+                    setCurrentTrack({
+                      title: 'LoveFrom,',
+                      artist: 'California',
+                      duration: 215,
+                      currentTime: 45,
+                      isPlaying: true,
+                    })
+                  }
+                />
+              ) : hasActiveRoute ? (
+                /* When Nav is active and no media is playing -> Upcoming maneuvers */
+                <UpcomingManeuversCard />
+              ) : (
+                /* When Nav is idle and no media is playing -> Clean audio placeholder */
+                <LiquidGlassCard
+                  padding="lg"
+                  className="w-full h-full flex flex-col items-center justify-center text-center border-dashed border-white/10"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white/40">
+                    <Music className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-semibold text-white/80 font-sf">
+                    No Media Playing
+                  </span>
+                  <span className="text-xs text-white/40 mt-1">
+                    Connect Bluetooth to stream audio
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setHasActiveMedia(true)}
+                    className="mt-4 inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white/80 transition-colors"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Connect Audio</span>
+                  </button>
+                </LiquidGlassCard>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

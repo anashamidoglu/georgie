@@ -1,63 +1,56 @@
-import React, { useState } from "react";
-import { WebSocketProvider } from "./context/WebSocketContext";
-import { NavProvider, useNav } from "./context/NavContext";
-import { StatusBar } from "./components/shell/StatusBar";
-import { HomeAffordance } from "./components/shell/HomeAffordance";
-import { IncomingCallBanner } from "./components/overlays/IncomingCallBanner";
-import { MapboxContainer } from "./components/nav/MapboxContainer";
-import { DashboardView } from "./views/DashboardView";
-import { SettingsView } from "./views/SettingsView";
+import React, { useState } from 'react';
+import { StatusBar } from './components/shell/StatusBar';
+import { HomeAffordance } from './components/shell/HomeAffordance';
+import { DashboardView } from './views/DashboardView';
+import { SettingsView } from './views/SettingsView';
+import { NavProvider, useNav } from './context/NavContext';
 
-const AppContent: React.FC = () => {
-  const [currentRoute, setCurrentRoute] = useState<"dashboard" | "settings">("dashboard");
-  const { navExpanded } = useNav();
+const AppShell: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'nav' | 'media' | 'settings'>('dashboard');
+  const { isNavExpanded, setIsNavExpanded } = useNav();
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-bg-base text-text-primary overflow-hidden relative select-none">
-      {/* 1. Global Call Interrupt Overlay */}
-      <IncomingCallBanner />
+    <main className="w-screen h-screen bg-black flex items-center justify-center overflow-hidden font-sf">
+      {/* 1024x600 Fixed/Fluid Carputer Viewport Container */}
+      <div 
+        id="carputer-viewport"
+        className="w-full h-full max-w-[1024px] max-h-[600px] bg-[#08080a] relative flex flex-col justify-between overflow-hidden shadow-2xl border border-white/10 md:rounded-[28px]"
+      >
+        {/* Top Status Bar */}
+        <StatusBar />
 
-      {/* 2. Top Status Bar */}
-      <StatusBar onOpenSettings={() => setCurrentRoute(currentRoute === "settings" ? "dashboard" : "settings")} />
+        {/* Main Content Area */}
+        <section className="flex-1 w-full relative overflow-hidden">
+          {activeTab === 'settings' ? (
+            <SettingsView onBackToDash={() => setActiveTab('dashboard')} />
+          ) : (
+            <DashboardView />
+          )}
+        </section>
 
-      {/* 3. Main Workspace Area */}
-      <main className="flex-1 relative overflow-hidden">
-        {/* Persistent Mapbox Canvas Layer */}
-        <div
-          className={`absolute transition-all duration-300 ${
-            currentRoute === "settings"
-              ? "opacity-0 pointer-events-none"
-              : navExpanded
-              ? "inset-4 z-10"
-              : "top-4 bottom-4 left-4 w-[calc(62%-16px)] z-10 rounded-[20px] overflow-hidden"
-          }`}
-        >
-          <MapboxContainer isVisible={currentRoute !== "settings"} />
-        </div>
-
-        {/* View Switcher Layer */}
-        {currentRoute === "dashboard" ? (
-          <DashboardView />
-        ) : (
-          <SettingsView />
-        )}
-      </main>
-
-      {/* 4. Persistent Home / Nav Collapse Button */}
-      <HomeAffordance
-        currentRoute={currentRoute}
-        onNavigateHome={() => setCurrentRoute("dashboard")}
-      />
-    </div>
+        {/* Bottom Home & Physical Affordance Bar */}
+        <HomeAffordance
+          activeTab={activeTab}
+          onSelectTab={(tab) => {
+            setActiveTab(tab);
+            if (tab === 'dashboard' || tab === 'settings') {
+              setIsNavExpanded(false);
+            }
+          }}
+          isExpandedNav={isNavExpanded}
+          onCollapseNav={() => setIsNavExpanded(false)}
+        />
+      </div>
+    </main>
   );
 };
 
-export default function App() {
+export const App: React.FC = () => {
   return (
-    <WebSocketProvider>
-      <NavProvider>
-        <AppContent />
-      </NavProvider>
-    </WebSocketProvider>
+    <NavProvider>
+      <AppShell />
+    </NavProvider>
   );
-}
+};
+
+export default App;

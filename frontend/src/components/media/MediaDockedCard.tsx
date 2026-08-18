@@ -1,121 +1,122 @@
-import React from "react";
-import { Play, Pause, SkipForward, SkipBack, Disc } from "lucide-react";
-import { CardPane } from "../common/CardPane";
-import { useWebSocket } from "../../context/WebSocketContext";
+import React, { useState } from 'react';
+import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { LiquidGlassCard } from '../common/LiquidGlassCard';
+import type { MediaTrack } from '../../types';
 
-export const MediaDockedCard: React.FC = () => {
-  const { mediaTrack } = useWebSocket();
+interface MediaDockedCardProps {
+  track?: MediaTrack;
+  onPlayPause?: () => void;
+  onNext?: () => void;
+  onPrev?: () => void;
+}
 
-  if (!mediaTrack) {
-    return (
-      <CardPane className="h-full flex items-center justify-center text-text-muted">
-        <div className="flex items-center gap-2">
-          <Disc size={20} />
-          <span className="text-sm font-medium">No Media Playing</span>
-        </div>
-      </CardPane>
-    );
-  }
+export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
+  track = {
+    title: 'LoveFrom,',
+    artist: 'California',
+    duration: 215,
+    currentTime: 45,
+    isPlaying: true,
+    artworkUrl: null,
+  },
+  onPlayPause,
+  onNext,
+  onPrev,
+}) => {
+  const [isPlaying, setIsPlaying] = useState(track.isPlaying);
 
-  const isPlaying = mediaTrack.status === "playing";
-
-  const handleAction = async (action: string) => {
-    try {
-      await fetch(`http://${window.location.hostname}:8000/api/media/${action}`, {
-        method: "POST"
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const formatTime = (secs: number = 0) => {
+  const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = mediaTrack.duration
-    ? ((mediaTrack.position || 0) / mediaTrack.duration) * 100
-    : 0;
+  const progressPercent = Math.min(100, (track.currentTime / track.duration) * 100);
+  const remainingSeconds = Math.max(0, track.duration - track.currentTime);
+
+  const handleTogglePlay = () => {
+    setIsPlaying(!isPlaying);
+    onPlayPause?.();
+  };
 
   return (
-    <CardPane padding={0} className="h-full flex flex-col justify-between p-0">
-      {/* Top Half: Asymmetric Artwork & Metadata */}
-      <div className="flex items-start gap-4 p-4">
-        {/* Flush Square Artwork */}
-        <div className="w-20 h-20 rounded-xl overflow-hidden bg-surface-raised shrink-0 border border-surface-raised-border shadow-sm">
-          {mediaTrack.artwork_url ? (
-            <img
-              src={mediaTrack.artwork_url}
-              alt={mediaTrack.title}
-              className="w-full h-full object-cover"
-            />
+    <LiquidGlassCard
+      padding="lg"
+      className="w-full h-full flex flex-col justify-between items-center text-center select-none font-sf"
+    >
+      {/* Top: Large Prominent Album Artwork */}
+      <div className="w-28 h-28 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-1">
+        {track.artworkUrl ? (
+          <img
+            src={track.artworkUrl}
+            alt={track.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-[#181920] flex flex-col items-center justify-center p-2">
+            <span className="text-4xl leading-none">🐻</span>
+          </div>
+        )}
+      </div>
+
+      {/* Middle: Much Bigger Track Title & Artist */}
+      <div className="flex flex-col items-center justify-center w-full px-3 my-1">
+        <span className="text-xl font-bold text-white tracking-tight leading-tight truncate max-w-full">
+          {track.title}
+        </span>
+        <span className="text-sm text-white/50 font-normal mt-1 truncate max-w-full">
+          {track.artist}
+        </span>
+      </div>
+
+      {/* Progress Bar with Elapsed & Remaining Time */}
+      <div className="w-full px-2 my-1">
+        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-1.5">
+          <div
+            className="h-full bg-white rounded-full transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        <div className="flex justify-between items-center text-xs font-sf tabular-nums text-white/40">
+          <span>{formatTime(track.currentTime)}</span>
+          <span>-{formatTime(remainingSeconds)}</span>
+        </div>
+      </div>
+
+      {/* Bottom: Large Tactile Transport Controls for Driving Accessibility */}
+      <div className="w-full flex items-center justify-center space-x-8 pb-1">
+        <button
+          type="button"
+          onClick={onPrev}
+          aria-label="Previous Track"
+          className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
+        >
+          <SkipBack className="w-7 h-7 fill-white/80" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleTogglePlay}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+          className="text-white hover:text-white transition-transform active:scale-90 p-2"
+        >
+          {isPlaying ? (
+            <Pause className="w-8 h-8 fill-white" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-text-muted">
-              <Disc size={28} />
-            </div>
+            <Play className="w-8 h-8 fill-white translate-x-0.5" />
           )}
-        </div>
+        </button>
 
-        {/* Text Metadata with bold hierarchy */}
-        <div className="flex flex-col min-w-0 justify-center h-20">
-          <span className="text-xs uppercase tracking-wider text-accent-amber font-bold mb-0.5">
-            Now Playing
-          </span>
-          <h3 className="text-lg font-bold text-text-primary truncate leading-snug">
-            {mediaTrack.title}
-          </h3>
-          <p className="text-sm font-medium text-text-secondary truncate">
-            {mediaTrack.artist}
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={onNext}
+          aria-label="Next Track"
+          className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
+        >
+          <SkipForward className="w-7 h-7 fill-white/80" />
+        </button>
       </div>
-
-      {/* Bottom Half: Progress scrubber & Transport controls */}
-      <div className="px-4 pb-4 flex flex-col gap-2">
-        {/* Progress Bar */}
-        <div className="w-full">
-          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent-amber transition-all duration-300 rounded-full"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-[11px] font-road text-text-muted mt-1 tabular-nums">
-            <span>{formatTime(mediaTrack.position)}</span>
-            <span>{formatTime(mediaTrack.duration)}</span>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-6 mt-1">
-          <button
-            onClick={() => handleAction("previous")}
-            className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center text-text-secondary touch-press"
-          >
-            <SkipBack size={20} fill="currentColor" />
-          </button>
-
-          <button
-            onClick={() => handleAction(isPlaying ? "pause" : "play")}
-            className="w-12 h-12 rounded-full bg-text-primary text-bg-base flex items-center justify-center touch-press shadow-md"
-          >
-            {isPlaying ? (
-              <Pause size={20} fill="currentColor" />
-            ) : (
-              <Play size={20} className="ml-0.5" fill="currentColor" />
-            )}
-          </button>
-
-          <button
-            onClick={() => handleAction("next")}
-            className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center text-text-secondary touch-press"
-          >
-            <SkipForward size={20} fill="currentColor" />
-          </button>
-        </div>
-      </div>
-    </CardPane>
+    </LiquidGlassCard>
   );
 };

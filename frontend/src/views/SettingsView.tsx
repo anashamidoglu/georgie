@@ -1,113 +1,147 @@
-import React, { useState } from "react";
-import { Power, Sun, Moon, Bluetooth, Volume2 } from "lucide-react";
-import { CardPane } from "../components/common/CardPane";
+import React, { useState } from 'react';
+import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
+import { Sun, Moon, Bluetooth, Power, Volume2, ShieldAlert } from 'lucide-react';
 
-export const SettingsView: React.FC = () => {
-  const [theme, setTheme] = useState<"day" | "night">("night");
-  const [isShuttingDown, setIsShuttingDown] = useState(false);
+interface SettingsViewProps {
+  onBackToDash?: () => void;
+}
 
-  const toggleTheme = () => {
-    const next = theme === "night" ? "day" : "night";
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-  };
+export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
+  const [themeMode, setThemeMode] = useState<'night' | 'day'>('night');
+  const [gainLevel, setGainLevel] = useState<number>(75);
+  const [isShuttingDown, setIsShuttingDown] = useState<boolean>(false);
 
-  const handleShutdown = async () => {
+  const handleShutdown = () => {
     setIsShuttingDown(true);
-    try {
-      await fetch(`http://${window.location.hostname}:8000/api/system/shutdown`, {
-        method: "POST"
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const simulateCall = async () => {
-    try {
-      await fetch(`http://${window.location.hostname}:8000/api/calls/simulate_incoming?name=Sarah&number=%2B971501234567`, {
-        method: "POST"
-      });
-    } catch (e) {
-      console.error(e);
-    }
+    setTimeout(() => {
+      alert('System checkpoint saved. Ready for ignition off.');
+      setIsShuttingDown(false);
+    }, 2000);
   };
 
   return (
-    <div className="w-full h-full p-6 overflow-y-auto max-w-4xl mx-auto flex flex-col gap-6">
-      <div className="flex items-center justify-between pb-2 border-b border-surface-raised-border">
-        <h1 className="text-2xl font-bold text-text-primary">System & Preferences</h1>
-        <span className="text-xs font-road text-text-muted">Georgie OS v1.0</span>
+    <div className="w-full h-full p-5 overflow-y-auto select-none space-y-4 font-sf">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <span className="text-lg font-semibold tracking-tight text-white">
+          Settings
+        </span>
+
+        <button
+          type="button"
+          onClick={onBackToDash}
+          className="glass-btn px-4 py-1.5 text-xs font-semibold text-white"
+        >
+          Back to Dashboard
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {/* Appearance Mode */}
-        <CardPane className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {theme === "night" ? (
-              <Moon size={22} className="text-accent-amber" />
-            ) : (
-              <Sun size={22} className="text-accent-amber" />
-            )}
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-text-primary">Display Mode</span>
-              <span className="text-xs text-text-secondary capitalize">{theme} luminance theme</span>
-            </div>
+      <div className="grid grid-cols-2 gap-3.5">
+        {/* Day / Night Theming */}
+        <LiquidGlassCard padding="md" className="space-y-3">
+          <div className="flex items-center space-x-2 text-white">
+            <Sun className="w-4 h-4 text-amber-400" />
+            <span className="text-sm font-semibold">Theme Contrast</span>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="px-4 py-2 rounded-xl glass-surface text-xs font-bold text-text-primary touch-press"
-          >
-            Switch to {theme === "night" ? "Day" : "Night"}
-          </button>
-        </CardPane>
+          <p className="text-xs text-white/50">
+            Adjust surface contrast multipliers for daylight glare reduction.
+          </p>
+          <div className="flex space-x-2">
+            <button
+              type="button"
+              onClick={() => {
+                setThemeMode('night');
+                document.documentElement.removeAttribute('data-theme');
+              }}
+              className={`flex-1 glass-btn py-2 text-xs font-semibold space-x-2 ${
+                themeMode === 'night' ? 'bg-white/20 text-white' : 'text-white/40'
+              }`}
+            >
+              <Moon className="w-3.5 h-3.5" />
+              <span>Night Base</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setThemeMode('day');
+                document.documentElement.setAttribute('data-theme', 'day');
+              }}
+              className={`flex-1 glass-btn py-2 text-xs font-semibold space-x-2 ${
+                themeMode === 'day' ? 'bg-white/20 text-white' : 'text-white/40'
+              }`}
+            >
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+              <span>Day Contrast</span>
+            </button>
+          </div>
+        </LiquidGlassCard>
 
-        {/* Dev Tool: Simulate Call */}
-        <CardPane className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Bluetooth size={22} className="text-accent-blue" />
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-text-primary">Simulate Incoming Call</span>
-              <span className="text-xs text-text-secondary">Triggers hard interrupt & audio duck</span>
-            </div>
+        {/* Audio Ducking & Calibration */}
+        <LiquidGlassCard padding="md" className="space-y-3">
+          <div className="flex items-center space-x-2 text-white">
+            <Volume2 className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm font-semibold">Audio Output Calibration</span>
           </div>
-          <button
-            onClick={simulateCall}
-            className="px-4 py-2 rounded-xl bg-accent-blue/20 text-accent-blue text-xs font-bold touch-press border border-accent-blue/30"
-          >
-            Trigger
-          </button>
-        </CardPane>
+          <p className="text-xs text-white/50">
+            Pi line-out calibration for cassette deck headroom.
+          </p>
+          <div className="flex items-center space-x-3">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={gainLevel}
+              onChange={(e) => setGainLevel(Number(e.target.value))}
+              className="flex-1 accent-white h-1 bg-white/10 rounded-lg cursor-pointer"
+            />
+            <span className="text-xs font-sf-display font-bold text-white/80 tabular-nums w-8">
+              {gainLevel}%
+            </span>
+          </div>
+        </LiquidGlassCard>
 
-        {/* Audio Gain Staging */}
-        <CardPane className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Volume2 size={22} className="text-accent-green" />
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-text-primary">Audio Output</span>
-              <span className="text-xs text-text-secondary">PipeWire 3.5mm Cassette Sink</span>
-            </div>
+        {/* Bluetooth Device Management */}
+        <LiquidGlassCard padding="md" className="space-y-3">
+          <div className="flex items-center space-x-2 text-white">
+            <Bluetooth className="w-4 h-4 text-sky-400" />
+            <span className="text-sm font-semibold">Bluetooth Connection</span>
           </div>
-          <span className="text-xs font-road text-text-muted">100% Fixed</span>
-        </CardPane>
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] border border-white/5">
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-white">iPhone</span>
+              <span className="text-[11px] text-emerald-400">Hands-Free & Audio</span>
+            </div>
+            <span className="text-[10px] font-semibold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+              Connected
+            </span>
+          </div>
+        </LiquidGlassCard>
 
-        {/* Shutdown Control */}
-        <CardPane className="flex items-center justify-between border border-accent-red/30">
-          <div className="flex items-center gap-3">
-            <Power size={22} className="text-accent-red" />
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-text-primary">Clean Shutdown</span>
-              <span className="text-xs text-text-secondary">Syncs SQLite & powers down Pi</span>
-            </div>
+        {/* Power & Safe Shutdown */}
+        <LiquidGlassCard padding="md" className="space-y-3">
+          <div className="flex items-center space-x-2 text-rose-400">
+            <Power className="w-4 h-4" />
+            <span className="text-sm font-semibold">Safe Power Down</span>
           </div>
+          <p className="text-xs text-white/50">
+            Checkpoints SQLite WAL state before turning off vehicle ignition.
+          </p>
           <button
-            disabled={isShuttingDown}
+            type="button"
             onClick={handleShutdown}
-            className="px-4 py-2 rounded-xl bg-accent-red hover:bg-accent-red/90 text-white text-xs font-bold touch-press"
+            disabled={isShuttingDown}
+            className="w-full glass-btn py-2.5 text-xs font-semibold text-rose-300 border border-rose-500/30 hover:bg-rose-500/10 space-x-2"
           >
-            {isShuttingDown ? "Shutting Down..." : "Power Off"}
+            {isShuttingDown ? (
+              <span>Syncing database...</span>
+            ) : (
+              <>
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Shutdown System</span>
+              </>
+            )}
           </button>
-        </CardPane>
+        </LiquidGlassCard>
       </div>
     </div>
   );

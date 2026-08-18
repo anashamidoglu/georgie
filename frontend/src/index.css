@@ -1,119 +1,155 @@
 @import "tailwindcss";
 
-@theme {
-  --color-bg-base: #0c0d0e;
-  --color-surface-raised: #16181b;
-  --color-surface-raised-border: rgba(255, 255, 255, 0.08);
-  --color-accent-amber: #f59e0b;
-  --color-accent-red: #ef4444;
-  --color-accent-green: #10b981;
-  --color-accent-blue: #3b82f6;
-  --color-text-primary: #f3f4f6;
-  --color-text-secondary: #9ca3af;
-  --color-text-muted: #6b7280;
+/* -------------------------------------------------------------------------- */
+/* Self-Hosted Typography Pipeline — Pure Apple SF Pro                       */
+/* -------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "SF Pro Text";
+  src: url("/fonts/SF-Pro-Text-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
-:root {
-  /* Color Palette - Dark Base (Warm near-black) */
-  --bg-base: #0c0d0e;
-  --surface-raised: #16181b;
-  --surface-raised-border: rgba(255, 255, 255, 0.08);
-  --surface-glass: linear-gradient(180deg, rgba(32, 35, 40, 0.92) 0%, rgba(20, 22, 25, 0.95) 100%);
-  --surface-glass-highlight: rgba(255, 255, 255, 0.14);
-  
-  /* Accents */
-  --accent-amber: #f59e0b;
-  --accent-red: #ef4444;
-  --accent-green: #10b981;
-  --accent-blue: #3b82f6;
-
-  /* Typography Colors */
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-
-  /* Elevation Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
-
-  /* Radii Base */
-  --radius-pane: 20px;
-  --radius-pill: 9999px;
+@font-face {
+  font-family: "SF Pro Text";
+  src: url("/fonts/SF-Pro-Text-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
 }
 
-/* Day Theme Luminance Multiplier */
-[data-theme="day"] {
-  --bg-base: #181a1d;
-  --surface-raised: #24272c;
-  --surface-raised-border: rgba(255, 255, 255, 0.16);
-  --text-primary: #ffffff;
-  --text-secondary: #d1d5db;
-  --text-muted: #9ca3af;
+@font-face {
+  font-family: "SF Pro Text";
+  src: url("/fonts/SF-Pro-Text-Semibold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
 }
 
-/* Kiosk Touch & Typography Resets */
+@font-face {
+  font-family: "SF Pro Text";
+  src: url("/fonts/SF-Pro-Text-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/fonts/SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/fonts/SF-Pro-Display-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/fonts/SF-Pro-Display-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Design Tokens Layer                                                        */
+/* -------------------------------------------------------------------------- */
+
+@layer base {
+  :root {
+    --bg-base: #09090b;
+    --surface-card: #121316;
+    --border-rim: rgba(255, 255, 255, 0.12);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+
+    /* Pure Apple Typography */
+    --font-sf: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-sf-display: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* Radiuses */
+    --radius-card: 20px;
+  }
+
+  [data-theme="day"] {
+    --border-rim: rgba(255, 255, 255, 0.22);
+    --border-subtle: rgba(255, 255, 255, 0.1);
+  }
+}
+
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
   user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  touch-action: manipulation;
 }
 
-body {
+html, body {
   margin: 0;
   padding: 0;
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
   background-color: var(--bg-base);
-  color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  color: #ffffff;
+  font-family: var(--font-sf);
+  overflow: hidden;
 }
 
-/* Road Data / Speed Limit / Live Numbers */
-.font-road {
-  font-family: "DIN 1451", "DIN Alternate", "Trebuchet MS", sans-serif;
-  font-variant-numeric: tabular-nums;
+/* Pure SF Pro Typography Classes */
+.font-sf {
+  font-family: var(--font-sf);
 }
 
 .font-sf-display {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-family: var(--font-sf-display);
 }
 
-/* Glass Approximation Utilities */
+.font-din {
+  font-family: var(--font-sf-display);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Matte Flat Card Surface with Clean 1px Highlight Rim */
 .glass-surface {
-  background: var(--surface-glass);
-  border: 1px solid var(--surface-raised-border);
-  border-top-color: var(--surface-glass-highlight);
-  box-shadow: var(--shadow-md);
+  position: relative;
+  background-color: var(--surface-card);
+  border-radius: var(--radius-card);
+  box-shadow: 
+    0 10px 25px -5px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 var(--border-rim),
+    inset 0 0 0 1px var(--border-subtle);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
 }
 
-.pane-surface {
-  background-color: var(--surface-raised);
-  border: 1px solid var(--surface-raised-border);
-  border-radius: var(--radius-pane);
-  box-shadow: var(--shadow-sm);
+/* Clean Tactile Glass Button */
+.glass-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.1s ease, background-color 0.15s ease;
 }
 
-/* Fluid active press feedback */
-.touch-press:active {
-  transform: scale(0.96);
-  opacity: 0.88;
-  transition: transform 100ms ease, opacity 100ms ease;
-}
-
-@keyframes spinSlow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin-slow {
-  animation: spinSlow 8s linear infinite;
+.glass-btn:active {
+  transform: scale(0.95);
+  background-color: rgba(255, 255, 255, 0.12);
 }

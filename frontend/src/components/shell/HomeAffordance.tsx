@@ -1,35 +1,56 @@
-import React from "react";
-import { LayoutGrid, Navigation } from "lucide-react";
-import { useNav } from "../../context/NavContext";
+import React from 'react';
+import { LayoutGrid, Settings } from 'lucide-react';
 
-export const HomeAffordance: React.FC<{
-  currentRoute: "dashboard" | "settings";
-  onNavigateHome: () => void;
-}> = ({ currentRoute, onNavigateHome }) => {
-  const { navExpanded, setNavExpanded } = useNav();
+interface HomeAffordanceProps {
+  activeTab?: 'dashboard' | 'nav' | 'media' | 'settings';
+  onSelectTab?: (tab: 'dashboard' | 'nav' | 'media' | 'settings') => void;
+  isExpandedNav?: boolean;
+  onCollapseNav?: () => void;
+}
 
-  const handleClick = () => {
-    if (navExpanded) {
-      setNavExpanded(false);
-    }
-    onNavigateHome();
-  };
-
-  const isHome = currentRoute === "dashboard" && !navExpanded;
-
+export const HomeAffordance: React.FC<HomeAffordanceProps> = ({
+  activeTab = 'dashboard',
+  onSelectTab,
+  isExpandedNav,
+  onCollapseNav,
+}) => {
   return (
-    <button
-      onClick={handleClick}
-      aria-label="Home"
-      className={`fixed bottom-5 left-5 z-40 w-14 h-14 rounded-2xl glass-surface flex items-center justify-center touch-press transition-all duration-300 ${
-        isHome ? "text-accent-amber border-accent-amber/40" : "text-text-primary"
-      }`}
-    >
-      {navExpanded ? (
-        <LayoutGrid size={24} strokeWidth={2} />
-      ) : (
-        <Navigation size={24} strokeWidth={2} />
-      )}
-    </button>
+    <nav className="w-full h-12 px-6 flex items-center justify-between border-t border-white/[0.06] bg-[#09090b] select-none z-30 font-sf">
+      {/* Left: Home / Dashboard Affordance */}
+      <button
+        type="button"
+        onClick={() => {
+          if (isExpandedNav) {
+            onCollapseNav?.();
+          }
+          onSelectTab?.('dashboard');
+        }}
+        aria-label="Home Dashboard"
+        className={`glass-btn px-4 h-9 space-x-2 ${
+          activeTab === 'dashboard' && !isExpandedNav
+            ? 'bg-white/15 text-white'
+            : 'text-white/60 hover:text-white'
+        }`}
+      >
+        <LayoutGrid className="w-4 h-4" />
+        <span className="text-xs font-semibold tracking-wide">
+          DASH
+        </span>
+      </button>
+
+      {/* Right: Settings Action Button */}
+      <button
+        type="button"
+        onClick={() => onSelectTab?.('settings')}
+        aria-label="Settings"
+        className={`glass-btn w-9 h-9 ${
+          activeTab === 'settings'
+            ? 'bg-white/15 text-white'
+            : 'text-white/60 hover:text-white'
+        }`}
+      >
+        <Settings className="w-4 h-4" />
+      </button>
+    </nav>
   );
 };

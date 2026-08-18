@@ -1,52 +1,65 @@
-import React, { createContext, useContext, useState } from "react";
-import type { RouteData } from "../types";
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { useCurrentPosition } from '../hooks/useCurrentPosition';
 
-interface NavContextType {
-  navExpanded: boolean;
-  setNavExpanded: (expanded: boolean) => void;
-  toggleNavExpanded: () => void;
-  activeRoute: RouteData | null;
-  setActiveRoute: (route: RouteData | null) => void;
-  currentSpeed: number;
+interface EtaInfo {
+  arrival: string;
+  duration: string;
+  distance: string;
 }
 
-const defaultRoute: RouteData = {
-  distance: 6400,
-  duration: 540,
-  eta: "16:25",
-  speed_limit: 100,
-  next_maneuver: {
-    instruction: "In 400m, take Exit 45 toward Financial Centre",
-    distance_meters: 400,
-    modifier: "right",
-    type: "turn"
-  },
-  lanes: [
-    { type: "lane", indications: ["straight"], active: false, valid: true },
-    { type: "lane", indications: ["straight"], active: false, valid: true },
-    { type: "lane", indications: ["straight", "right"], active: true, valid: true },
-    { type: "lane", indications: ["right"], active: true, valid: true }
-  ]
-};
+interface NavContextType {
+  isNavExpanded: boolean;
+  setIsNavExpanded: (val: boolean | ((prev: boolean) => boolean)) => void;
+  hasActiveRoute: boolean;
+  setHasActiveRoute: (val: boolean | ((prev: boolean) => boolean)) => void;
+  coords: [number, number];
+  heading: number | null;
+  speed: number | null;
+  mapInstance: MapboxMap | null;
+  setMapInstance: (map: MapboxMap | null) => void;
+  eta: EtaInfo;
+  setEta: React.Dispatch<React.SetStateAction<EtaInfo>>;
+}
 
-const NavContext = createContext<NavContextType | null>(null);
+const NavContext = createContext<NavContextType | undefined>(undefined);
 
 export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [navExpanded, setNavExpanded] = useState(false);
-  const [activeRoute, setActiveRoute] = useState<RouteData | null>(defaultRoute);
-  const [currentSpeed] = useState(88); // km/h
+  const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
+  const [hasActiveRoute, setHasActiveRoute] = useState<boolean>(true);
+  const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
+  const [eta, setEta] = useState<EtaInfo>({
+    arrival: '10:30 arrival',
+    duration: '20 min',
+    distance: '47 km',
+  });
 
-  const toggleNavExpanded = () => setNavExpanded((prev) => !prev);
+  const position = useCurrentPosition();
+
+  // Keep map camera synced with position changes if map is loaded
+  useEffect(() => {
+    if (mapInstance && position.coords) {
+      mapInstance.easeTo({
+        center: position.coords,
+        duration: 1000,
+      });
+    }
+  }, [mapInstance, position.coords]);
 
   return (
     <NavContext.Provider
       value={{
-        navExpanded,
-        setNavExpanded,
-        toggleNavExpanded,
-        activeRoute,
-        setActiveRoute,
-        currentSpeed
+        isNavExpanded,
+        setIsNavExpanded,
+        hasActiveRoute,
+        setHasActiveRoute,
+        coords: position.coords,
+        heading: position.heading,
+        speed: position.speed,
+        mapInstance,
+        setMapInstance,
+        eta,
+        setEta,
       }}
     >
       {children}
@@ -54,8 +67,10 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 };
 
-export const useNav = () => {
-  const ctx = useContext(NavContext);
-  if (!ctx) throw new Error("useNav must be used within NavProvider");
-  return ctx;
-};
+export function useNav(): NavContextType {
+  const context = useContext(NavContext);
+  if (!context) {
+    throw new Error('useNav must be used within a NavProvider');
+  }
+  return context;
+}
