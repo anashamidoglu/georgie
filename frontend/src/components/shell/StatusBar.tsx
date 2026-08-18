@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, Bluetooth } from 'lucide-react';
+import { Wifi, Bluetooth, StepForward, StepBack } from 'lucide-react';
+import { useNav } from '../../context/NavContext';
+import { useMedia } from '../../context/MediaContext';
 import type { ConnectivityStatus } from '../../types';
 
 interface StatusBarProps {
@@ -16,6 +18,24 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
+
+  const {
+    navStatus,
+    previewRouteTo,
+    endNavigation,
+    allSteps,
+    activeStepIndex,
+    nextSimulationStep,
+    prevSimulationStep,
+  } = useNav();
+
+  const { hasActiveMedia, setHasActiveMedia } = useMedia();
+
+  const PRESETS: { label: string; coords: [number, number] }[] = [
+    { label: 'UOS Medical', coords: [55.4855, 25.2917] },
+    { label: 'MCC', coords: [55.4077, 25.2155] },
+    { label: 'Dubai Mall', coords: [55.2785, 25.1972] },
+  ];
 
   useEffect(() => {
     const updateTime = () => {
@@ -36,33 +56,111 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   }, []);
 
   return (
-    <header className="w-full h-12 px-6 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-30 font-sf">
-      {/* Left Area (Clean, no carputer text) */}
-      <div className="flex items-center" />
+    <header className="w-full h-12 px-5 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-30 font-sf">
+      {/* Left: Quick Destination Shortcuts & Simulation Controls */}
+      <div className="flex items-center space-x-2">
+        {/* Preset Shortcuts */}
+        <div className="flex items-center space-x-1 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/10">
+          <span className="text-[9px] font-sf font-semibold text-white/40 uppercase tracking-wider mr-1">
+            Route:
+          </span>
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => previewRouteTo(p.coords, p.label)}
+              className="text-[9px] font-sf font-medium px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/20 text-white/80 transition-colors"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Right: Connectivity & Large SF Pro Clock */}
-      <div className="flex items-center space-x-4">
+        {/* Driving Step Simulator (Active during Navigation) */}
+        {navStatus === 'navigating' && allSteps.length > 0 && (
+          <div className="flex items-center space-x-1 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/30 animate-in fade-in duration-150">
+            <button
+              type="button"
+              onClick={prevSimulationStep}
+              disabled={activeStepIndex <= 0}
+              className="p-0.5 text-white/70 hover:text-white disabled:opacity-30 transition-opacity"
+              title="Previous Turn"
+            >
+              <StepBack className="w-3 h-3" />
+            </button>
+            <span className="text-[9px] font-sf font-bold text-sky-300 px-1 tabular-nums">
+              Step {activeStepIndex + 1}/{allSteps.length}
+            </span>
+            <button
+              type="button"
+              onClick={nextSimulationStep}
+              disabled={activeStepIndex >= allSteps.length - 1}
+              className="p-0.5 text-white/70 hover:text-white disabled:opacity-30 transition-opacity"
+              title="Next Turn"
+            >
+              <StepForward className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Right: Dev State Toggles + Connectivity & Clock */}
+      <div className="flex items-center space-x-3">
+        {/* Dev Nav Toggle */}
+        <button
+          type="button"
+          onClick={() => {
+            if (navStatus === 'idle') {
+              previewRouteTo([55.4855, 25.2917], 'UOS Medical');
+            } else {
+              endNavigation();
+            }
+          }}
+          className={`text-[9px] font-sf font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+            navStatus !== 'idle'
+              ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+              : 'bg-white/5 text-white/60 border-white/10'
+          }`}
+        >
+          [DEV] Nav ({navStatus === 'idle' ? 'Idle' : 'Active'})
+        </button>
+
+        {/* Dev Media Toggle */}
+        <button
+          type="button"
+          onClick={() => setHasActiveMedia(!hasActiveMedia)}
+          className={`text-[9px] font-sf font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+            hasActiveMedia
+              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+              : 'bg-white/5 text-white/60 border-white/10'
+          }`}
+        >
+          [DEV] Media ({hasActiveMedia ? 'On' : 'Off'})
+        </button>
+
+        <div className="h-3.5 w-[1px] bg-white/10" />
+
         {/* Connectivity Status */}
-        <div className="flex items-center space-x-2.5 text-white/50">
-          <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-white/[0.08] text-white/90 tracking-tight">
+        <div className="flex items-center space-x-2 text-white/50">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/[0.08] text-white/90 tracking-tight">
             {connectivity.cellular}
           </span>
           {connectivity.wifi && (
-            <Wifi className="w-4 h-4 text-white/80" />
+            <Wifi className="w-3.5 h-3.5 text-white/80" />
           )}
           {connectivity.bluetooth && (
-            <Bluetooth className="w-4 h-4 text-white/80" />
+            <Bluetooth className="w-3.5 h-3.5 text-white/80" />
           )}
         </div>
 
-        <div className="h-4 w-[1px] bg-white/10" />
+        <div className="h-3.5 w-[1px] bg-white/10" />
 
         {/* Live SF Pro Clock */}
-        <div className="flex items-baseline space-x-2 text-right">
-          <span className="text-xs text-white/40 font-medium tracking-wide uppercase">
+        <div className="flex items-baseline space-x-1.5 text-right">
+          <span className="text-[11px] text-white/40 font-medium tracking-wide uppercase">
             {dateStr}
           </span>
-          <span className="text-lg font-semibold text-white tabular-nums tracking-normal">
+          <span className="text-base font-semibold text-white tabular-nums tracking-normal">
             {timeStr || '12:00'}
           </span>
         </div>

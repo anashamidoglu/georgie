@@ -14,6 +14,18 @@ export interface EtaInfo {
   distance: string;
 }
 
+// Calculate compass bearing between two coordinates in degrees
+function calculateBearing(c1: [number, number], c2: [number, number]): number {
+  const rad = Math.PI / 180;
+  const lat1 = c1[1] * rad;
+  const lat2 = c2[1] * rad;
+  const dLon = (c2[0] - c1[0]) * rad;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+}
+
 interface NavContextType {
   isNavExpanded: boolean;
   setIsNavExpanded: (val: boolean | ((prev: boolean) => boolean)) => void;
@@ -21,10 +33,11 @@ interface NavContextType {
   setNavStatus: (status: NavStatus) => void;
   hasActiveRoute: boolean;
   coords: [number, number];
+  vehicleCoords: [number, number];
+  vehicleHeading: number;
   isLocated: boolean;
   destination: [number, number] | null;
   destinationName: string;
-  heading: number | null;
   speed: number | null;
   mapInstance: MapboxMap | null;
   setMapInstance: (map: MapboxMap | null) => void;
@@ -56,6 +69,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
   const [inspectedStep, setInspectedStep] = useState<ManeuverInfo | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
+  const [simulatedCoords, setSimulatedCoords] = useState<[number, number] | null>(null);
+  const [simulatedHeading, setSimulatedHeading] = useState<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const [eta, setEta] = useState<EtaInfo>({
@@ -72,9 +87,13 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const positionRef = useRef(position);
   positionRef.current = position;
 
+  // Active vehicle coordinates (falls back to real GPS, advances with simulation/inspection)
+  const vehicleCoords = simulatedCoords || position.coords;
+  const vehicleHeading = simulatedHeading || position.heading || 0;
+
   // Center map on user position as soon as real location is retrieved on start
   useEffect(() => {
-    if (mapInstance && position.isLocated && navStatus === 'idle') {
+    if (mapInstance && position.isLocated && navStatus === 'idle' && !simulatedCoords) {
       mapInstance.setCenter(position.coords);
     }
   }, [mapInstance, position.isLocated, position.coords[0], position.coords[1]]);
@@ -86,6 +105,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNavStatus('preview');
     setInspectedStep(null);
     setActiveStepIndex(0);
+    setSimulatedCoords(null);
+    setSimulatedHeading(0);
 
     if (!MAPBOX_TOKEN) return;
 
@@ -114,30 +135,43 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Step 3: Start live 3D follow navigation
+  // Step 3: Start live 3D driver follow navigation (angled behind vehicle in direction of travel)
   const startNavigation = () => {
     setNavStatus('navigating');
     setInspectedStep(null);
-    if (mapInstance && positionRef.current.coords) {
+    if (mapInstance) {
+      const currentLoc = vehicleCoords;
+      const nextLoc = allSteps[1]?.location || destination || currentLoc;
+      const bearing = calculateBearing(currentLoc, nextLoc);
+      setSimulatedHeading(bearing);
+
       mapInstance.easeTo({
-        center: positionRef.current.coords,
-        zoom: 16,
-        pitch: 55,
-        bearing: positionRef.current.heading || 0,
-        duration: 700,
+        center: currentLoc,
+        zoom: 16.5,
+        pitch: 58,
+        bearing: bearing,
+        duration: 800,
       });
     }
   };
 
-  // Interactive Step Inspector: Jump to clicked maneuver on map & display its full card
+  // Interactive Step Inspector: Jump dot to clicked maneuver & angle camera along that road segment
   const inspectStep = (step: ManeuverInfo) => {
     setInspectedStep(step);
+    setSimulatedCoords(step.location);
+
     if (mapInstance && step.location) {
+      const stepIdx = allSteps.findIndex((s) => s.id === step.id);
+      const nextStep = allSteps[stepIdx + 1] || allSteps[stepIdx];
+      const bearing = nextStep && nextStep.location ? calculateBearing(step.location, nextStep.location) : 0;
+      setSimulatedHeading(bearing);
+
       mapInstance.easeTo({
         center: step.location,
-        zoom: 16.2,
-        pitch: 45,
-        duration: 600,
+        zoom: 16.5,
+        pitch: 55,
+        bearing: bearing,
+        duration: 700,
       });
     }
   };
@@ -145,6 +179,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Return from inspected step back to full route overview or driver follow
   const clearInspectedStep = () => {
     setInspectedStep(null);
+    setSimulatedCoords(null);
+    setSimulatedHeading(0);
+
     if (mapInstance) {
       if (navStatus === 'preview' && activeRoute?.geoJson) {
         const coordinates = activeRoute.geoJson.geometry.coordinates;
@@ -160,31 +197,42 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
       } else if (positionRef.current.coords) {
+        const bearing = positionRef.current.heading || 0;
         mapInstance.easeTo({
           center: positionRef.current.coords,
-          zoom: navStatus === 'navigating' ? 16 : 15.5,
-          pitch: navStatus === 'navigating' ? 55 : 50,
-          bearing: positionRef.current.heading || 0,
+          zoom: navStatus === 'navigating' ? 16.5 : 15.5,
+          pitch: navStatus === 'navigating' ? 58 : 50,
+          bearing: bearing,
           duration: 600,
         });
       }
     }
   };
 
-  // Simulation controls for testing turn-by-turn progression
+  // Simulation controls: Move vehicle puck along the route and angle camera behind vehicle looking ahead
   const nextSimulationStep = () => {
     if (allSteps.length === 0) return;
     const nextIdx = Math.min(allSteps.length - 1, activeStepIndex + 1);
     setActiveStepIndex(nextIdx);
     setPrimaryManeuver(allSteps[nextIdx]);
     setUpcomingSteps(allSteps.slice(nextIdx + 1));
-    if (mapInstance && allSteps[nextIdx]?.location) {
-      mapInstance.easeTo({
-        center: allSteps[nextIdx].location,
-        zoom: 16.5,
-        pitch: 55,
-        duration: 500,
-      });
+
+    const stepLoc = allSteps[nextIdx]?.location;
+    if (stepLoc) {
+      setSimulatedCoords(stepLoc);
+      const nextStepLoc = allSteps[nextIdx + 1]?.location || destination || stepLoc;
+      const bearing = calculateBearing(stepLoc, nextStepLoc);
+      setSimulatedHeading(bearing);
+
+      if (mapInstance) {
+        mapInstance.easeTo({
+          center: stepLoc,
+          zoom: 16.5,
+          pitch: 58,
+          bearing: bearing,
+          duration: 600,
+        });
+      }
     }
   };
 
@@ -194,13 +242,23 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveStepIndex(prevIdx);
     setPrimaryManeuver(allSteps[prevIdx]);
     setUpcomingSteps(allSteps.slice(prevIdx + 1));
-    if (mapInstance && allSteps[prevIdx]?.location) {
-      mapInstance.easeTo({
-        center: allSteps[prevIdx].location,
-        zoom: 16.5,
-        pitch: 55,
-        duration: 500,
-      });
+
+    const stepLoc = allSteps[prevIdx]?.location;
+    if (stepLoc) {
+      setSimulatedCoords(stepLoc);
+      const nextStepLoc = allSteps[prevIdx + 1]?.location || destination || stepLoc;
+      const bearing = calculateBearing(stepLoc, nextStepLoc);
+      setSimulatedHeading(bearing);
+
+      if (mapInstance) {
+        mapInstance.easeTo({
+          center: stepLoc,
+          zoom: 16.5,
+          pitch: 58,
+          bearing: bearing,
+          duration: 600,
+        });
+      }
     }
   };
 
@@ -218,6 +276,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAllSteps([]);
     setInspectedStep(null);
     setActiveStepIndex(0);
+    setSimulatedCoords(null);
+    setSimulatedHeading(0);
 
     if (mapInstance && positionRef.current.coords) {
       mapInstance.easeTo({
@@ -233,11 +293,13 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Recenter map back to vehicle's live position
   const recenterMap = () => {
     setInspectedStep(null);
+    setSimulatedCoords(null);
+    setSimulatedHeading(0);
     if (mapInstance && positionRef.current.coords) {
       mapInstance.easeTo({
         center: positionRef.current.coords,
-        zoom: navStatus === 'navigating' ? 16 : 15.5,
-        pitch: navStatus === 'navigating' ? 55 : 50,
+        zoom: navStatus === 'navigating' ? 16.5 : 15.5,
+        pitch: navStatus === 'navigating' ? 58 : 50,
         bearing: positionRef.current.heading || 0,
         duration: 500,
       });
@@ -253,10 +315,11 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setNavStatus,
         hasActiveRoute: navStatus !== 'idle',
         coords: position.coords,
+        vehicleCoords,
+        vehicleHeading,
         isLocated: position.isLocated,
         destination,
         destinationName,
-        heading: position.heading,
         speed: position.speed,
         mapInstance,
         setMapInstance,

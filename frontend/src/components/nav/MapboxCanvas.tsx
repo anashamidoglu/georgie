@@ -24,6 +24,8 @@ export const MapboxCanvas: React.FC = () => {
   const {
     isNavExpanded,
     coords,
+    vehicleCoords,
+    vehicleHeading,
     setMapInstance,
     activeRoute,
     destination,
@@ -58,7 +60,7 @@ export const MapboxCanvas: React.FC = () => {
       const map = new mapboxgl.Map({
         container: containerRef.current,
         style: MAPBOX_STYLE,
-        center: coords,
+        center: vehicleCoords || coords,
         zoom: 15.5,
         pitch: 50,
         bearing: 0,
@@ -82,7 +84,7 @@ export const MapboxCanvas: React.FC = () => {
         rotationAlignment: 'map',
         pitchAlignment: 'map',
       })
-        .setLngLat(coords)
+        .setLngLat(vehicleCoords || coords)
         .addTo(map);
 
       markerRef.current = marker;
@@ -145,10 +147,11 @@ export const MapboxCanvas: React.FC = () => {
 
   // Update vehicle puck position on coordinates change
   useEffect(() => {
-    if (markerRef.current && coords) {
-      markerRef.current.setLngLat(coords);
+    if (markerRef.current && (vehicleCoords || coords)) {
+      markerRef.current.setLngLat(vehicleCoords || coords);
+      markerRef.current.setRotation(vehicleHeading || 0);
     }
-  }, [coords]);
+  }, [vehicleCoords, coords, vehicleHeading]);
 
   // Update destination pin marker
   useEffect(() => {

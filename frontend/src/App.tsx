@@ -4,6 +4,7 @@ import { HomeAffordance } from './components/shell/HomeAffordance';
 import { DashboardView } from './views/DashboardView';
 import { SettingsView } from './views/SettingsView';
 import { NavProvider, useNav } from './context/NavContext';
+import { MediaProvider } from './context/MediaContext';
 
 const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'nav' | 'media' | 'settings'>('dashboard');
@@ -48,7 +49,9 @@ const AppShell: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <NavProvider>
-      <AppShell />
+      <MediaProvider>
+        <AppShell />
+      </MediaProvider>
     </NavProvider>
   );
 };
