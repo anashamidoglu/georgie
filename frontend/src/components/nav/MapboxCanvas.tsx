@@ -6,7 +6,6 @@ import { useNav } from '../../context/NavContext';
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 const MAPBOX_STYLE = import.meta.env.VITE_MAPBOX_STYLE_URL || 'mapbox://styles/mapbox/dark-v11';
 
-// Calculate lighting preset dynamically from current local time
 function getComputedLightPreset(): 'day' | 'dusk' | 'night' | 'dawn' {
   const hour = new Date().getHours();
   if (hour >= 6 && hour < 7) return 'dawn';
@@ -31,6 +30,10 @@ export const MapboxCanvas: React.FC = () => {
     previewRouteTo,
     navStatus,
   } = useNav();
+
+  // Keep ref up to date so click handler never has stale closure
+  const previewRouteToRef = useRef(previewRouteTo);
+  previewRouteToRef.current = previewRouteTo;
 
   const applyLighting = (map: mapboxgl.Map) => {
     const preset = getComputedLightPreset();
@@ -85,10 +88,10 @@ export const MapboxCanvas: React.FC = () => {
 
       markerRef.current = marker;
 
-      // Tap on map to preview route
+      // Map click handler (always references latest previewRouteTo)
       map.on('click', (e) => {
         const clickedLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-        previewRouteTo(clickedLngLat, 'Pinned Location');
+        previewRouteToRef.current(clickedLngLat, 'Pinned Location');
       });
 
       map.on('style.load', () => {
@@ -110,7 +113,6 @@ export const MapboxCanvas: React.FC = () => {
       };
       window.addEventListener('resize', handleResize);
 
-      // Periodically sync lighting preset every 60 seconds
       const lightInterval = setInterval(() => {
         if (mapRef.current) {
           applyLighting(mapRef.current);
@@ -145,7 +147,7 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [coords]);
 
-  // Update destination marker
+  // Update destination pin marker
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -236,7 +238,7 @@ export const MapboxCanvas: React.FC = () => {
           });
 
           map.fitBounds(bounds, {
-            padding: { top: 70, bottom: 85, left: 50, right: 50 },
+            padding: { top: 60, bottom: 85, left: 45, right: 45 },
             maxZoom: 15,
             pitch: 15,
             duration: 800,
