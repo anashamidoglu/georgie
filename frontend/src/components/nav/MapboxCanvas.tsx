@@ -175,7 +175,7 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [destination, navStatus]);
 
-  // Render & update live Route GeoJSON line on Mapbox below POI and label layers
+  // Render & update live Route GeoJSON line in Mapbox Standard 'top' slot with emissive glow
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
@@ -187,30 +187,6 @@ export const MapboxCanvas: React.FC = () => {
     if (navStatus !== 'idle' && activeRoute?.geoJson) {
       const geoJsonData = activeRoute.geoJson;
 
-      // Find the first POI/road label symbol layer to place route underneath text & icons
-      const styleLayers = map.getStyle()?.layers || [];
-      let labelLayerId: string | undefined;
-      for (const layer of styleLayers) {
-        if (
-          layer.type === 'symbol' &&
-          (layer.id.includes('poi') ||
-            layer.id.includes('label') ||
-            layer.id.includes('road') ||
-            layer.id.includes('place'))
-        ) {
-          labelLayerId = layer.id;
-          break;
-        }
-      }
-      if (!labelLayerId) {
-        for (const layer of styleLayers) {
-          if (layer.type === 'symbol') {
-            labelLayerId = layer.id;
-            break;
-          }
-        }
-      }
-
       const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource;
       if (existingSource) {
         existingSource.setData(geoJsonData);
@@ -220,56 +196,60 @@ export const MapboxCanvas: React.FC = () => {
           data: geoJsonData,
         });
 
-        // 1. Subtle soft glow casing matching the vehicle puck blue
-        map.addLayer(
-          {
-            id: casingLayerId,
-            type: 'line',
-            source: sourceId,
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#38bdf8',
-              'line-width': 11,
-              'line-opacity': 0.45,
-              'line-blur': 2,
-            },
+        // 1. Soft glowing outer casing in Mapbox Standard 'top' slot (beneath POIs/labels)
+        map.addLayer({
+          id: casingLayerId,
+          type: 'line',
+          source: sourceId,
+          slot: 'top',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
           },
-          labelLayerId
-        );
+          paint: {
+            'line-color': '#38bdf8',
+            'line-width': 12,
+            'line-opacity': 0.6,
+            'line-blur': 2.5,
+            'line-emissive-strength': 1.0,
+          },
+        });
 
-        // 2. Bright solid sky-blue core matching the exact vehicle puck color (#0ea5e9)
-        map.addLayer(
-          {
-            id: coreLayerId,
-            type: 'line',
-            source: sourceId,
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#0ea5e9',
-              'line-width': 7,
-              'line-opacity': 1.0,
-            },
+        // 2. Solid bright self-luminous sky-blue core matching vehicle puck (#0ea5e9)
+        map.addLayer({
+          id: coreLayerId,
+          type: 'line',
+          source: sourceId,
+          slot: 'top',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
           },
-          labelLayerId
-        );
+          paint: {
+            'line-color': '#0ea5e9',
+            'line-width': 7.5,
+            'line-opacity': 1.0,
+            'line-emissive-strength': 1.0,
+          },
+        });
       }
 
-      // Ensure paint colors are always fresh
+      // Dynamically enforce emissive paint properties so lighting never dims the line
       if (map.getLayer(coreLayerId)) {
-        map.setPaintProperty(coreLayerId, 'line-color', '#0ea5e9');
-        map.setPaintProperty(coreLayerId, 'line-width', 7);
-        map.setPaintProperty(coreLayerId, 'line-opacity', 1.0);
+        try {
+          map.setPaintProperty(coreLayerId, 'line-color', '#0ea5e9');
+          map.setPaintProperty(coreLayerId, 'line-width', 7.5);
+          map.setPaintProperty(coreLayerId, 'line-opacity', 1.0);
+          map.setPaintProperty(coreLayerId, 'line-emissive-strength', 1.0);
+        } catch {}
       }
       if (map.getLayer(casingLayerId)) {
-        map.setPaintProperty(casingLayerId, 'line-color', '#38bdf8');
-        map.setPaintProperty(casingLayerId, 'line-width', 11);
-        map.setPaintProperty(casingLayerId, 'line-opacity', 0.45);
+        try {
+          map.setPaintProperty(casingLayerId, 'line-color', '#38bdf8');
+          map.setPaintProperty(casingLayerId, 'line-width', 12);
+          map.setPaintProperty(casingLayerId, 'line-opacity', 0.6);
+          map.setPaintProperty(casingLayerId, 'line-emissive-strength', 1.0);
+        } catch {}
       }
 
       // If in preview mode, smoothly fit the whole route overview
