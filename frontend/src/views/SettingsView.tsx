@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
-import { Bluetooth, Power, Volume2, ShieldAlert, Smartphone, Trash2 } from 'lucide-react';
+import { Bluetooth, Power, Volume2, ShieldAlert, Smartphone, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface SettingsViewProps {
   onBackToDash?: () => void;
@@ -24,7 +24,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
   ]);
   const [isPairable, setIsPairable] = useState<boolean>(false);
   const [pairableCountdown, setPairableCountdown] = useState<number>(0);
-  const [isLoadingBt, setIsLoadingBt] = useState<boolean>(false);
+  const [loadingDeviceId, setLoadingDeviceId] = useState<string | null>(null);
 
   const fetchBluetoothStatus = async () => {
     try {
@@ -42,8 +42,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
 
   useEffect(() => {
     fetchBluetoothStatus();
-    const interval = setInterval(fetchBluetoothStatus, 5000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchBluetoothStatus, 4000);
+
+    // Real-time WebSocket listener for immediate Bluetooth updates
+    let ws: WebSocket | null = null;
+    let isMounted = true;
+
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.event === 'bluetooth:status_changed') {
+            if (data.data?.devices && isMounted) {
+              setBtDevices(data.data.devices);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      };
+    } catch {
+      // fallback
+    }
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      if (ws) ws.close();
+    };
   }, []);
 
   // Pairable countdown timer
@@ -76,35 +104,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
   };
 
   const handleConnectDevice = async (address: string) => {
-    setIsLoadingBt(true);
+    setLoadingDeviceId(address);
     try {
       await fetch(`/api/bluetooth/connect/${encodeURIComponent(address)}`, { method: 'POST' });
       await fetchBluetoothStatus();
     } catch {
       // Fallback
     } finally {
-      setIsLoadingBt(false);
+      setLoadingDeviceId(null);
     }
   };
 
   const handleDisconnectDevice = async (address: string) => {
-    setIsLoadingBt(true);
+    setLoadingDeviceId(address);
     try {
       await fetch(`/api/bluetooth/disconnect/${encodeURIComponent(address)}`, { method: 'POST' });
       await fetchBluetoothStatus();
     } catch {
       // Fallback
     } finally {
-      setIsLoadingBt(false);
+      setLoadingDeviceId(null);
     }
   };
 
   const handleForgetDevice = async (address: string) => {
+    setLoadingDeviceId(address);
     try {
       await fetch(`/api/bluetooth/forget/${encodeURIComponent(address)}`, { method: 'DELETE' });
       setBtDevices((prev) => prev.filter((d) => d.id !== address));
     } catch {
       setBtDevices((prev) => prev.filter((d) => d.id !== address));
+    } finally {
+      setLoadingDeviceId(null);
     }
   };
 
@@ -153,7 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
               disabled={isPairable}
               className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
                 isPairable
-                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 animate-pulse'
                   : 'bg-white/10 hover:bg-white/20 text-white border border-white/20 active:scale-95'
               }`}
             >
@@ -163,69 +194,101 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
 
           {/* Discoverable Hint */}
           {isPairable && (
-            <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-200 flex-shrink-0 mb-2">
-              Search for <strong className="text-white">Georgie Dash</strong> on your phone to pair.
+            <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-200 flex-shrink-0 mb-2 flex items-center justify-between">
+              <span>Broadcasting as <strong className="text-white">Georgie Dash</strong></span>
+              <span className="text-[10px] text-sky-300 font-mono">{pairableCountdown}s</span>
             </div>
           )}
 
-          {/* Devices List (Smooth hidden scrollbar inside container) */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-0.5">
+          {/* Devices List */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-0.5 scrollbar-none">
             {btDevices.length > 0 ? (
-              btDevices.map((dev) => (
-                <div
-                  key={dev.id}
-                  className="flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.04] border border-white/10"
-                >
-                  <div className="flex items-center space-x-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0 text-white/70">
-                      <Smartphone className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-white truncate max-w-[140px]">
-                        {dev.name}
-                      </span>
-                      <span className="text-[10px] text-white/40 truncate">
-                        {dev.connected ? 'Hands-Free & Audio' : 'Paired Device'}
-                      </span>
-                    </div>
-                  </div>
+              btDevices.map((dev) => {
+                const isLoadingThis = loadingDeviceId === dev.id;
 
-                  <div className="flex items-center space-x-2 flex-shrink-0">
-                    {dev.connected ? (
+                return (
+                  <div
+                    key={dev.id}
+                    className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all ${
+                      dev.connected
+                        ? 'bg-emerald-500/10 border-emerald-500/30'
+                        : 'bg-white/[0.04] border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <div className={`w-8 h-8 rounded-xl border flex items-center justify-center flex-shrink-0 ${
+                        dev.connected
+                          ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                          : 'bg-white/10 border-white/10 text-white/70'
+                      }`}>
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-xs font-bold text-white truncate max-w-[130px]">
+                            {dev.name}
+                          </span>
+                          {dev.connected && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          )}
+                        </div>
+                        <span className="text-[10px] text-white/40 truncate">
+                          {dev.connected ? 'Connected (Audio & Calls)' : 'Paired Device'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      {dev.connected ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDisconnectDevice(dev.id)}
+                          disabled={isLoadingThis}
+                          className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40 transition-colors flex items-center space-x-1"
+                          title="Click to Disconnect"
+                        >
+                          {isLoadingThis ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Connected</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleConnectDevice(dev.id)}
+                          disabled={isLoadingThis}
+                          className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition-colors flex items-center space-x-1"
+                        >
+                          {isLoadingThis ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <span>Connect</span>
+                          )}
+                        </button>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => handleDisconnectDevice(dev.id)}
-                        disabled={isLoadingBt}
-                        className="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 transition-colors"
-                        title="Click to Disconnect"
+                        onClick={() => handleForgetDevice(dev.id)}
+                        disabled={isLoadingThis}
+                        className="p-1.5 text-white/30 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                        title="Forget & Unpair Device"
                       >
-                        Connected
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleConnectDevice(dev.id)}
-                        disabled={isLoadingBt}
-                        className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition-colors"
-                      >
-                        Connect
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => handleForgetDevice(dev.id)}
-                      className="p-1.5 text-white/30 hover:text-red-400 transition-colors"
-                      title="Forget Device"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
-              <div className="p-3 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
-                No paired devices found. Tap &quot;+ Pair New Phone&quot; to connect.
+              <div className="p-4 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center space-y-1">
+                <Bluetooth className="w-6 h-6 text-white/20 mb-1" />
+                <span className="font-semibold text-white/60">No Paired Devices</span>
+                <span className="text-[11px] text-white/30">Tap &quot;+ Pair New Phone&quot; to connect your phone</span>
               </div>
             )}
           </div>

@@ -153,6 +153,7 @@ async def connect_device(device_address: str):
     if settings.MOCK_MODE or platform.system().lower() != "linux":
         for d in mock_devices:
             d.connected = (d.id == device_address)
+        await ws_manager.broadcast("bluetooth:status_changed", {"devices": [d.model_dump() for d in mock_devices]})
         return {"status": "connected", "device": device_address}
 
     try:
@@ -161,17 +162,29 @@ async def connect_device(device_address: str):
 
         dev_path = f"/org/bluez/hci0/dev_{device_address.replace(':', '_')}"
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-        await bus.call(Message(
-            destination='org.bluez',
-            path=dev_path,
-            interface='org.bluez.Device1',
-            member='Connect'
-        ))
+        try:
+            await bus.call(Message(
+                destination='org.bluez',
+                path=dev_path,
+                interface='org.bluez.Device1',
+                member='Connect'
+            ))
+        except Exception:
+            subprocess.Popen(f"bluetoothctl connect {device_address}", shell=True)
         bus.disconnect()
+
+        # Trigger delayed state sync
+        async def sync_after_connect():
+            await asyncio.sleep(1.5)
+            from ..services.bluetooth.dbus_listener import dbus_listener
+            await dbus_listener._poll_current_media_state()
+            status = await get_bluetooth_status()
+            await ws_manager.broadcast("bluetooth:status_changed", status.model_dump())
+
+        asyncio.create_task(sync_after_connect())
         return {"status": "connected", "device": device_address}
     except Exception as e:
         logger.error(f"[Bluetooth] Failed to connect device: {e}")
-        # Fallback to bluetoothctl
         subprocess.Popen(f"bluetoothctl connect {device_address}", shell=True)
         return {"status": "connecting", "device": device_address}
 
@@ -184,21 +197,46 @@ async def disconnect_device(device_address: str):
         for d in mock_devices:
             if d.id == device_address:
                 d.connected = False
+        await ws_manager.broadcast("bluetooth:status_changed", {"devices": [d.model_dump() for d in mock_devices]})
         return {"status": "disconnected", "device": device_address}
 
     try:
         from dbus_next.aio import MessageBus
         from dbus_next import BusType, Message
+        from ..models.schemas import TrackMetadata
 
         dev_path = f"/org/bluez/hci0/dev_{device_address.replace(':', '_')}"
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-        await bus.call(Message(
-            destination='org.bluez',
-            path=dev_path,
-            interface='org.bluez.Device1',
-            member='Disconnect'
-        ))
+        try:
+            await bus.call(Message(
+                destination='org.bluez',
+                path=dev_path,
+                interface='org.bluez.Device1',
+                member='Disconnect'
+            ))
+        except Exception:
+            pass
         bus.disconnect()
+
+        subprocess.Popen(f"bluetoothctl disconnect {device_address}", shell=True)
+
+        # Clear media playback immediately
+        from ..services.bluetooth.dbus_listener import dbus_listener
+        dbus_listener.current_track = TrackMetadata(
+            title="No Track Playing",
+            artist="Connect Bluetooth to Stream",
+            album="",
+            duration=0,
+            position=0,
+            status="stopped",
+            artwork_url=None
+        )
+        dbus_listener.active_player_path = None
+        await ws_manager.broadcast("media:playback_state", dbus_listener.current_track.model_dump())
+        await ws_manager.broadcast("media:track_changed", dbus_listener.current_track.model_dump())
+
+        status = await get_bluetooth_status()
+        await ws_manager.broadcast("bluetooth:status_changed", status.model_dump())
         return {"status": "disconnected", "device": device_address}
     except Exception as e:
         logger.error(f"[Bluetooth] Failed to disconnect device: {e}")
@@ -208,16 +246,70 @@ async def disconnect_device(device_address: str):
 @router.delete("/forget/{device_address}")
 async def forget_device(device_address: str):
     """
-    Removes/unpairs a device from BlueZ.
+    Disconnects, untrusts, and unpairs/removes a device from BlueZ.
     """
     global mock_devices
     if settings.MOCK_MODE or platform.system().lower() != "linux":
         mock_devices = [d for d in mock_devices if d.id != device_address]
+        await ws_manager.broadcast("bluetooth:status_changed", {"devices": [d.model_dump() for d in mock_devices]})
         return {"status": "forgotten", "device": device_address}
 
     try:
-        subprocess.Popen(f"bluetoothctl remove {device_address}", shell=True)
+        from dbus_next.aio import MessageBus
+        from dbus_next import BusType, Message
+        from ..models.schemas import TrackMetadata
+
+        dev_path = f"/org/bluez/hci0/dev_{device_address.replace(':', '_')}"
+        bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+        try:
+            await bus.call(Message(
+                destination='org.bluez',
+                path=dev_path,
+                interface='org.bluez.Device1',
+                member='Disconnect'
+            ))
+        except Exception:
+            pass
+
+        try:
+            await bus.call(Message(
+                destination='org.bluez',
+                path='/org/bluez/hci0',
+                interface='org.bluez.Adapter1',
+                member='RemoveDevice',
+                signature='o',
+                body=[dev_path]
+            ))
+        except Exception:
+            pass
+        bus.disconnect()
+
+        # Complete disconnection & removal
+        subprocess.run(
+            f"bluetoothctl disconnect {device_address}; bluetoothctl untrust {device_address}; bluetoothctl remove {device_address}",
+            shell=True,
+            timeout=5
+        )
+
+        # Clear media playback immediately
+        from ..services.bluetooth.dbus_listener import dbus_listener
+        dbus_listener.current_track = TrackMetadata(
+            title="No Track Playing",
+            artist="Connect Bluetooth to Stream",
+            album="",
+            duration=0,
+            position=0,
+            status="stopped",
+            artwork_url=None
+        )
+        dbus_listener.active_player_path = None
+        await ws_manager.broadcast("media:playback_state", dbus_listener.current_track.model_dump())
+        await ws_manager.broadcast("media:track_changed", dbus_listener.current_track.model_dump())
+
+        status = await get_bluetooth_status()
+        await ws_manager.broadcast("bluetooth:status_changed", status.model_dump())
         return {"status": "forgotten", "device": device_address}
     except Exception as e:
         logger.error(f"[Bluetooth] Failed to forget device: {e}")
-        return {"status": "error", "message": str(e)}
+        subprocess.run(f"bluetoothctl remove {device_address}", shell=True)
+        return {"status": "forgotten", "device": device_address}

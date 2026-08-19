@@ -243,7 +243,37 @@ class DBusBluetoothListener:
                 if msg.member == 'PropertiesChanged' and msg.interface == 'org.freedesktop.DBus.Properties':
                     iface, changed_raw, _ = msg.body
                     changed = unwrap_variant(changed_raw)
-                    if iface == 'org.bluez.MediaPlayer1':
+                    if iface == 'org.bluez.Device1':
+                        connected_val = changed.get('Connected')
+                        if connected_val is not None:
+                            logger.info(f"[BlueZ Device] {msg.path} Connected: {connected_val}")
+                            async def handle_device_conn_change(is_conn: bool):
+                                if is_conn:
+                                    await asyncio.sleep(1.0)
+                                    await self._poll_current_media_state()
+                                else:
+                                    self.active_player_path = None
+                                    self.current_track = TrackMetadata(
+                                        title="No Track Playing",
+                                        artist="Connect Bluetooth to Stream",
+                                        album="",
+                                        duration=0,
+                                        position=0,
+                                        status="stopped",
+                                        artwork_url=None
+                                    )
+                                    await ws_manager.broadcast("media:playback_state", self.current_track.model_dump())
+                                    await ws_manager.broadcast("media:track_changed", self.current_track.model_dump())
+                                
+                                try:
+                                    from ...routers.bluetooth import get_bluetooth_status
+                                    status = await get_bluetooth_status()
+                                    await ws_manager.broadcast("bluetooth:status_changed", status.model_dump())
+                                except Exception:
+                                    pass
+                            asyncio.create_task(handle_device_conn_change(bool(connected_val)))
+
+                    elif iface == 'org.bluez.MediaPlayer1':
                         self.active_player_path = msg.path
                         track_val = changed.get('Track', {})
                         pos_ms = changed.get('Position')
