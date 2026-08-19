@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import platform
+import re
 import subprocess
-from typing import List, Set
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -10,15 +11,14 @@ class AudioDucker:
     """
     Handles lowering background media output volume (Bluetooth audio stream / Spotify)
     during incoming/active phone calls and turn-by-turn voice prompts,
-    and restoring normal volume when finished.
-    Targets PulseAudio/PipeWire sources, source-outputs, sink-inputs, and BlueZ MediaTransport1.
+    and restoring the EXACT previous volume level when finished.
+    Operates purely on local Linux PulseAudio/PipeWire streams without touching the phone's hardware volume.
     """
     def __init__(self):
         self.is_linux = platform.system().lower() == "linux"
         self.is_ducked = False
-        self.ducked_sources: Set[str] = set()
-        self.ducked_sink_inputs: Set[int] = set()
-        self.ducked_source_outputs: Set[int] = set()
+        self.saved_source_volumes: Dict[str, str] = {}
+        self.saved_sink_input_volumes: Dict[int, str] = {}
 
     async def _run_command(self, cmd: str) -> str:
         try:
@@ -33,127 +33,95 @@ class AudioDucker:
             logger.debug(f"[AudioDucker] Command failed ({cmd}): {e}")
             return ""
 
-    async def _duck_bluez_dbus(self, volume_val: int = 25):
-        """Sets AVRCP volume on active BlueZ MediaTransport1 (0-127)."""
-        if not self.is_linux:
-            return
-        try:
-            from dbus_next.aio import MessageBus
-            from dbus_next import BusType, Message, Variant
+    async def _get_source_volume(self, source_name: str) -> str:
+        """Reads the current volume string (e.g. '75%') of a PulseAudio source."""
+        out = await self._run_command(f"pactl get-source-volume {source_name}")
+        match = re.search(r'(\d+)%', out)
+        if match:
+            return f"{match.group(1)}%"
+        return "100%"
 
-            bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-            reply = await bus.call(
-                Message(
-                    destination='org.bluez',
-                    path='/',
-                    interface='org.freedesktop.DBus.ObjectManager',
-                    member='GetManagedObjects'
-                )
-            )
-            objects = reply.body[0] if reply.body else {}
-            for path, ifaces in objects.items():
-                if 'org.bluez.MediaTransport1' in ifaces:
-                    await bus.call(
-                        Message(
-                            destination='org.bluez',
-                            path=path,
-                            interface='org.freedesktop.DBus.Properties',
-                            member='Set',
-                            signature='ssv',
-                            body=['org.bluez.MediaTransport1', 'Volume', Variant('q', volume_val)]
-                        )
-                    )
-                    logger.info(f"[AudioDucker] Set BlueZ MediaTransport1 volume on {path} to {volume_val}/127")
-            bus.disconnect()
-        except Exception as e:
-            logger.debug(f"[AudioDucker] D-Bus MediaTransport1 volume note: {e}")
+    async def _get_sink_input_volume(self, sink_input_id: int) -> str:
+        """Reads the current volume string of a PulseAudio sink input."""
+        out = await self._run_command(f"pactl get-sink-input-volume {sink_input_id}")
+        match = re.search(r'(\d+)%', out)
+        if match:
+            return f"{match.group(1)}%"
+        return "100%"
 
-    async def duck(self, target_volume_percent: int = 15):
+    async def duck(self, duck_ratio: float = 0.25):
+        """
+        Ducks background media streams to ~25% of their current volume level,
+        preserving the user's base volume for accurate restoration.
+        """
         if self.is_ducked:
             return
         self.is_ducked = True
 
         if not self.is_linux:
-            logger.info(f"[AudioDucker Mock] Audio ducked to {target_volume_percent}%")
+            logger.info(f"[AudioDucker Mock] Audio ducked to {int(duck_ratio * 100)}% ratio")
             return
 
         try:
-            # 1. Duck via BlueZ D-Bus MediaTransport (AVRCP hardware volume)
-            asyncio.create_task(self._duck_bluez_dbus(int(127 * (target_volume_percent / 100))))
-
-            # 2. Duck PulseAudio / PipeWire Sources (e.g. bluez_source.XX_XX_XX_XX_XX_XX)
+            # 1. Inspect and duck active BlueZ PulseAudio/PipeWire Sources
             sources_out = await self._run_command("pactl list short sources")
             for line in sources_out.splitlines():
                 if line.strip():
                     parts = line.split()
                     if len(parts) >= 2:
-                        source_id, source_name = parts[0], parts[1]
+                        source_name = parts[1]
                         if "bluez" in source_name.lower():
-                            self.ducked_sources.add(source_name)
-                            await self._run_command(f"pactl set-source-volume {source_name} {target_volume_percent}%")
-                            logger.info(f"[AudioDucker] Ducked BlueZ source: {source_name} -> {target_volume_percent}%")
+                            cur_vol_str = await self._get_source_volume(source_name)
+                            cur_vol_int = int(cur_vol_str.replace("%", "")) if cur_vol_str.replace("%", "").isdigit() else 100
+                            self.saved_source_volumes[source_name] = cur_vol_str
 
-            # 3. Duck PulseAudio / PipeWire Sink-Inputs
+                            ducked_vol = max(12, int(cur_vol_int * duck_ratio))
+                            await self._run_command(f"pactl set-source-volume {source_name} {ducked_vol}%")
+                            logger.info(f"[AudioDucker] Ducked source {source_name}: {cur_vol_str} -> {ducked_vol}%")
+
+            # 2. Inspect and duck active Sink-Inputs
             sink_inputs_out = await self._run_command("pactl list short sink-inputs")
             for line in sink_inputs_out.splitlines():
                 if line.strip():
                     parts = line.split()
                     if parts and parts[0].isdigit():
                         s_id = int(parts[0])
-                        self.ducked_sink_inputs.add(s_id)
-                        await self._run_command(f"pactl set-sink-input-volume {s_id} {target_volume_percent}%")
+                        cur_vol_str = await self._get_sink_input_volume(s_id)
+                        cur_vol_int = int(cur_vol_str.replace("%", "")) if cur_vol_str.replace("%", "").isdigit() else 100
+                        self.saved_sink_input_volumes[s_id] = cur_vol_str
 
-            # 4. Duck PulseAudio / PipeWire Source-Outputs
-            source_outputs_out = await self._run_command("pactl list short source-outputs")
-            for line in source_outputs_out.splitlines():
-                if line.strip():
-                    parts = line.split()
-                    if parts and parts[0].isdigit():
-                        so_id = int(parts[0])
-                        self.ducked_source_outputs.add(so_id)
-                        await self._run_command(f"pactl set-source-output-volume {so_id} {target_volume_percent}%")
+                        ducked_vol = max(12, int(cur_vol_int * duck_ratio))
+                        await self._run_command(f"pactl set-sink-input-volume {s_id} {ducked_vol}%")
+                        logger.info(f"[AudioDucker] Ducked sink-input {s_id}: {cur_vol_str} -> {ducked_vol}%")
 
-            logger.info(f"[AudioDucker] Fully ducked audio streams to {target_volume_percent}%")
         except Exception as e:
             logger.warning(f"[AudioDucker] Volume duck failed: {e}")
 
     async def restore(self):
+        """
+        Restores all media streams back to the EXACT volume they were at prior to ducking.
+        """
         if not self.is_ducked:
             return
         self.is_ducked = False
 
         if not self.is_linux:
-            logger.info("[AudioDucker Mock] Audio restored to 100%")
+            logger.info("[AudioDucker Mock] Audio restored")
             return
 
         try:
-            # 1. Restore BlueZ D-Bus MediaTransport
-            asyncio.create_task(self._duck_bluez_dbus(127))
+            # 1. Restore BlueZ Sources to their exact previous volume
+            for source_name, orig_vol in self.saved_source_volumes.items():
+                await self._run_command(f"pactl set-source-volume {source_name} {orig_vol}")
+                logger.info(f"[AudioDucker] Restored source {source_name} -> {orig_vol}")
+            self.saved_source_volumes.clear()
 
-            # 2. Restore BlueZ Sources
-            for source_name in self.ducked_sources:
-                await self._run_command(f"pactl set-source-volume {source_name} 100%")
-            self.ducked_sources.clear()
+            # 2. Restore Sink-Inputs to their exact previous volume
+            for s_id, orig_vol in self.saved_sink_input_volumes.items():
+                await self._run_command(f"pactl set-sink-input-volume {s_id} {orig_vol}")
+                logger.info(f"[AudioDucker] Restored sink-input {s_id} -> {orig_vol}")
+            self.saved_sink_input_volumes.clear()
 
-            # Also ensure all bluez sources are restored
-            sources_out = await self._run_command("pactl list short sources")
-            for line in sources_out.splitlines():
-                if "bluez" in line.lower():
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        await self._run_command(f"pactl set-source-volume {parts[1]} 100%")
-
-            # 3. Restore Sink-Inputs
-            for s_id in self.ducked_sink_inputs:
-                await self._run_command(f"pactl set-sink-input-volume {s_id} 100%")
-            self.ducked_sink_inputs.clear()
-
-            # 4. Restore Source-Outputs
-            for so_id in self.ducked_source_outputs:
-                await self._run_command(f"pactl set-source-output-volume {so_id} 100%")
-            self.ducked_source_outputs.clear()
-
-            logger.info("[AudioDucker] Fully restored all audio streams to 100%")
         except Exception as e:
             logger.warning(f"[AudioDucker] Volume restore failed: {e}")
 

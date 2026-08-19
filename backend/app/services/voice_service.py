@@ -234,8 +234,8 @@ class VoiceGuidanceService:
 
             logger.info(f"[Voice Neural] Speaking: '{clean_text}'")
 
-            # 1. Duck background media volume to 20%
-            await audio_ducker.duck(target_volume_percent=20)
+            # 1. Duck background media volume to 25% of current volume
+            await audio_ducker.duck(duck_ratio=0.25)
 
             try:
                 audio_bytes = await self.generate_speech_bytes(clean_text)
