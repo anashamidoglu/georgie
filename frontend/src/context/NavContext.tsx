@@ -108,6 +108,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDestination(destCoords);
     setDestinationName(name || 'Pinned Location');
     setNavStatus('preview');
+    setIsNavExpanded(false);
     setInspectedStep(null);
     setActiveStepIndex(0);
     setSimulatedCoords(null);

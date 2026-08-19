@@ -224,7 +224,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                     <div className="w-full flex items-center justify-center space-x-6 pt-1 pb-0.5">
                       <button
                         type="button"
-                        onClick={prevTrack}
+                        onClick={() => {
+                          prevTrack();
+                          setIsMediaPopoverOpen(false);
+                        }}
                         aria-label="Previous Track"
                         className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                       >
@@ -233,7 +236,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
                       <button
                         type="button"
-                        onClick={togglePlayPause}
+                        onClick={() => {
+                          togglePlayPause();
+                          setIsMediaPopoverOpen(false);
+                        }}
                         aria-label={currentTrack.isPlaying ? 'Pause' : 'Play'}
                         className="text-white hover:text-white transition-transform active:scale-90 p-1.5"
                       >
@@ -246,7 +252,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
                       <button
                         type="button"
-                        onClick={nextTrack}
+                        onClick={() => {
+                          nextTrack();
+                          setIsMediaPopoverOpen(false);
+                        }}
                         aria-label="Next Track"
                         className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                       >

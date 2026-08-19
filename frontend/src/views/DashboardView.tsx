@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavDockedViewport } from '../components/nav/NavDockedViewport';
 import { NavPreviewCard } from '../components/nav/NavPreviewCard';
 import { RouteSelectionCard } from '../components/nav/RouteSelectionCard';
@@ -13,6 +13,7 @@ import { useMedia } from '../context/MediaContext';
 export const DashboardView: React.FC = () => {
   const {
     isNavExpanded,
+    setIsNavExpanded,
     navStatus,
     inspectedStep,
   } = useNav();
@@ -25,6 +26,19 @@ export const DashboardView: React.FC = () => {
     nextTrack,
     prevTrack,
   } = useMedia();
+
+  // Dynamic Layout Rule:
+  // - When Nav is idle and media is OFF -> Expanded full-bleed navigation map is default.
+  // - When Nav is idle and media is ON -> Automatically resizes to split view (Date + Media).
+  useEffect(() => {
+    if (navStatus === 'idle') {
+      if (!hasActiveMedia) {
+        setIsNavExpanded(true);
+      } else {
+        setIsNavExpanded(false);
+      }
+    }
+  }, [hasActiveMedia, navStatus, setIsNavExpanded]);
 
   return (
     <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between max-h-full">
