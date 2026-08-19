@@ -12,13 +12,13 @@ export const NavDockedViewport: React.FC = () => {
     destinationName,
     eta,
     primaryManeuver,
-    availableRoutes,
-    selectedRouteIndex,
-    selectRoute,
+    activeRoute,
     startNavigation,
     endNavigation,
     recenterMap,
   } = useNav();
+
+  const trafficColorClass = activeRoute?.traffic?.colorClass || 'text-emerald-400';
 
   return (
     <div
@@ -136,87 +136,57 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Banner: Preview Confirmation Mode */}
+      {/* 3. Bottom Floating Banner: Preview Confirmation Mode (Clean, no scrollbars) */}
       {navStatus === 'preview' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-3 flex flex-col font-sf select-none w-full max-w-[560px]"
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-3 flex items-center justify-between font-sf select-none w-full max-w-[500px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {/* Multi-Route Selection Tabs (if alternatives available) */}
-            {availableRoutes.length > 1 && (
-              <div className="flex items-center space-x-2 mb-2 pb-2 border-b border-white/10 overflow-x-auto">
-                <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider mr-1">
-                  Routes:
+            {/* Route Summary & Google Maps Style Traffic-Colored ETA */}
+            <div className="flex flex-col min-w-0 mr-4">
+              <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
+                {destinationName}
+              </span>
+              <div className="flex items-baseline space-x-2.5 mt-0.5">
+                <span className={`text-xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
+                  {eta.duration}
                 </span>
-                {availableRoutes.map((r, idx) => {
-                  const isSelected = selectedRouteIndex === idx;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => selectRoute(idx)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all flex items-center space-x-1.5 flex-shrink-0 ${
-                        isSelected
-                          ? 'bg-sky-500 text-white shadow-md'
-                          : 'bg-white/10 hover:bg-white/20 text-white/70'
-                      }`}
-                    >
-                      <span>{r.summary}</span>
-                      <span className="text-[10px] opacity-80 tabular-nums">({r.diffStr})</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Route Summary & Confirmation Actions */}
-            <div className="flex items-center justify-between">
-              {/* ETA Details */}
-              <div className="flex flex-col min-w-0 mr-3">
-                <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
-                  {destinationName}
+                <span className="text-sm font-semibold font-sf-display text-white/80 tabular-nums">
+                  {eta.distance}
                 </span>
-                <div className="flex items-baseline space-x-2.5 mt-0.5">
-                  <span className="text-lg font-bold font-sf-display text-emerald-400 tabular-nums">
-                    {eta.duration}
-                  </span>
-                  <span className="text-sm font-semibold font-sf-display text-white/80 tabular-nums">
-                    {eta.distance}
-                  </span>
-                  <span className="text-xs text-white/40 tabular-nums">
-                    {eta.arrival}
-                  </span>
-                </div>
+                <span className="text-xs text-white/40 tabular-nums">
+                  {eta.arrival}
+                </span>
               </div>
+            </div>
 
-              {/* Start Navigation (Clean button without glow) & Cancel Actions */}
-              <div className="flex items-center space-x-2 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    endNavigation();
-                  }}
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-                  aria-label="Cancel route"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+            {/* Clean Start Button & Cancel */}
+            <div className="flex items-center space-x-2.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  endNavigation();
+                }}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                aria-label="Cancel route"
+              >
+                <X className="w-4 h-4" />
+              </button>
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startNavigation();
-                  }}
-                  className="h-10 px-5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center space-x-1.5 border border-emerald-400/30 transition-colors font-sf text-sm tracking-tight"
-                >
-                  <Play className="w-3.5 h-3.5 fill-black" />
-                  <span>Start</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startNavigation();
+                }}
+                className="h-10 px-5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center space-x-1.5 border border-emerald-400/30 transition-colors font-sf text-sm tracking-tight"
+              >
+                <Play className="w-3.5 h-3.5 fill-black" />
+                <span>Start</span>
+              </button>
             </div>
           </div>
         </div>
@@ -230,9 +200,9 @@ export const NavDockedViewport: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {/* Live ETA Stats */}
+            {/* Live ETA Stats (Traffic Colored) */}
             <div className="flex items-baseline space-x-3.5">
-              <span className="text-xl font-bold font-sf-display text-emerald-400 tabular-nums tracking-tight">
+              <span className={`text-xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
                 {eta.duration}
               </span>
               <span className="text-sm font-semibold font-sf-display text-white/80 tabular-nums tracking-tight">

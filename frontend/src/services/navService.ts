@@ -39,10 +39,18 @@ export interface RouteGeoJSON {
   }[];
 }
 
+export interface TrafficInfo {
+  condition: 'fast' | 'moderate' | 'slow';
+  colorClass: string; // 'text-emerald-400' | 'text-amber-400' | 'text-red-400'
+  badgeClass: string; // 'bg-emerald-500/20 text-emerald-300' etc.
+  label: string;      // 'Fast route' | 'Moderate traffic' | 'Heavy traffic'
+}
+
 export interface RouteResult {
   id: number;
   summary: string;
   diffStr: string;
+  traffic: TrafficInfo;
   geoJson: RouteGeoJSON;
   rawGeometry: RouteGeometry;
   totalDistanceMeters: number;
@@ -70,6 +78,84 @@ function getHaversineDistance(c1: [number, number], c2: [number, number]): numbe
     Math.cos(c1[1] * rad) * Math.cos(c2[1] * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c);
+}
+
+function computeTraffic(congestion: string[] | undefined): TrafficInfo {
+  if (!congestion || congestion.length === 0) {
+    return {
+      condition: 'fast',
+      colorClass: 'text-emerald-400',
+      badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      label: 'Fast route',
+    };
+  }
+
+  const total = congestion.length;
+  const heavy = congestion.filter((c) => c === 'heavy' || c === 'severe').length;
+  const moderate = congestion.filter((c) => c === 'moderate').length;
+
+  if (heavy / total > 0.08 || heavy >= 18) {
+    return {
+      condition: 'slow',
+      colorClass: 'text-red-400',
+      badgeClass: 'bg-red-500/20 text-red-300 border-red-500/30',
+      label: 'Heavy traffic',
+    };
+  }
+
+  if (moderate / total > 0.12 || (moderate + heavy) / total > 0.14) {
+    return {
+      condition: 'moderate',
+      colorClass: 'text-amber-400',
+      badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+      label: 'Moderate traffic',
+    };
+  }
+
+  return {
+    condition: 'fast',
+    colorClass: 'text-emerald-400',
+    badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    label: 'Typical traffic',
+  };
+}
+
+function extractMajorRoads(steps: any[]): string {
+  const allNames: string[] = [];
+  steps.forEach((s) => {
+    const bannerShield = s.bannerInstructions?.[0]?.primary?.components?.find(
+      (c: any) => c.type === 'icon'
+    )?.mapbox_shield?.display_ref;
+    const name = bannerShield || s.name || s.bannerInstructions?.[0]?.primary?.text;
+    if (
+      name &&
+      !/^\d+\s*street$/i.test(name) &&
+      !/roundabout|turn|destination|bear|drive/i.test(name) &&
+      name.length > 2
+    ) {
+      allNames.push(name);
+    }
+  });
+
+  const majorPatterns = [
+    /E\d+/i,
+    /D\d+/i,
+    /S\d+/i,
+    /Sheikh/i,
+    /Ittihad/i,
+    /Tripoli/i,
+    /Khawaneej/i,
+    /Airport/i,
+    /Baghdad/i,
+    /Beirut/i,
+    /Boulevard/i,
+    /Highway/i,
+    /Algeria/i,
+  ];
+
+  const major = allNames.filter((n) => majorPatterns.some((p) => p.test(n)));
+  const unique = [...new Set(major.length > 0 ? major : allNames)];
+  return unique.slice(0, 2).join(' / ') || 'Direct Route';
 }
 
 function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
@@ -241,17 +327,15 @@ export async function fetchDirections(
             const arrivalMinutes = arrivalDate.getMinutes().toString().padStart(2, '0');
             const arrivalStr = `${arrivalHours}:${arrivalMinutes} arrival`;
 
-            // Route summary label (e.g. "via E11", "via E311")
-            const majorRoads = (route.legs?.[0]?.steps || [])
-              .map((s: any) => s.name)
-              .filter((name: string) => name && name.length > 2)
-              .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i);
-
-            const summary = majorRoads.length > 0 ? `via ${majorRoads.slice(0, 2).join(' / ')}` : `Route ${routeIdx + 1}`;
+            // Highway & arterial road summary label
+            const summary = extractMajorRoads(route.legs?.[0]?.steps || []);
 
             // Relative diff string
             const diffMin = Math.round((route.duration - fastestDuration) / 60);
             const diffStr = routeIdx === 0 || diffMin <= 0 ? 'Fastest' : `+${diffMin} min`;
+
+            // Traffic condition and color
+            const traffic = computeTraffic(route.legs?.[0]?.annotation?.congestion);
 
             const leg = route.legs?.[0];
             const steps = leg?.steps || [];
@@ -278,6 +362,7 @@ export async function fetchDirections(
               id: routeIdx,
               summary,
               diffStr,
+              traffic,
               geoJson,
               rawGeometry: route.geometry,
               totalDistanceMeters: distanceMeters,
@@ -327,8 +412,14 @@ export async function fetchDirections(
 
   const fallbackRoute: RouteResult = {
     id: 0,
-    summary: 'Main Route',
+    summary: 'Direct Route',
     diffStr: 'Fastest',
+    traffic: {
+      condition: 'fast',
+      colorClass: 'text-emerald-400',
+      badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      label: 'Typical traffic',
+    },
     geoJson: {
       type: 'FeatureCollection',
       features: [

@@ -254,7 +254,7 @@ export const MapboxCanvas: React.FC = () => {
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#64748b',
+            'line-color': '#1d4ed8',
             'line-width': [
               'interpolate',
               ['linear'],
@@ -263,8 +263,8 @@ export const MapboxCanvas: React.FC = () => {
               14, 5.0,
               17, 7.0,
             ],
-            'line-opacity': 0.65,
-            'line-emissive-strength': 0.5,
+            'line-opacity': 0.85,
+            'line-emissive-strength': 0.65,
           },
         });
       }
