@@ -3,8 +3,6 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCurrentPosition } from '../hooks/useCurrentPosition';
 import { fetchDirections, checkOffRouteStatus } from '../services/navService';
 import type { RouteResult, ManeuverInfo } from '../services/navService';
-import { fetchRouteIncidents, getApproachingIncident } from '../services/incidentService';
-import type { TrafficIncident } from '../services/incidentService';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
@@ -94,13 +92,9 @@ interface NavContextType {
   endNavigation: () => void;
   recenterMap: () => void;
 
-  // Phase 3.5: Real-Time Incident Warnings & Off-Route Engine
-  incidents: TrafficIncident[];
-  approachingIncident: TrafficIncident | null;
-  dismissIncident: (id: string) => void;
+  // Off-Route Dynamic Rerouting & Dev Testing
   isRerouting: boolean;
   simulateOffRoute: () => void;
-  simulateIncidentAlert: () => void;
   resetSimulatedPosition: () => void;
 }
 
@@ -125,10 +119,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const abortControllerRef = useRef<AbortController | null>(null);
   const wasExpandedBeforePreviewRef = useRef<boolean>(false);
 
-  // Phase 3.5 & Off-Route state
-  const [incidents, setIncidents] = useState<TrafficIncident[]>([]);
-  const [approachingIncident, setApproachingIncident] = useState<TrafficIncident | null>(null);
-  const [dismissedIncidentIds, setDismissedIncidentIds] = useState<string[]>([]);
+  // Off-Route Engine State
   const [isRerouting, setIsRerouting] = useState<boolean>(false);
   const consecutiveOffRouteCountRef = useRef<number>(0);
   const isReroutingRef = useRef<boolean>(false);
@@ -195,12 +186,6 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setAllSteps(res.activeRoute.allSteps);
       setPrimaryManeuver(res.activeRoute.primaryManeuver);
       setUpcomingSteps(res.activeRoute.upcomingSteps);
-
-      // Load traffic incidents along new route polyline
-      const routeCoords = res.activeRoute.rawGeometry?.coordinates || [];
-      const foundIncidents = await fetchRouteIncidents(routeCoords);
-      setIncidents(foundIncidents);
-      setDismissedIncidentIds([]);
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         console.error('Routing calculation error:', e);
@@ -328,7 +313,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Switch between alternative routes
-  const selectRoute = async (index: number) => {
+  const selectRoute = (index: number) => {
     if (!availableRoutes[index]) return;
     const targetRoute = availableRoutes[index];
     setSelectedRouteIndex(index);
@@ -343,18 +328,6 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUpcomingSteps(targetRoute.upcomingSteps);
     setInspectedStep(null);
     setActiveStepIndex(0);
-
-    const routeCoords = targetRoute.rawGeometry?.coordinates || [];
-    const foundIncidents = await fetchRouteIncidents(routeCoords);
-    setIncidents(foundIncidents);
-  };
-
-  // Dismiss an incident alert banner manually or via timer
-  const dismissIncident = (id: string) => {
-    setDismissedIncidentIds((prev) => [...prev, id]);
-    if (approachingIncident?.id === id) {
-      setApproachingIncident(null);
-    }
   };
 
   // Automatic Off-Route Dynamic Reroute Engine
@@ -389,10 +362,6 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPrimaryManeuver(updated.primaryManeuver);
         setUpcomingSteps(updated.upcomingSteps);
         setActiveStepIndex(0);
-
-        const routeCoords = updated.rawGeometry?.coordinates || [];
-        const incs = await fetchRouteIncidents(routeCoords);
-        setIncidents(incs);
       }
     } catch (e) {
       console.warn('Off-route dynamic auto-reroute failed:', e);
@@ -405,13 +374,12 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Continuous monitoring for Approaching Incidents & Off-Route status during active navigation
+  // Continuous monitoring for Off-Route status during active navigation
   useEffect(() => {
     if (navStatus !== 'navigating' || !activeRoute?.rawGeometry?.coordinates) return;
 
     const routeCoords = activeRoute.rawGeometry.coordinates;
 
-    // 1. Check Off-Route status
     const offRouteCheck = checkOffRouteStatus(vehicleCoords, routeCoords, 35);
     if (offRouteCheck.isOffRoute) {
       consecutiveOffRouteCountRef.current += 1;
@@ -421,15 +389,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       consecutiveOffRouteCountRef.current = 0;
     }
-
-    // 2. Check Approaching Incidents
-    const nextInc = getApproachingIncident(vehicleCoords, incidents, routeCoords);
-    if (nextInc && !dismissedIncidentIds.includes(nextInc.id)) {
-      setApproachingIncident(nextInc);
-    } else {
-      setApproachingIncident(null);
-    }
-  }, [vehicleCoords[0], vehicleCoords[1], navStatus, activeRoute, incidents, dismissedIncidentIds]);
+  }, [vehicleCoords[0], vehicleCoords[1], navStatus, activeRoute]);
 
   // 60-second live background ETA & traffic recalculation during active navigation
   useEffect(() => {
@@ -466,7 +426,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(interval);
   }, [navStatus, destination, waypoints, selectedRouteIndex, destinationName]);
 
-  // Step 3: Start live 3D driver follow navigation (angled behind vehicle in direction of travel)
+  // Step 3: Start live 3D driver follow navigation
   const startNavigation = () => {
     setNavStatus('navigating');
     setInspectedStep(null);
@@ -499,7 +459,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Interactive Step Inspector: Jump dot to clicked maneuver & angle camera along that road segment
+  // Interactive Step Inspector
   const inspectStep = (step: ManeuverInfo) => {
     setInspectedStep(step);
     setSimulatedCoords(step.location);
@@ -582,7 +542,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Simulation controls: Move vehicle puck along the route and angle camera directly behind vehicle looking ahead
+  // Simulation controls: Move vehicle puck along the route
   const nextSimulationStep = () => {
     if (allSteps.length === 0) return;
     const nextIdx = Math.min(allSteps.length - 1, activeStepIndex + 1);
@@ -666,9 +626,6 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveStepIndex(0);
     setSimulatedCoords(null);
     setSimulatedHeading(0);
-    setIncidents([]);
-    setApproachingIncident(null);
-    setDismissedIncidentIds([]);
     setIsRerouting(false);
     consecutiveOffRouteCountRef.current = 0;
     isReroutingRef.current = false;
@@ -722,29 +679,36 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Dev Testing Helpers: Trigger incident alert & simulate missing a turn / going off-route
+  // Dev Testing Helper: Make vehicle puck actually drive down the wrong road / straight past the turn
   const simulateOffRoute = () => {
     if (!vehicleCoords || vehicleCoords[0] === 0) return;
-    // Shift vehicle coordinates ~120m perpendicularly
-    const offsetCoords: [number, number] = [
-      vehicleCoords[0] + 0.0012,
-      vehicleCoords[1] + 0.0012,
-    ];
-    setSimulatedCoords(offsetCoords);
-  };
 
-  const simulateIncidentAlert = () => {
-    const testInc: TrafficIncident = {
-      id: `test-inc-${Date.now()}`,
-      type: 'accident',
-      severity: 'major',
-      location: [vehicleCoords[0] + 0.003, vehicleCoords[1] + 0.003],
-      title: 'Accident reported ahead',
-      description: 'Two vehicles involved on highway. Right lane blocked.',
-      delaySeconds: 240,
-      distanceAheadMeters: 450,
-    };
-    setApproachingIncident(testInc);
+    // Use current road bearing and advance the vehicle 90m down the wrong road
+    const currentHeading = vehicleHeading || positionRef.current.heading || 0;
+    const headingRad = currentHeading * (Math.PI / 180);
+    const distanceMeters = 90;
+
+    const dLat = (distanceMeters * Math.cos(headingRad)) / 111320;
+    const dLng =
+      (distanceMeters * Math.sin(headingRad)) /
+      (111320 * Math.cos(vehicleCoords[1] * (Math.PI / 180)));
+
+    const wrongTurnCoords: [number, number] = [
+      vehicleCoords[0] + dLng,
+      vehicleCoords[1] + dLat,
+    ];
+
+    setSimulatedCoords(wrongTurnCoords);
+
+    if (mapInstance) {
+      mapInstance.easeTo({
+        center: wrongTurnCoords,
+        zoom: 18.0,
+        pitch: 62,
+        bearing: currentHeading,
+        duration: 600,
+      });
+    }
   };
 
   const resetSimulatedPosition = () => {
@@ -802,13 +766,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         endNavigation,
         recenterMap,
 
-        // Phase 3.5 & Off-route
-        incidents,
-        approachingIncident,
-        dismissIncident,
+        // Off-route rerouting & testing
         isRerouting,
         simulateOffRoute,
-        simulateIncidentAlert,
         resetSimulatedPosition,
       }}
     >

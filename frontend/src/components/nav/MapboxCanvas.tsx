@@ -169,7 +169,6 @@ export const MapboxCanvas: React.FC = () => {
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const destMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
-  const incidentMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -188,7 +187,6 @@ export const MapboxCanvas: React.FC = () => {
     allSteps,
     activeStepIndex,
     inspectedStep,
-    incidents,
   } = useNav();
 
   const currentLegIndex =
@@ -286,8 +284,6 @@ export const MapboxCanvas: React.FC = () => {
       }
       waypointMarkersRef.current.forEach((m) => m.remove());
       waypointMarkersRef.current = [];
-      incidentMarkersRef.current.forEach((m) => m.remove());
-      incidentMarkersRef.current = [];
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -297,62 +293,54 @@ export const MapboxCanvas: React.FC = () => {
     };
   }, []);
 
+  // Update Driver Vehicle Puck (Live GPS or Simulated navigation step)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const targetCoords: [number, number] =
-      vehicleCoords && vehicleCoords[0] !== 0
-        ? vehicleCoords
-        : coords && coords[0] !== 0
-        ? coords
-        : [55.3781, 25.3223];
-
-    if (!markerRef.current) {
-      const el = document.createElement('div');
-      el.className = 'vehicle-puck relative flex items-center justify-center pointer-events-none z-30';
-      el.style.width = '38px';
-      el.style.height = '38px';
-      el.innerHTML = `
-        <div class="relative w-8 h-8 flex items-center justify-center">
-          <div class="w-7 h-7 rounded-full bg-sky-500 border-2 border-white shadow-md flex items-center justify-center transition-transform duration-300">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-              <path d="M12 2L2 22L12 18L22 22L12 2Z"/>
-            </svg>
+    if (vehicleCoords && vehicleCoords[0] !== 0) {
+      if (!markerRef.current) {
+        const el = document.createElement('div');
+        el.className = 'vehicle-puck-container select-none';
+        el.innerHTML = `
+          <div class="relative w-8 h-8 flex items-center justify-center">
+            <div class="puck-chevron w-7 h-7 bg-sky-500 rounded-full border-2 border-white flex items-center justify-center text-white shadow-md">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M12 2L4 20L12 16.5L20 20L12 2Z" />
+              </svg>
+            </div>
           </div>
-        </div>
-      `;
-
-      markerRef.current = new mapboxgl.Marker({
-        element: el,
-        rotationAlignment: 'map',
-      })
-        .setLngLat(targetCoords)
-        .addTo(map);
-    } else {
-      markerRef.current.setLngLat(targetCoords);
-      markerRef.current.setRotation(vehicleHeading || 0);
+        `;
+        markerRef.current = new mapboxgl.Marker({
+          element: el,
+          rotationAlignment: 'map',
+        })
+          .setLngLat(vehicleCoords)
+          .addTo(map);
+      } else {
+        markerRef.current.setLngLat(vehicleCoords);
+        markerRef.current.setRotation(vehicleHeading || 0);
+      }
     }
   }, [vehicleCoords, coords, vehicleHeading, mapLoaded]);
 
+  // Update Destination Pin Marker (Google Maps Red Pin)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     if (destination && navStatus !== 'idle') {
       if (!destMarkerRef.current) {
-        const destEl = document.createElement('div');
-        destEl.className = 'cursor-pointer select-none filter drop-shadow-md';
-        destEl.innerHTML = `
-          <svg width="28" height="36" viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 0C7.163 0 0 7.163 0 16C0 26.5 14.2 39 15.2 39.7C15.6 40.1 16.4 40.1 16.8 39.7C17.8 39 32 26.5 32 16C32 7.163 24.837 0 16 0Z" fill="#EA4335"/>
-            <path d="M16 2C8.268 2 2 8.268 2 16C2 25 14.5 36.5 16 37.8C17.5 36.5 30 25 30 16C30 8.268 23.732 2 16 2Z" fill="#D93025"/>
-            <circle cx="16" cy="15" r="5.5" fill="#781005"/>
-            <circle cx="16" cy="15" r="4.2" fill="#FFFFFF"/>
-          </svg>
+        const el = document.createElement('div');
+        el.className = 'dest-pin-container select-none';
+        el.innerHTML = `
+          <div class="w-8 h-8 rounded-full bg-rose-500 border-2 border-white flex items-center justify-center shadow-lg text-white font-bold">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+          </div>
         `;
-
-        destMarkerRef.current = new mapboxgl.Marker({ element: destEl, offset: [0, -18] })
+        destMarkerRef.current = new mapboxgl.Marker({ element: el })
           .setLngLat(destination)
           .addTo(map);
       } else {
@@ -366,6 +354,7 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [destination, navStatus]);
 
+  // Update intermediate waypoint pin markers (auto-remove reached stops)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -393,63 +382,6 @@ export const MapboxCanvas: React.FC = () => {
       waypointMarkersRef.current = newMarkers;
     }
   }, [waypoints, navStatus, currentLegIndex]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    incidentMarkersRef.current.forEach((m) => m.remove());
-    incidentMarkersRef.current = [];
-
-    if (navStatus !== 'idle' && incidents && incidents.length > 0) {
-      const markers = incidents.map((inc) => {
-        const el = document.createElement('div');
-        el.className = 'cursor-pointer select-none transition-transform hover:scale-110 active:scale-95';
-
-        let bgClass = 'bg-red-600 border-white text-white';
-        let iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>';
-
-        if (inc.type === 'accident') {
-          bgClass = 'bg-red-600 border-white text-white';
-          iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-.8 2-2 4-4 6-2.5 2.5-3 5.5-1.5 8.5 1.5 3 4.5 4.5 7.5 4.5 3.5 0 6.5-2.5 7-6 .5-4.5-3-8-5-10-.5 1-1.5 2-2.5 2.5.5-2 0-4-1.5-5.5z"/></svg>';
-        } else if (inc.type === 'roadwork') {
-          bgClass = 'bg-amber-500 border-white text-black';
-          iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="8" rx="1"/><path d="M17 14v7M7 14v7M14 6L10 14M6 6L2 14M22 6L18 14"/></svg>';
-        } else if (inc.type === 'closure') {
-          bgClass = 'bg-rose-700 border-white text-white';
-          iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>';
-        }
-
-        el.innerHTML = `
-          <div class="w-6 h-6 rounded-full border-2 shadow-md flex items-center justify-center ${bgClass}">
-            ${iconSvg}
-          </div>
-        `;
-
-        const delayMinutes = Math.round((inc.delaySeconds || 0) / 60);
-        const popupHtml = `
-          <div style="font-family: system-ui, -apple-system, sans-serif; padding: 6px 10px; color: #ffffff; background: #12131a; border-radius: 12px; font-size: 12px; line-height: 1.4; max-width: 220px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-            <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">${inc.title}</div>
-            <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin-bottom: 4px;">${inc.description}</div>
-            ${delayMinutes > 0 ? `<div style="color: #fbbf24; font-weight: 700; font-size: 11px;">+${delayMinutes} min delay</div>` : ''}
-          </div>
-        `;
-
-        const popup = new mapboxgl.Popup({
-          offset: 14,
-          closeButton: false,
-          className: 'incident-popup-clean',
-        }).setHTML(popupHtml);
-
-        return new mapboxgl.Marker({ element: el })
-          .setLngLat(inc.location)
-          .setPopup(popup)
-          .addTo(map);
-      });
-
-      incidentMarkersRef.current = markers;
-    }
-  }, [incidents, navStatus]);
 
   useEffect(() => {
     const map = mapRef.current;

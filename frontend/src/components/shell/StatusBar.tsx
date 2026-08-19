@@ -9,7 +9,6 @@ import {
   SkipBack,
   SkipForward,
   Volume2,
-  AlertTriangle,
   RotateCcw,
   MapPin,
 } from 'lucide-react';
@@ -41,7 +40,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     activeStepIndex,
     nextSimulationStep,
     prevSimulationStep,
-    simulateIncidentAlert,
     simulateOffRoute,
     resetSimulatedPosition,
   } = useNav();
@@ -90,7 +88,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   return (
     <header className="w-full h-12 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-40 font-sf relative">
-      {/* Left: Navigation Dev & Simulation Testing Suite */}
+      {/* Left: Navigation Simulator & Miss Turn Dev Tool */}
       <div className="flex items-center space-x-2">
         {/* Driving Step Simulator (Active when a route is active) */}
         {allSteps.length > 0 && (
@@ -119,32 +117,21 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           </div>
         )}
 
-        {/* Direct Dev Testing Buttons (Only when navigating/testing) */}
+        {/* Miss Turn / Off-Route Simulation Dev Buttons */}
         {navStatus !== 'idle' && (
           <div className="flex items-center space-x-1.5 animate-in fade-in duration-150">
-            {/* Trigger Test Incident Banner */}
-            <button
-              type="button"
-              onClick={simulateIncidentAlert}
-              className="text-[9px] font-sf font-semibold px-2.5 py-0.5 rounded-full bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 flex items-center space-x-1 transition-colors"
-              title="Trigger test incident alert banner (8s auto-dismiss countdown)"
-            >
-              <AlertTriangle className="w-2.5 h-2.5" />
-              <span>Test Incident</span>
-            </button>
-
-            {/* Trigger Missed Turn / Off-Route */}
+            {/* Simulate Missing Turn (Drives 90m down straight/wrong road) */}
             <button
               type="button"
               onClick={simulateOffRoute}
-              className="text-[9px] font-sf font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 flex items-center space-x-1 transition-colors"
-              title="Shift coordinates to test off-route auto-rerouting"
+              className="text-[9px] font-sf font-semibold px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center space-x-1 transition-colors active:scale-95"
+              title="Simulate driving past turn / missing turn to trigger dynamic rerouting"
             >
               <RotateCcw className="w-2.5 h-2.5" />
-              <span>Test Off-Route</span>
+              <span>Miss Turn</span>
             </button>
 
-            {/* Reset Vehicle Puck */}
+            {/* Reset Vehicle Puck to current turn */}
             <button
               type="button"
               onClick={resetSimulatedPosition}

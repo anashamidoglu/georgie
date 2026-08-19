@@ -14,7 +14,6 @@ import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
 import { RoadShield, ExitShield } from './RoadShield';
 import { GoogleMapsSearchCard } from './GoogleMapsSearchCard';
-import { IncidentAlertBanner } from './IncidentAlertBanner';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
@@ -33,8 +32,6 @@ export const NavDockedViewport: React.FC = () => {
     startNavigation,
     endNavigation,
     recenterMap,
-    approachingIncident,
-    dismissIncident,
     isRerouting,
   } = useNav();
 
@@ -49,12 +46,12 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 2. Top Floating Overlays */}
       <div className="absolute top-0 left-0 right-0 p-3.5 flex items-start justify-between pointer-events-none z-20">
-        {/* Left Section: Turn Banner / Incident Banner / Rerouting Pill */}
+        {/* Left Section: Turn Banner / Rerouting Pill */}
         <div className="flex flex-col space-y-2.5 max-w-[420px]">
-          {/* Dynamic Off-Route Rerouting Status Badge */}
+          {/* Dynamic Off-Route Rerouting Status Badge (Clean Black and White Glass styling) */}
           {isRerouting && (
-            <div className="pointer-events-auto inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-amber-500/90 text-black font-bold text-xs shadow-lg backdrop-blur-md animate-in fade-in duration-200">
-              <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+            <div className="pointer-events-auto inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-black/95 border border-white/20 text-white font-bold text-xs shadow-2xl backdrop-blur-md animate-in fade-in duration-200 font-sf select-none">
+              <RotateCcw className="w-3.5 h-3.5 animate-spin text-white" />
               <span>Rerouting...</span>
             </div>
           )}
@@ -120,15 +117,6 @@ export const NavDockedViewport: React.FC = () => {
           ) : (
             <div />
           )}
-
-          {/* Approaching Real-Time Traffic Incident Banner (Auto-dismiss timer) */}
-          {navStatus === 'navigating' && approachingIncident && (
-            <IncidentAlertBanner
-              incident={approachingIncident}
-              onDismiss={() => dismissIncident(approachingIncident.id)}
-              autoDismissSeconds={8}
-            />
-          )}
         </div>
 
         {/* Action Controls: Recenter Button & Expand/Collapse Toggle */}
@@ -140,26 +128,21 @@ export const NavDockedViewport: React.FC = () => {
           {/* Recenter Location Button */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              recenterMap();
-            }}
+            onClick={recenterMap}
             className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
-            aria-label="Recenter location"
-            title="Recenter location"
+            aria-label="Recenter Location"
+            title="Recenter Location"
           >
-            <Navigation className="w-5 h-5 text-sky-400 fill-sky-400/20" />
+            <Navigation className="w-5 h-5" />
           </button>
 
-          {/* Expand / Collapse Map Toggle Button */}
+          {/* Expand / Collapse Full Screen Nav */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsNavExpanded(!isNavExpanded);
-            }}
+            onClick={() => setIsNavExpanded(!isNavExpanded)}
             className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
-            aria-label={isNavExpanded ? 'Collapse Map' : 'Expand Map'}
+            aria-label={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
+            title={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
           >
             {isNavExpanded ? (
               <Minimize2 className="w-5 h-5" />
@@ -170,11 +153,11 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Banner: Preview Confirmation Mode + Floating Add Stop Pill */}
+      {/* 3. Bottom Floating Route Preview Card (Before Starting Driving Follow) */}
       {navStatus === 'preview' && (
-        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center pointer-events-none z-30 space-y-2">
-          {/* Add Stop pill matching the ETA banner style, aligned to the left */}
-          <div className="w-full max-w-[480px] flex justify-start px-1">
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center space-y-2 pointer-events-none z-30">
+          {/* Multi-Stop Action Strip */}
+          <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={(e) => {
@@ -264,24 +247,24 @@ export const NavDockedViewport: React.FC = () => {
               </span>
             </div>
 
-            {/* Exit Navigation Button */}
+            {/* End Navigation Button [X] */}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 endNavigation();
               }}
-              className="h-9 px-3.5 rounded-full bg-white/10 hover:bg-red-500/20 text-white/80 hover:text-red-300 flex items-center space-x-1.5 transition-colors text-xs font-semibold flex-shrink-0"
-              aria-label="Exit Navigation"
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
+              aria-label="End Navigation"
+              title="End Navigation"
             >
-              <X className="w-3.5 h-3.5" />
-              <span>Exit</span>
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* 5. Google Maps Style In-Nav Search Card */}
+      {/* 5. Google Maps Style Search & Autocomplete Overlay */}
       <GoogleMapsSearchCard
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
