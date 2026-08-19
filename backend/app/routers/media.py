@@ -4,8 +4,16 @@ from ..services.artwork_service import ArtworkService
 from ..services.bluetooth.mock_listener import mock_bt_listener
 from ..services.bluetooth.dbus_listener import dbus_listener
 from ..config import settings
+from ..models.schemas import TrackMetadata
 
 router = APIRouter(prefix="/api/media", tags=["media"])
+
+@router.get("/current", response_model=TrackMetadata)
+async def get_current_media():
+    if settings.MOCK_MODE:
+        return mock_bt_listener.current_track
+    else:
+        return dbus_listener.current_track
 
 @router.get("/artwork")
 async def get_artwork(artist: str = Query(...), title: str = Query(...)):

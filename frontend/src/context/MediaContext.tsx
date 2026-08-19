@@ -36,6 +36,33 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ? `http://${import.meta.env.VITE_BACKEND_HOST}:${backendPort}`
     : '';
 
+  // Initial fetch of current track on mount
+  useEffect(() => {
+    const fetchCurrentMedia = async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/media/current`);
+        if (res.ok) {
+          const trackData = await res.json();
+          if (trackData && trackData.title && trackData.title !== 'No Track Playing') {
+            setCurrentTrack({
+              title: trackData.title,
+              artist: trackData.artist || 'Unknown Artist',
+              album: trackData.album || '',
+              duration: trackData.duration || 0,
+              currentTime: trackData.position || 0,
+              isPlaying: trackData.status === 'playing',
+              artworkUrl: trackData.artwork_url,
+            });
+            setHasActiveMedia(true);
+          }
+        }
+      } catch (e) {
+        console.warn('Initial media fetch error:', e);
+      }
+    };
+    fetchCurrentMedia();
+  }, [apiBase]);
+
   // Listen to live backend WebSocket for BlueZ AVRCP track updates
   useEffect(() => {
     let ws: WebSocket | null = null;

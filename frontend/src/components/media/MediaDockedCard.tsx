@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import type { MediaTrack } from '../../types';
@@ -12,32 +12,28 @@ interface MediaDockedCardProps {
 
 export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
   track = {
-    title: 'Beneath the Mask',
-    artist: 'Lyn',
-    duration: 278,
-    currentTime: 45,
-    isPlaying: true,
-    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ad/10/fe/ad10fee6-76eb-7eaa-a632-c2afece21b53/LNCM-1175_PERSONA5-OST_h1_new.jpg/600x600bb.jpg',
+    title: 'No Track Playing',
+    artist: 'Connect Bluetooth to Stream',
+    duration: 0,
+    currentTime: 0,
+    isPlaying: false,
+    artworkUrl: undefined,
   },
   onPlayPause,
   onNext,
   onPrev,
 }) => {
-  const [isPlaying, setIsPlaying] = useState(track.isPlaying);
-
   const formatTime = (secs: number) => {
+    if (!secs || isNaN(secs) || secs <= 0) return '0:00';
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = Math.min(100, (track.currentTime / track.duration) * 100);
+  const progressPercent = track.duration > 0
+    ? Math.min(100, (track.currentTime / track.duration) * 100)
+    : 0;
   const remainingSeconds = Math.max(0, track.duration - track.currentTime);
-
-  const handleTogglePlay = () => {
-    setIsPlaying(!isPlaying);
-    onPlayPause?.();
-  };
 
   return (
     <LiquidGlassCard
@@ -80,7 +76,7 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
 
         <div className="flex justify-between items-center text-xs font-sf tabular-nums text-white/40">
           <span>{formatTime(track.currentTime)}</span>
-          <span>-{formatTime(remainingSeconds)}</span>
+          <span>{track.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
         </div>
       </div>
 
@@ -97,14 +93,14 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
 
         <button
           type="button"
-          onClick={handleTogglePlay}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-          className="text-white hover:text-white transition-transform active:scale-90 p-2"
+          onClick={onPlayPause}
+          aria-label={track.isPlaying ? 'Pause' : 'Play'}
+          className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-lg hover:bg-white/90 active:scale-90 transition-transform"
         >
-          {isPlaying ? (
-            <Pause className="w-8 h-8 fill-white" />
+          {track.isPlaying ? (
+            <Pause className="w-6 h-6 fill-black" />
           ) : (
-            <Play className="w-8 h-8 fill-white translate-x-0.5" />
+            <Play className="w-6 h-6 fill-black translate-x-0.5" />
           )}
         </button>
 
