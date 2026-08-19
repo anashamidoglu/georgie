@@ -66,7 +66,7 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
                   {formatTime(durationSeconds)}
                 </div>
               ) : (
-                <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 text-xs font-bold uppercase tracking-wider animate-pulse">
+                <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 text-xs font-bold uppercase tracking-wider">
                   Incoming Call
                 </div>
               )}

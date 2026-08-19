@@ -78,13 +78,13 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
               {track.artist}
             </span>
 
-            {/* Equalizer Waveform Indicator */}
+            {/* Clean Solid Equalizer Visualizer */}
             {track.isPlaying && (
               <div className="flex items-end space-x-1 h-4 mt-2" title="Playing">
-                <span className="w-1 bg-rose-400 rounded-full animate-[pulse_0.8s_ease-in-out_infinite] h-3" />
-                <span className="w-1 bg-rose-400 rounded-full animate-[pulse_1.2s_ease-in-out_infinite_0.2s] h-4" />
-                <span className="w-1 bg-rose-400 rounded-full animate-[pulse_0.9s_ease-in-out_infinite_0.4s] h-2.5" />
-                <span className="w-1 bg-rose-400 rounded-full animate-[pulse_1.1s_ease-in-out_infinite_0.1s] h-4" />
+                <span className="w-1 bg-white/40 rounded-full h-2.5" />
+                <span className="w-1 bg-white/70 rounded-full h-4" />
+                <span className="w-1 bg-white/50 rounded-full h-3" />
+                <span className="w-1 bg-white/80 rounded-full h-4" />
               </div>
             )}
           </div>

@@ -184,7 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
               disabled={isPairable}
               className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-md ${
                 isPairable
-                  ? 'bg-sky-500/25 text-sky-200 border border-sky-500/50 animate-pulse'
+                  ? 'bg-sky-500/25 text-sky-200 border border-sky-500/50'
                   : 'bg-white/10 hover:bg-white/20 text-white border border-white/20 active:scale-95'
               }`}
             >
@@ -229,7 +229,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
                             {dev.name}
                           </span>
                           {dev.connected && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
                           )}
                         </div>
                         <span className="text-xs text-white/50 font-medium truncate">
