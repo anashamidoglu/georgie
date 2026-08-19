@@ -314,8 +314,7 @@ export const MapboxCanvas: React.FC = () => {
       el.style.height = '38px';
       el.innerHTML = `
         <div class="relative w-8 h-8 flex items-center justify-center">
-          <div class="absolute inset-0 rounded-full bg-sky-500/25 animate-ping"></div>
-          <div class="relative w-7 h-7 rounded-full bg-sky-500 border-2 border-white shadow-[0_0_16px_rgba(14,165,233,0.9)] flex items-center justify-center transition-transform duration-300">
+          <div class="w-7 h-7 rounded-full bg-sky-500 border-2 border-white shadow-[0_0_16px_rgba(14,165,233,0.9)] flex items-center justify-center transition-transform duration-300">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="white" class="drop-shadow-sm">
               <path d="M12 2L2 22L12 18L22 22L12 2Z"/>
             </svg>
