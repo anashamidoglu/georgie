@@ -27,24 +27,14 @@ export const CallDockedCard: React.FC = () => {
       padding="lg"
       className="w-full h-full flex flex-col justify-between items-center text-center select-none font-sf animate-in fade-in zoom-in-95 duration-200"
     >
-      {/* Top: Prominent Contact Avatar matching MediaDockedCard art dimensions */}
+      {/* Top: Prominent Contact Avatar */}
       <div className="w-28 h-28 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-1 relative">
         <div className="w-full h-full bg-[#16171f] flex flex-col items-center justify-center">
           <User className="w-12 h-12 text-white/50" />
         </div>
-
-        {/* Live Call Pulsing Badge */}
-        {callStatus === 'incoming' && (
-          <div className="absolute top-2 right-2 flex items-center">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* Middle: Caller Name & Phone Number (Exact SF Pro Typography) */}
+      {/* Middle: Caller Name & Phone Number */}
       <div className="flex flex-col items-center justify-center w-full px-3 my-1">
         <span className="text-xl font-bold text-white tracking-tight leading-tight truncate max-w-full">
           {callerName}
@@ -54,20 +44,12 @@ export const CallDockedCard: React.FC = () => {
         </span>
       </div>
 
-      {/* Status / Timer Strip */}
-      <div className="w-full px-2 my-1 flex flex-col items-center">
-        {callStatus === 'incoming' ? (
-          <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest animate-pulse">
-            Incoming Audio Call...
+      {/* Status / Timer Section (Clean, no pulsing graphics or text) */}
+      <div className="w-full px-2 my-1 flex flex-col items-center justify-center min-h-[24px]">
+        {callStatus === 'active' && (
+          <span className="text-base font-bold font-sf-display tabular-nums text-white/90">
+            {formatTime(durationSeconds)}
           </span>
-        ) : (
-          <div className="flex items-center space-x-2 text-xs font-semibold text-white/60 tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="tabular-nums font-sf font-bold text-white/90">
-              {formatTime(durationSeconds)}
-            </span>
-            <span>• Connected</span>
-          </div>
         )}
       </div>
 
@@ -83,35 +65,35 @@ export const CallDockedCard: React.FC = () => {
               className="w-13 h-13 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 p-3.5"
               title="Decline"
             >
-              <PhoneOff className="w-6 h-6" />
+              <PhoneOff className="w-6 h-6 text-white" />
             </button>
 
-            {/* Answer Button (Green) */}
+            {/* Answer Button (White icon within Green background) */}
             <button
               type="button"
               onClick={answerCall}
               aria-label="Answer Call"
-              className="w-13 h-13 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center shadow-lg transition-transform active:scale-90 p-3.5"
+              className="w-13 h-13 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 p-3.5"
               title="Answer"
             >
-              <Phone className="w-6 h-6 fill-current" />
+              <Phone className="w-6 h-6 fill-white text-white" />
             </button>
           </>
         ) : (
           <>
-            {/* Mute Toggle Button */}
+            {/* Mute Toggle Button (Turns solid white when active, not yellow) */}
             <button
               type="button"
               onClick={toggleMute}
               aria-label={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
               className={`w-13 h-13 rounded-full flex items-center justify-center transition-transform active:scale-90 p-3.5 border ${
                 isMuted
-                  ? 'bg-amber-500 text-black border-amber-400'
+                  ? 'bg-white text-black border-white shadow-md'
                   : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
               }`}
               title={isMuted ? 'Unmute' : 'Mute'}
             >
-              {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+              {isMuted ? <MicOff className="w-6 h-6 text-black" /> : <Mic className="w-6 h-6 text-white" />}
             </button>
 
             {/* Hang Up Button (Red) */}
@@ -122,7 +104,7 @@ export const CallDockedCard: React.FC = () => {
               className="w-13 h-13 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 p-3.5"
               title="End Call"
             >
-              <PhoneOff className="w-6 h-6" />
+              <PhoneOff className="w-6 h-6 text-white" />
             </button>
           </>
         )}

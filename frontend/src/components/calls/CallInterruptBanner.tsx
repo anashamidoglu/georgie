@@ -28,14 +28,8 @@ export const CallInterruptBanner: React.FC = () => {
       <div className="w-full max-w-[540px] rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-4 flex items-center justify-between text-white">
         {/* Left: Contact Avatar & Details */}
         <div className="flex items-center space-x-4 min-w-0 flex-1 mr-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 relative">
+          <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0">
             <User className="w-6 h-6 text-white/70" />
-            {callStatus === 'incoming' && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-              </span>
-            )}
           </div>
 
           {/* Caller Details & State */}
@@ -45,12 +39,11 @@ export const CallInterruptBanner: React.FC = () => {
             </span>
             <div className="flex items-center space-x-2 mt-0.5">
               {callStatus === 'incoming' ? (
-                <span className="text-xs font-semibold text-emerald-400">
-                  Incoming Call • {callerNumber}
+                <span className="text-xs font-semibold text-white/60">
+                  {callerNumber}
                 </span>
               ) : (
-                <div className="flex items-center space-x-2 text-xs font-semibold text-white/60">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="flex items-center space-x-2 text-xs font-semibold text-white/70">
                   <span className="tabular-nums font-sf font-bold text-white/90">
                     {formatTime(durationSeconds)}
                   </span>
@@ -72,35 +65,35 @@ export const CallInterruptBanner: React.FC = () => {
                 className="h-10 px-5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold flex items-center space-x-1.5 transition-transform active:scale-95 text-xs shadow-lg"
                 title="Decline Call"
               >
-                <PhoneOff className="w-4 h-4" />
+                <PhoneOff className="w-4 h-4 text-white" />
                 <span>Decline</span>
               </button>
 
-              {/* Answer (Green) */}
+              {/* Answer (White within Green) */}
               <button
                 type="button"
                 onClick={answerCall}
-                className="h-10 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center space-x-1.5 transition-transform active:scale-95 text-xs shadow-lg"
+                className="h-10 px-6 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center space-x-1.5 transition-transform active:scale-95 text-xs shadow-lg"
                 title="Answer Call"
               >
-                <Phone className="w-4 h-4 fill-current" />
+                <Phone className="w-4 h-4 fill-white text-white" />
                 <span>Answer</span>
               </button>
             </>
           ) : (
             <>
-              {/* Mute Toggle */}
+              {/* Mute Toggle (White when active, not yellow) */}
               <button
                 type="button"
                 onClick={toggleMute}
                 className={`h-10 px-4 rounded-full font-bold flex items-center space-x-1.5 transition-transform active:scale-95 text-xs border ${
                   isMuted
-                    ? 'bg-amber-500 text-black border-amber-400'
+                    ? 'bg-white text-black border-white shadow-md'
                     : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
                 }`}
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
-                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isMuted ? <MicOff className="w-4 h-4 text-black" /> : <Mic className="w-4 h-4 text-white" />}
                 <span>{isMuted ? 'Muted' : 'Mute'}</span>
               </button>
 
@@ -111,7 +104,7 @@ export const CallInterruptBanner: React.FC = () => {
                 className="h-10 px-5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold flex items-center space-x-1.5 transition-transform active:scale-95 text-xs shadow-lg"
                 title="End Call"
               >
-                <PhoneOff className="w-4 h-4" />
+                <PhoneOff className="w-4 h-4 text-white" />
                 <span>End</span>
               </button>
             </>
