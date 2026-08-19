@@ -169,6 +169,7 @@ export const MapboxCanvas: React.FC = () => {
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const destMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const incidentMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -187,6 +188,7 @@ export const MapboxCanvas: React.FC = () => {
     allSteps,
     activeStepIndex,
     inspectedStep,
+    incidents,
   } = useNav();
 
   const currentLegIndex =
@@ -194,7 +196,6 @@ export const MapboxCanvas: React.FC = () => {
 
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
 
-  // Initialize Mapbox 3D Standard Canvas
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -229,7 +230,6 @@ export const MapboxCanvas: React.FC = () => {
           map.setConfigProperty('basemap', 'showPointOfInterestLabels', true);
           map.setConfigProperty('basemap', 'showTransitLabels', true);
         } catch {
-          // Standard style config fallback
         }
         setMapLoaded(true);
       });
@@ -238,7 +238,6 @@ export const MapboxCanvas: React.FC = () => {
         setMapLoaded(true);
       });
 
-      // Interactive Alternative Route Selection
       map.on('click', 'alt-routes-hitbox', (e) => {
         if (e.features && e.features.length > 0) {
           const clickedRouteId = (e.features[0] as any)?.properties?.routeId;
@@ -255,7 +254,6 @@ export const MapboxCanvas: React.FC = () => {
         map.getCanvas().style.cursor = '';
       });
 
-      // Quick POI Tap-to-Route
       map.on('click', (e) => {
         const poiFeatures = map.queryRenderedFeatures(e.point, {
           layers: ['poi-label', 'transit-label'],
@@ -288,6 +286,8 @@ export const MapboxCanvas: React.FC = () => {
       }
       waypointMarkersRef.current.forEach((m) => m.remove());
       waypointMarkersRef.current = [];
+      incidentMarkersRef.current.forEach((m) => m.remove());
+      incidentMarkersRef.current = [];
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -297,7 +297,6 @@ export const MapboxCanvas: React.FC = () => {
     };
   }, []);
 
-  // Update Driver Vehicle Puck (Live GPS or Simulated navigation step)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -336,7 +335,6 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [vehicleCoords, coords, vehicleHeading, mapLoaded]);
 
-  // Update Destination Pin Marker (Google Maps Red Pin)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -368,19 +366,16 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [destination, navStatus]);
 
-  // Update intermediate waypoint pin markers (auto-remove reached stops)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Clear old waypoint markers
     waypointMarkersRef.current.forEach((m) => m.remove());
     waypointMarkersRef.current = [];
 
     if (navStatus !== 'idle' && waypoints.length > 0) {
       const newMarkers = waypoints
         .map((wp, idx) => {
-          // If navigating and this stop has already been reached in the past, hide its pin
           if (navStatus === 'navigating' && idx < currentLegIndex) {
             return null;
           }
@@ -399,7 +394,63 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [waypoints, navStatus, currentLegIndex]);
 
-  // Render & update live Route GeoJSON lines (Active Traffic Ribbon + Alternative Routes)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    incidentMarkersRef.current.forEach((m) => m.remove());
+    incidentMarkersRef.current = [];
+
+    if (navStatus !== 'idle' && incidents && incidents.length > 0) {
+      const markers = incidents.map((inc) => {
+        const el = document.createElement('div');
+        el.className = 'cursor-pointer select-none transition-transform hover:scale-110 active:scale-95';
+
+        let bgClass = 'bg-red-600 border-white text-white';
+        let iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>';
+
+        if (inc.type === 'accident') {
+          bgClass = 'bg-red-600 border-white text-white';
+          iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-.8 2-2 4-4 6-2.5 2.5-3 5.5-1.5 8.5 1.5 3 4.5 4.5 7.5 4.5 3.5 0 6.5-2.5 7-6 .5-4.5-3-8-5-10-.5 1-1.5 2-2.5 2.5.5-2 0-4-1.5-5.5z"/></svg>';
+        } else if (inc.type === 'roadwork') {
+          bgClass = 'bg-amber-500 border-white text-black';
+          iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="8" rx="1"/><path d="M17 14v7M7 14v7M14 6L10 14M6 6L2 14M22 6L18 14"/></svg>';
+        } else if (inc.type === 'closure') {
+          bgClass = 'bg-rose-700 border-white text-white';
+          iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>';
+        }
+
+        el.innerHTML = `
+          <div class="w-6 h-6 rounded-full border-2 shadow-md flex items-center justify-center ${bgClass}">
+            ${iconSvg}
+          </div>
+        `;
+
+        const delayMinutes = Math.round((inc.delaySeconds || 0) / 60);
+        const popupHtml = `
+          <div style="font-family: system-ui, -apple-system, sans-serif; padding: 6px 10px; color: #ffffff; background: #12131a; border-radius: 12px; font-size: 12px; line-height: 1.4; max-width: 220px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+            <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">${inc.title}</div>
+            <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin-bottom: 4px;">${inc.description}</div>
+            ${delayMinutes > 0 ? `<div style="color: #fbbf24; font-weight: 700; font-size: 11px;">+${delayMinutes} min delay</div>` : ''}
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({
+          offset: 14,
+          closeButton: false,
+          className: 'incident-popup-clean',
+        }).setHTML(popupHtml);
+
+        return new mapboxgl.Marker({ element: el })
+          .setLngLat(inc.location)
+          .setPopup(popup)
+          .addTo(map);
+      });
+
+      incidentMarkersRef.current = markers;
+    }
+  }, [incidents, navStatus]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
@@ -608,7 +659,7 @@ export const MapboxCanvas: React.FC = () => {
           const firstCoord = coordinates[0] as [number, number];
           const bounds = new mapboxgl.LngLatBounds(firstCoord, firstCoord);
           availableRoutes.forEach((r) => {
-            r.rawGeometry?.coordinates?.forEach((coord) => {
+            r.rawGeometry?.coordinates?.forEach((coord: [number, number]) => {
               bounds.extend(coord as [number, number]);
             });
           });

@@ -608,3 +608,55 @@ export async function fetchDirections(
     activeRoute: fallbackRoute,
   };
 }
+
+/**
+ * Calculates perpendicular cross-track distance in meters from a point to the closest line segment on a route polyline
+ */
+export function calculateCrossTrackDistance(
+  point: [number, number],
+  routeCoords: [number, number][]
+): number {
+  if (!point || !routeCoords || routeCoords.length < 2) return 0;
+
+  let minDistance = Infinity;
+
+  for (let i = 0; i < routeCoords.length - 1; i++) {
+    const p1 = routeCoords[i];
+    const p2 = routeCoords[i + 1];
+
+    const l2 = getHaversineDistance(p1, p2);
+    if (l2 === 0) {
+      const d = getHaversineDistance(point, p1);
+      if (d < minDistance) minDistance = d;
+      continue;
+    }
+
+    const dx = p2[0] - p1[0];
+    const dy = p2[1] - p1[1];
+    const t = Math.max(0, Math.min(1, ((point[0] - p1[0]) * dx + (point[1] - p1[1]) * dy) / (dx * dx + dy * dy)));
+    const projection: [number, number] = [p1[0] + t * dx, p1[1] + t * dy];
+    const dist = getHaversineDistance(point, projection);
+
+    if (dist < minDistance) {
+      minDistance = dist;
+    }
+  }
+
+  return minDistance;
+}
+
+/**
+ * Checks if the vehicle has deviated off the planned route corridor or missed a turn
+ */
+export function checkOffRouteStatus(
+  vehicleCoords: [number, number],
+  routeCoords: [number, number][],
+  thresholdMeters = 35
+): { isOffRoute: boolean; crossTrackDistance: number } {
+  const crossTrackDistance = calculateCrossTrackDistance(vehicleCoords, routeCoords);
+  return {
+    isOffRoute: crossTrackDistance > thresholdMeters,
+    crossTrackDistance: Math.round(crossTrackDistance),
+  };
+}
+

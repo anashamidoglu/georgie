@@ -7,12 +7,14 @@ import {
   X,
   Search,
   Plus,
+  RotateCcw,
 } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
 import { RoadShield, ExitShield } from './RoadShield';
 import { GoogleMapsSearchCard } from './GoogleMapsSearchCard';
+import { IncidentAlertBanner } from './IncidentAlertBanner';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
@@ -31,6 +33,9 @@ export const NavDockedViewport: React.FC = () => {
     startNavigation,
     endNavigation,
     recenterMap,
+    approachingIncident,
+    dismissIncident,
+    isRerouting,
   } = useNav();
 
   const trafficColorClass = activeRoute?.traffic?.colorClass || 'text-emerald-400';
@@ -44,71 +49,91 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 2. Top Floating Overlays */}
       <div className="absolute top-0 left-0 right-0 p-3.5 flex items-start justify-between pointer-events-none z-20">
-        {/* Left Section: Turn Banner (Navigating) or Search Button (Idle/Preview) */}
-        {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
-          <div 
-            className="pointer-events-auto px-6 py-3.5 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex flex-col space-y-2 font-sf select-none max-w-[420px]"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0 pt-0.5">
-                <ManeuverIcon
-                  type={primaryManeuver.type}
-                  modifier={primaryManeuver.modifier}
-                  size="lg"
-                  className="text-white"
-                />
-              </div>
-              <div className="flex flex-col min-w-0 flex-1">
-                <div className="flex items-center justify-between w-full space-x-4">
-                  <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
-                    {primaryManeuver.distanceStr}
-                  </span>
-                  <div className="flex items-center space-x-2.5 ml-auto flex-shrink-0">
-                    {primaryManeuver.shield && (
-                      <RoadShield code={primaryManeuver.shield} size="md" />
-                    )}
-                    {primaryManeuver.exitNumber && (
-                      <ExitShield exitNumber={primaryManeuver.exitNumber} size="md" />
-                    )}
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-white/95 mt-1.5 leading-snug line-clamp-2">
-                  {primaryManeuver.instruction}
-                </span>
-              </div>
+        {/* Left Section: Turn Banner / Incident Banner / Rerouting Pill */}
+        <div className="flex flex-col space-y-2.5 max-w-[420px]">
+          {/* Dynamic Off-Route Rerouting Status Badge */}
+          {isRerouting && (
+            <div className="pointer-events-auto inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-amber-500/90 text-black font-bold text-xs shadow-lg backdrop-blur-md animate-in fade-in duration-200">
+              <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+              <span>Rerouting...</span>
             </div>
+          )}
 
-            {/* Embedded Full-Width Lane Strip in Expanded Mode */}
-            {primaryManeuver.lanes && primaryManeuver.lanes.length > 0 && (
-              <div className="pt-2 border-t border-white/10 w-full">
-                <LaneGuidance lanes={primaryManeuver.lanes} size="md" />
+          {/* Active Navigation Turn Banner */}
+          {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
+            <div 
+              className="pointer-events-auto px-6 py-3.5 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex flex-col space-y-2 font-sf select-none"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center space-x-4">
+                <div className="flex-shrink-0 pt-0.5">
+                  <ManeuverIcon
+                    type={primaryManeuver.type}
+                    modifier={primaryManeuver.modifier}
+                    size="lg"
+                    className="text-white"
+                  />
+                </div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <div className="flex items-center justify-between w-full space-x-4">
+                    <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
+                      {primaryManeuver.distanceStr}
+                    </span>
+                    <div className="flex items-center space-x-2.5 ml-auto flex-shrink-0">
+                      {primaryManeuver.shield && (
+                        <RoadShield code={primaryManeuver.shield} size="md" />
+                      )}
+                      {primaryManeuver.exitNumber && (
+                        <ExitShield exitNumber={primaryManeuver.exitNumber} size="md" />
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-white/95 mt-1.5 leading-snug line-clamp-2">
+                    {primaryManeuver.instruction}
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
-        ) : !isSearchOpen && navStatus !== 'navigating' ? (
-          /* Clean Top-Left Search Button */
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsAddStopMode(false);
-              setIsSearchOpen(true);
-            }}
-            className="pointer-events-auto glass-btn w-11 h-11 text-white hover:text-white flex items-center justify-center transition-all"
-            aria-label="Search Destinations"
-            title="Search Destinations"
-          >
-            <Search className="w-5 h-5 text-white" />
-          </button>
-        ) : (
-          <div />
-        )}
+
+              {/* Embedded Full-Width Lane Strip in Expanded Mode */}
+              {primaryManeuver.lanes && primaryManeuver.lanes.length > 0 && (
+                <div className="pt-2 border-t border-white/10 w-full">
+                  <LaneGuidance lanes={primaryManeuver.lanes} size="md" />
+                </div>
+              )}
+            </div>
+          ) : !isSearchOpen && navStatus !== 'navigating' ? (
+            /* Clean Top-Left Search Button */
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsAddStopMode(false);
+                setIsSearchOpen(true);
+              }}
+              className="pointer-events-auto glass-btn w-11 h-11 text-white hover:text-white flex items-center justify-center transition-all"
+              aria-label="Search Destinations"
+              title="Search Destinations"
+            >
+              <Search className="w-5 h-5 text-white" />
+            </button>
+          ) : (
+            <div />
+          )}
+
+          {/* Approaching Real-Time Traffic Incident Banner (Auto-dismiss timer) */}
+          {navStatus === 'navigating' && approachingIncident && (
+            <IncidentAlertBanner
+              incident={approachingIncident}
+              onDismiss={() => dismissIncident(approachingIncident.id)}
+              autoDismissSeconds={8}
+            />
+          )}
+        </div>
 
         {/* Action Controls: Recenter Button & Expand/Collapse Toggle */}
         <div 
-          className="flex items-center space-x-2 pointer-events-auto"
+          className="flex items-center space-x-2 pointer-events-auto flex-shrink-0"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
