@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import subprocess
 from typing import Optional, Dict, Any
 from ...routers.ws import ws_manager
 from ...models.schemas import TrackMetadata, CallState
@@ -8,11 +9,65 @@ from ..audio_ducking import audio_ducker
 
 logger = logging.getLogger(__name__)
 
+# BlueZ Agent D-Bus Interface for 1-Tap Auto-Pairing & Passkey Confirmation
+try:
+    from dbus_next.service import ServiceInterface, method
+
+    class BlueZPairingAgent(ServiceInterface):
+        def __init__(self):
+            super().__init__('org.bluez.Agent1')
+
+        @method()
+        def Release(self):
+            pass
+
+        @method()
+        def RequestPinCode(self, device: 'o') -> 's':
+            logger.info(f"[BlueZ Agent] RequestPinCode for {device} -> 0000")
+            return "0000"
+
+        @method()
+        def DisplayPinCode(self, device: 'o', pincode: 's'):
+            logger.info(f"[BlueZ Agent] DisplayPinCode: {pincode}")
+
+        @method()
+        def RequestPasskey(self, device: 'o') -> 'u':
+            logger.info(f"[BlueZ Agent] RequestPasskey -> 0")
+            return 0
+
+        @method()
+        def DisplayPasskey(self, device: 'o', passkey: 'u', entered: 'q'):
+            logger.info(f"[BlueZ Agent] DisplayPasskey: {passkey}")
+
+        @method()
+        def RequestConfirmation(self, device: 'o', passkey: 'u'):
+            logger.info(f"[BlueZ Agent] Auto-confirming pairing passkey {passkey} for {device}")
+            # Returning nothing indicates auto-accept/confirmation in BlueZ spec
+            return
+
+        @method()
+        def RequestAuthorization(self, device: 'o'):
+            logger.info(f"[BlueZ Agent] Auto-authorizing pairing for {device}")
+            return
+
+        @method()
+        def AuthorizeService(self, device: 'o', uuid: 's'):
+            logger.info(f"[BlueZ Agent] Auto-authorizing service {uuid} for {device}")
+            return
+
+        @method()
+        def Cancel(self):
+            logger.info("[BlueZ Agent] Pairing cancelled")
+except ImportError:
+    BlueZPairingAgent = None
+
+
 class DBusBluetoothListener:
     """
     Connects to system D-Bus on Linux to listen to:
     1. oFono (org.ofono) - Hands-Free Telephony (HFP) for incoming/active/ended phone calls.
     2. BlueZ (org.bluez) - AVRCP Media Player track metadata & playback state.
+    3. BlueZ Agent1 - Auto-confirms Bluetooth pairing PINs from phones with 1-tap.
     """
     def __init__(self):
         self.running = False
@@ -41,6 +96,9 @@ class DBusBluetoothListener:
             self.bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
             logger.info("[DBusListener] Connected to Linux System D-Bus via dbus-next")
 
+            # Register Bluetooth pairing agent and set broadcast name to "Georgie Dash"
+            await self._setup_bluetooth_agent_and_alias()
+
             # Auto-enable any connected oFono modems
             await self._auto_enable_modems()
             # Subscribe to oFono Manager & VoiceCallManager signals
@@ -49,15 +107,62 @@ class DBusBluetoothListener:
             await self._subscribe_bluez()
 
         except ImportError:
-            logger.info("[DBusListener] dbus-next not installed, checking dasbus...")
-            try:
-                import dasbus.connection
-                self.bus = dasbus.connection.SystemMessageBus()
-                logger.info("[DBusListener] Connected to Linux System D-Bus via dasbus")
-            except Exception as e:
-                logger.warning(f"[DBusListener] D-Bus not available: {e}")
+            logger.warning("[DBusListener] dbus-next not installed. D-Bus listener disabled.")
         except Exception as e:
             logger.error(f"[DBusListener] Error initializing D-Bus listener: {e}")
+
+    async def _setup_bluetooth_agent_and_alias(self):
+        """
+        Sets the Bluetooth broadcast name to 'Georgie Dash' and registers the auto-pairing agent.
+        """
+        try:
+            from dbus_next import Message, Variant
+
+            # Set adapter name / alias to "Georgie Dash"
+            await self.bus.call(
+                Message(
+                    destination='org.bluez',
+                    path='/org/bluez/hci0',
+                    interface='org.freedesktop.DBus.Properties',
+                    member='Set',
+                    signature='ssv',
+                    body=['org.bluez.Adapter1', 'Alias', Variant('s', 'Georgie Dash')]
+                )
+            )
+            logger.info("[BlueZ] Set Bluetooth device name to 'Georgie Dash'")
+
+            # Export and register auto-pairing agent
+            if BlueZPairingAgent:
+                agent = BlueZPairingAgent()
+                self.bus.export('/org/bluez/georgie/agent', agent)
+
+                # Register with AgentManager1
+                try:
+                    await self.bus.call(
+                        Message(
+                            destination='org.bluez',
+                            path='/org/bluez',
+                            interface='org.bluez.AgentManager1',
+                            member='RegisterAgent',
+                            signature='os',
+                            body=['/org/bluez/georgie/agent', 'NoInputNoOutput']
+                        )
+                    )
+                    await self.bus.call(
+                        Message(
+                            destination='org.bluez',
+                            path='/org/bluez',
+                            interface='org.bluez.AgentManager1',
+                            member='RequestDefaultAgent',
+                            signature='o',
+                            body=['/org/bluez/georgie/agent']
+                        )
+                    )
+                    logger.info("[BlueZ] Successfully registered Georgie auto-pairing agent")
+                except Exception as ex:
+                    logger.info(f"[BlueZ] Agent registration note: {ex}")
+        except Exception as e:
+            logger.warning(f"[BlueZ] Agent setup notice: {e}")
 
     async def _auto_enable_modems(self):
         """
