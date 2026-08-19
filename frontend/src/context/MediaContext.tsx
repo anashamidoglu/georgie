@@ -26,7 +26,7 @@ const DEFAULT_TRACK: MediaTrack = {
 const MediaContext = createContext<MediaContextType | undefined>(undefined);
 
 export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(true);
+  const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(false);
   const [currentTrack, setCurrentTrack] = useState<MediaTrack>(DEFAULT_TRACK);
   const progressTimerRef = useRef<number | null>(null);
 
@@ -43,17 +43,28 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const res = await fetch(`${apiBase}/api/media/current`);
         if (res.ok) {
           const trackData = await res.json();
-          if (trackData && trackData.title && trackData.title !== 'No Track Playing') {
+          const isRealTrack = Boolean(
+            trackData &&
+            trackData.title &&
+            trackData.title !== 'No Track Playing' &&
+            trackData.title !== 'Unknown Track'
+          );
+          const isPlaying = trackData?.status === 'playing';
+
+          if (isRealTrack && isPlaying) {
             setCurrentTrack({
               title: trackData.title,
               artist: trackData.artist || 'Unknown Artist',
               album: trackData.album || '',
               duration: trackData.duration || 0,
               currentTime: trackData.position || 0,
-              isPlaying: trackData.status === 'playing',
+              isPlaying: true,
               artworkUrl: trackData.artwork_url,
             });
             setHasActiveMedia(true);
+          } else {
+            setCurrentTrack(DEFAULT_TRACK);
+            setHasActiveMedia(false);
           }
         }
       } catch (e) {
@@ -80,24 +91,39 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (data.event === 'media:track_changed') {
               const trackData = data.data;
               if (trackData) {
-                setCurrentTrack({
-                  title: trackData.title || 'Unknown Track',
-                  artist: trackData.artist || 'Unknown Artist',
-                  album: trackData.album || '',
-                  duration: trackData.duration || 0,
-                  currentTime: trackData.position || 0,
-                  isPlaying: trackData.status === 'playing',
-                  artworkUrl: trackData.artwork_url,
-                });
-                setHasActiveMedia(true);
+                const isPlaying = trackData.status === 'playing';
+                const isRealTrack = Boolean(
+                  trackData.title &&
+                  trackData.title !== 'No Track Playing' &&
+                  trackData.title !== 'Unknown Track'
+                );
+
+                if (isRealTrack && isPlaying) {
+                  setCurrentTrack({
+                    title: trackData.title,
+                    artist: trackData.artist || 'Unknown Artist',
+                    album: trackData.album || '',
+                    duration: trackData.duration || 0,
+                    currentTime: trackData.position || 0,
+                    isPlaying: true,
+                    artworkUrl: trackData.artwork_url,
+                  });
+                  setHasActiveMedia(true);
+                } else {
+                  setCurrentTrack(DEFAULT_TRACK);
+                  setHasActiveMedia(false);
+                }
               }
             } else if (data.event === 'media:playback_state') {
               const trackData = data.data;
               if (trackData) {
+                const isPlaying = trackData.status === 'playing';
                 setCurrentTrack((prev) => ({
                   ...prev,
-                  isPlaying: trackData.status === 'playing',
+                  isPlaying: isPlaying,
                 }));
+                // Auto-collapse / auto-expand based on active playback
+                setHasActiveMedia(isPlaying);
               }
             }
           } catch (e) {
@@ -157,6 +183,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const togglePlayPause = async () => {
     const willPlay = !currentTrack.isPlaying;
     setCurrentTrack((prev) => ({ ...prev, isPlaying: willPlay }));
+    setHasActiveMedia(willPlay);
     try {
       await fetch(`${apiBase}/api/media/${willPlay ? 'play' : 'pause'}`, { method: 'POST' });
     } catch {
@@ -166,6 +193,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const pauseMedia = async () => {
     setCurrentTrack((prev) => ({ ...prev, isPlaying: false }));
+    setHasActiveMedia(false);
     try {
       await fetch(`${apiBase}/api/media/pause`, { method: 'POST' });
     } catch {
@@ -175,6 +203,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const resumeMedia = async () => {
     setCurrentTrack((prev) => ({ ...prev, isPlaying: true }));
+    setHasActiveMedia(true);
     try {
       await fetch(`${apiBase}/api/media/play`, { method: 'POST' });
     } catch {

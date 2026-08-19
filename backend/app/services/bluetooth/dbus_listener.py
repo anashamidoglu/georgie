@@ -282,7 +282,26 @@ class DBusBluetoothListener:
                             duration = int(track_val.get('Duration', 0)) // 1000
                             asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, status_val))
 
-                # 3. oFono Manager.ModemAdded
+                # 3. InterfacesRemoved (e.g. music app closed on phone)
+                elif msg.member == 'InterfacesRemoved' and msg.interface == 'org.freedesktop.DBus.ObjectManager':
+                    obj_path, interfaces_raw = msg.body
+                    interfaces = unwrap_variant(interfaces_raw)
+                    if 'org.bluez.MediaPlayer1' in interfaces or obj_path == self.active_player_path:
+                        logger.info(f"[BlueZ] Media player closed: {obj_path}")
+                        self.active_player_path = None
+                        self.current_track = TrackMetadata(
+                            title="No Track Playing",
+                            artist="Connect Bluetooth to Stream",
+                            album="",
+                            duration=0,
+                            position=0,
+                            status="stopped",
+                            artwork_url=None
+                        )
+                        asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
+                        asyncio.create_task(ws_manager.broadcast("media:track_changed", self.current_track.model_dump()))
+
+                # 4. oFono Manager.ModemAdded
                 elif msg.member == 'ModemAdded' and msg.interface == 'org.ofono.Manager':
                     modem_path, _ = msg.body
                     logger.info(f"[oFono] New modem connected: {modem_path}, activating...")
