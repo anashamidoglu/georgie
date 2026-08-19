@@ -244,26 +244,42 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (mapInstance) {
       if (navStatus === 'preview' && activeRoute?.rawGeometry) {
-        const startCoord = positionRef.current.coords;
-        const bounds = new (window as any).mapboxgl.LngLatBounds(startCoord, startCoord);
+        let minLng = positionRef.current.coords[0];
+        let maxLng = positionRef.current.coords[0];
+        let minLat = positionRef.current.coords[1];
+        let maxLat = positionRef.current.coords[1];
+
         availableRoutes.forEach((r) => {
-          r.rawGeometry?.coordinates.forEach((coord: any) => bounds.extend(coord));
+          r.rawGeometry?.coordinates.forEach(([lng, lat]) => {
+            minLng = Math.min(minLng, lng);
+            maxLng = Math.max(maxLng, lng);
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+          });
         });
-        mapInstance.fitBounds(bounds, {
-          padding: { top: 60, bottom: 90, left: 50, right: 50 },
-          maxZoom: 15,
-          pitch: 15,
-          bearing: 0,
-          duration: 800,
-        });
+
+        mapInstance.fitBounds(
+          [
+            [minLng, minLat],
+            [maxLng, maxLat],
+          ],
+          {
+            padding: { top: 60, bottom: 90, left: 50, right: 50 },
+            maxZoom: 15,
+            pitch: 15,
+            bearing: 0,
+            duration: 800,
+          }
+        );
       } else if (positionRef.current.coords) {
         const bearing = positionRef.current.heading || 0;
-        mapInstance.easeTo({
+        mapInstance.flyTo({
           center: positionRef.current.coords,
           zoom: navStatus === 'navigating' ? 16.5 : 15.5,
           pitch: navStatus === 'navigating' ? 58 : 50,
           bearing: bearing,
           duration: 800,
+          essential: true,
         });
       }
     }
