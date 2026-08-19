@@ -24,12 +24,6 @@ export const NavDockedViewport: React.FC = () => {
   return (
     <div
       className="w-full h-full relative rounded-[24px] overflow-hidden border border-white/10 shadow-2xl bg-[#090a0f] flex flex-col select-none"
-      onClick={() => {
-        // Expand map on viewport container tap if in divided view
-        if (!isNavExpanded) {
-          setIsNavExpanded(true);
-        }
-      }}
     >
       {/* 1. Full-bleed Live Mapbox Canvas (100% width & height) */}
       <MapboxCanvas />

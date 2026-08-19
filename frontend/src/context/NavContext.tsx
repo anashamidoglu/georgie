@@ -77,6 +77,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [simulatedCoords, setSimulatedCoords] = useState<[number, number] | null>(null);
   const [simulatedHeading, setSimulatedHeading] = useState<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const wasExpandedBeforePreviewRef = useRef<boolean>(false);
 
   const [eta, setEta] = useState<EtaInfo>({
     arrival: '--:--',
@@ -105,6 +106,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Step 2: Route Preview with Multi-Route Candidate Calculation
   const previewRouteTo = async (destCoords: [number, number], name?: string) => {
+    if (navStatus === 'idle') {
+      wasExpandedBeforePreviewRef.current = isNavExpanded;
+    }
     setDestination(destCoords);
     setDestinationName(name || 'Pinned Location');
     setNavStatus('preview');
@@ -192,6 +196,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const startNavigation = () => {
     setNavStatus('navigating');
     setInspectedStep(null);
+    if (wasExpandedBeforePreviewRef.current) {
+      setIsNavExpanded(true);
+    }
     if (mapInstance) {
       const currentLoc = vehicleCoords;
       const nextLoc = allSteps[1]?.location || destination || currentLoc;
@@ -333,6 +340,10 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveStepIndex(0);
     setSimulatedCoords(null);
     setSimulatedHeading(0);
+    if (wasExpandedBeforePreviewRef.current) {
+      setIsNavExpanded(true);
+    }
+    wasExpandedBeforePreviewRef.current = false;
 
     if (mapInstance && positionRef.current.coords) {
       mapInstance.easeTo({

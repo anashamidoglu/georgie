@@ -163,7 +163,22 @@ export const MapboxCanvas: React.FC = () => {
       map.on('touchend', cancelLongPress);
       map.on('touchcancel', cancelLongPress);
 
-      // Map Click Handler: ONLY triggers alternative route switching with wide 50px hitbox (NEVER drops a pin on click)
+      // Direct layer click listeners for alternative routes
+      map.on('click', 'alt-routes-hitbox', (e) => {
+        const targetRouteId = (e.features?.[0] as any)?.properties?.routeId;
+        if (typeof targetRouteId === 'number') {
+          selectRouteRef.current(targetRouteId);
+        }
+      });
+
+      map.on('click', 'alt-routes-layer', (e) => {
+        const targetRouteId = (e.features?.[0] as any)?.properties?.routeId;
+        if (typeof targetRouteId === 'number') {
+          selectRouteRef.current(targetRouteId);
+        }
+      });
+
+      // Map Click Fallback with 80px bounding box
       map.on('click', (e) => {
         if (isLongPressed) {
           isLongPressed = false;
@@ -175,11 +190,11 @@ export const MapboxCanvas: React.FC = () => {
           return;
         }
 
-        // Generous 50px touch bounding box (±25px) for 7-inch touchscreens
+        // Generous 80px touch bounding box (±40px) for 7-inch touchscreens
         if (map.getLayer('alt-routes-layer') || map.getLayer('alt-routes-hitbox')) {
           const bbox: [mapboxgl.PointLike, mapboxgl.PointLike] = [
-            [e.point.x - 25, e.point.y - 25],
-            [e.point.x + 25, e.point.y + 25],
+            [e.point.x - 40, e.point.y - 40],
+            [e.point.x + 40, e.point.y + 40],
           ];
           const queryLayers = ['alt-routes-hitbox', 'alt-routes-layer'].filter((id) => map.getLayer(id));
           const features = map.queryRenderedFeatures(bbox, { layers: queryLayers });
@@ -197,6 +212,12 @@ export const MapboxCanvas: React.FC = () => {
         map.getCanvas().style.cursor = 'pointer';
       });
       map.on('mouseleave', 'alt-routes-layer', () => {
+        map.getCanvas().style.cursor = '';
+      });
+      map.on('mouseenter', 'alt-routes-hitbox', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'alt-routes-hitbox', () => {
         map.getCanvas().style.cursor = '';
       });
 
@@ -343,7 +364,7 @@ export const MapboxCanvas: React.FC = () => {
           },
         });
 
-        // Invisible extra-wide 44px tap hitbox layer for effortless in-car touch selection
+        // Invisible extra-wide 72px tap hitbox layer for effortless in-car touch selection
         map.addLayer({
           id: altHitboxLayerId,
           type: 'line',
@@ -355,7 +376,7 @@ export const MapboxCanvas: React.FC = () => {
           },
           paint: {
             'line-color': '#1d4ed8',
-            'line-width': 44,
+            'line-width': 72,
             'line-opacity': 0.001,
           },
         });
