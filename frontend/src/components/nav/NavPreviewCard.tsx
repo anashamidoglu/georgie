@@ -52,6 +52,7 @@ export const NavPreviewCard: React.FC = () => {
           <ManeuverIcon
             type={currentStep?.type}
             modifier={currentStep?.modifier}
+            instruction={instruction}
             size="lg"
             className="text-white"
           />

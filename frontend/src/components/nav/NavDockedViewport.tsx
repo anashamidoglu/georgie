@@ -68,6 +68,7 @@ export const NavDockedViewport: React.FC = () => {
                   <ManeuverIcon
                     type={primaryManeuver.type}
                     modifier={primaryManeuver.modifier}
+                    instruction={primaryManeuver.instruction}
                     size="lg"
                     className="text-white"
                   />

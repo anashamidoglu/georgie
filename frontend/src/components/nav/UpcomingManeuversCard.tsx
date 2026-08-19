@@ -61,6 +61,7 @@ export const UpcomingManeuversCard: React.FC = () => {
                     <ManeuverIcon
                       type={step.type}
                       modifier={step.modifier}
+                      instruction={step.instruction}
                       size="md"
                       className={isSelected ? 'text-sky-300' : 'text-white/80 group-hover:text-white'}
                     />

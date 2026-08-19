@@ -3,6 +3,7 @@ import React from 'react';
 interface ManeuverIconProps {
   type?: string;
   modifier?: string;
+  instruction?: string;
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
@@ -10,11 +11,24 @@ interface ManeuverIconProps {
 export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
   type = 'turn',
   modifier = 'straight',
+  instruction = '',
   className = 'text-white',
   size = 'md',
 }) => {
   const t = (type || 'turn').toLowerCase();
-  const m = (modifier || 'straight').toLowerCase();
+  let m = (modifier || 'straight').toLowerCase();
+  const instr = (instruction || '').toLowerCase();
+
+  // If modifier is generic ('straight' or empty), infer direction from instruction text
+  if (!m || m === 'straight' || m === 'none') {
+    if (instr.includes('sharp right')) m = 'sharp right';
+    else if (instr.includes('sharp left')) m = 'sharp left';
+    else if (instr.includes('slight right') || instr.includes('bear right') || instr.includes('keep right')) m = 'slight right';
+    else if (instr.includes('slight left') || instr.includes('bear left') || instr.includes('keep left')) m = 'slight left';
+    else if (instr.includes('turn right') || instr.includes('right')) m = 'right';
+    else if (instr.includes('turn left') || instr.includes('left')) m = 'left';
+    else if (instr.includes('u-turn') || instr.includes('uturn')) m = 'uturn';
+  }
 
   const dimensions = {
     sm: 'w-4 h-4',
@@ -24,7 +38,7 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
   }[size];
 
   // 1. Destination / Arrival
-  if (t === 'arrive' || t.includes('dest') || m.includes('dest')) {
+  if (t === 'arrive' || t.includes('dest') || m.includes('dest') || instr.includes('destination') || instr.includes('arrive')) {
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
         <path d="M12 21C12 21 19 14.5 19 9.5C19 5.35786 15.866 2 12 2C8.13401 2 5 5.35786 5 9.5C5 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -34,7 +48,7 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
   }
 
   // 2. U-Turn
-  if (m.includes('uturn') || m.includes('u-turn')) {
+  if (m.includes('uturn') || m.includes('u-turn') || instr.includes('u-turn')) {
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
         <path d="M18 21V11C18 7.68629 15.3137 5 12 5C8.68629 5 6 7.68629 6 11V21M6 21L2.5 17.5M6 21L9.5 17.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -43,7 +57,7 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
   }
 
   // 3. Roundabout / Rotary
-  if (t.includes('roundabout') || t.includes('rotary')) {
+  if (t.includes('roundabout') || t.includes('rotary') || instr.includes('roundabout') || instr.includes('rotary')) {
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
         <path d="M12 2V6M12 6L9 4M12 6L15 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -72,7 +86,7 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
   }
 
   // 6. Slight Right / Bear Right / Keep Right / Off Ramp Right
-  if (m.includes('slight right') || m.includes('keep right') || t.includes('off ramp') && m.includes('right')) {
+  if (m.includes('slight right') || m.includes('keep right') || (t.includes('off ramp') && m.includes('right'))) {
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
         <path d="M8 21V14C8 11.5 10 9.5 12.5 8L17 5M17 5H11M17 5V11" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -81,7 +95,7 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
   }
 
   // 7. Slight Left / Bear Left / Keep Left / Off Ramp Left
-  if (m.includes('slight left') || m.includes('keep left') || t.includes('off ramp') && m.includes('left')) {
+  if (m.includes('slight left') || m.includes('keep left') || (t.includes('off ramp') && m.includes('left'))) {
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
         <path d="M16 21V14C16 11.5 14 9.5 11.5 8L7 5M7 5H13M7 5V11" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
