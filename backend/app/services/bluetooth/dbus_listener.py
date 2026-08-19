@@ -8,6 +8,18 @@ from ..audio_ducking import audio_ducker
 
 logger = logging.getLogger(__name__)
 
+def unwrap_variant(val: Any) -> Any:
+    """
+    Recursively unwraps dbus-next Variant objects into raw Python primitives.
+    """
+    if hasattr(val, 'value'):
+        return unwrap_variant(val.value)
+    if isinstance(val, dict):
+        return {str(k): unwrap_variant(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [unwrap_variant(v) for v in val]
+    return val
+
 # BlueZ Agent D-Bus Interface for 1-Tap Auto-Pairing & Passkey Confirmation
 try:
     from dbus_next.service import ServiceInterface, method
@@ -229,12 +241,12 @@ class DBusBluetoothListener:
 
                 # 1. PropertiesChanged on org.bluez.MediaPlayer1
                 if msg.member == 'PropertiesChanged' and msg.interface == 'org.freedesktop.DBus.Properties':
-                    iface, changed, _ = msg.body
+                    iface, changed_raw, _ = msg.body
+                    changed = unwrap_variant(changed_raw)
                     if iface == 'org.bluez.MediaPlayer1':
                         self.active_player_path = msg.path
-                        track = changed.get('Track', {})
-                        track_val = track.value if hasattr(track, 'value') else track
-                        if track_val:
+                        track_val = changed.get('Track', {})
+                        if track_val and isinstance(track_val, dict):
                             title = str(track_val.get('Title', 'Unknown Track'))
                             artist = str(track_val.get('Artist', 'Unknown Artist'))
                             album = str(track_val.get('Album', ''))
@@ -244,24 +256,25 @@ class DBusBluetoothListener:
                             asyncio.create_task(self._on_track_changed(title, artist, album, duration, position))
 
                         if 'Status' in changed:
-                            status_val = changed['Status'].value if hasattr(changed['Status'], 'value') else changed['Status']
+                            status_val = str(changed['Status'])
                             self.current_track.status = status_val
                             asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
 
-                # 2. InterfacesAdded (e.g. MediaPlayer1 or oFono Modem attached)
+                # 2. InterfacesAdded (e.g. MediaPlayer1 attached when song starts)
                 elif msg.member == 'InterfacesAdded' and msg.interface == 'org.freedesktop.DBus.ObjectManager':
-                    obj_path, interfaces = msg.body
+                    obj_path, interfaces_raw = msg.body
+                    interfaces = unwrap_variant(interfaces_raw)
                     if 'org.bluez.MediaPlayer1' in interfaces:
                         self.active_player_path = obj_path
                         props = interfaces['org.bluez.MediaPlayer1']
-                        track = props.get('Track', {})
-                        track_val = track.value if hasattr(track, 'value') else track
-                        if track_val:
+                        track_val = props.get('Track', {})
+                        status_val = str(props.get('Status', 'playing'))
+                        if track_val and isinstance(track_val, dict):
                             title = str(track_val.get('Title', 'Unknown Track'))
                             artist = str(track_val.get('Artist', 'Unknown Artist'))
                             album = str(track_val.get('Album', ''))
                             duration = int(track_val.get('Duration', 0)) // 1000
-                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, 0))
+                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, 0, status_val))
 
                 # 3. oFono Manager.ModemAdded
                 elif msg.member == 'ModemAdded' and msg.interface == 'org.ofono.Manager':
@@ -271,11 +284,12 @@ class DBusBluetoothListener:
 
                 # 4. oFono VoiceCallManager.CallAdded (Incoming Call)
                 elif msg.member == 'CallAdded' and msg.interface == 'org.ofono.VoiceCallManager':
-                    call_path, properties = msg.body
+                    call_path, properties_raw = msg.body
+                    properties = unwrap_variant(properties_raw)
                     self.active_call_path = call_path
-                    caller_number = properties.get('LineIdentification', {}).value if hasattr(properties.get('LineIdentification'), 'value') else properties.get('LineIdentification', 'Unknown')
-                    caller_name = properties.get('Name', {}).value if hasattr(properties.get('Name'), 'value') else properties.get('Name', caller_number)
-                    state = properties.get('State', {}).value if hasattr(properties.get('State'), 'value') else properties.get('State', 'incoming')
+                    caller_number = str(properties.get('LineIdentification', 'Unknown'))
+                    caller_name = str(properties.get('Name', caller_number))
+                    state = str(properties.get('State', 'incoming'))
 
                     logger.info(f"[oFono] CallAdded: {caller_name} ({caller_number}) - State: {state}")
                     self.active_call_state = CallState(
@@ -297,8 +311,8 @@ class DBusBluetoothListener:
 
                 # 6. oFono VoiceCall.PropertyChanged
                 elif msg.member == 'PropertyChanged' and msg.interface == 'org.ofono.VoiceCall':
-                    name, val = msg.body
-                    prop_val = val.value if hasattr(val, 'value') else val
+                    name, val_raw = msg.body
+                    prop_val = str(unwrap_variant(val_raw))
                     if name == 'State':
                         logger.info(f"[oFono] Call State Changed: {prop_val}")
                         if prop_val == 'active':
@@ -313,7 +327,7 @@ class DBusBluetoothListener:
             if self.bus and hasattr(self.bus, 'add_message_handler'):
                 self.bus.add_message_handler(signal_dispatcher)
 
-                # Add match rules without faulty sender filters so all D-Bus signals are received
+                # Add match rules
                 await self.bus.call(
                     Message(
                         destination='org.freedesktop.DBus',
@@ -373,20 +387,20 @@ class DBusBluetoothListener:
                     member='GetManagedObjects'
                 )
             )
-            objects = reply.body[0] if reply.body else {}
+            objects_raw = reply.body[0] if reply.body else {}
+            objects = unwrap_variant(objects_raw)
             for path, interfaces in objects.items():
                 if 'org.bluez.MediaPlayer1' in interfaces:
                     self.active_player_path = path
                     props = interfaces['org.bluez.MediaPlayer1']
-                    track = props.get('Track', {})
-                    track_val = track.value if hasattr(track, 'value') else track
-                    status = props.get('Status', {}).value if hasattr(props.get('Status'), 'value') else props.get('Status', 'stopped')
-                    if track_val:
+                    track_val = props.get('Track', {})
+                    status = str(props.get('Status', 'stopped'))
+                    if track_val and isinstance(track_val, dict):
                         title = str(track_val.get('Title', 'Unknown Track'))
                         artist = str(track_val.get('Artist', 'Unknown Artist'))
                         album = str(track_val.get('Album', ''))
                         duration = int(track_val.get('Duration', 0)) // 1000
-                        position = int(props.get('Position', {}).value if hasattr(props.get('Position'), 'value') else props.get('Position', 0)) // 1000
+                        position = int(props.get('Position', 0)) // 1000
                         logger.info(f"[BlueZ] Found active media player on boot: '{title}' by {artist} ({status})")
                         await self._on_track_changed(title, artist, album, duration, position, status)
                         return
@@ -394,7 +408,7 @@ class DBusBluetoothListener:
             logger.warning(f"[BlueZ] Error polling media state on boot: {e}")
 
     async def _on_track_changed(self, title: str, artist: str, album: str, duration: int, position: int = 0, status: str = "playing"):
-        if not title or title == 'Unknown Track':
+        if not title or title in ['Unknown Track', '']:
             return
         art_url = await ArtworkService.resolve_artwork(artist, title)
         self.current_track = TrackMetadata(
@@ -406,7 +420,7 @@ class DBusBluetoothListener:
             status=status,
             artwork_url=art_url
         )
-        logger.info(f"[Media] Broadcasting track change: {title} - {artist}")
+        logger.info(f"[Media] Broadcasting track change: '{title}' - {artist} ({status})")
         await ws_manager.broadcast("media:track_changed", self.current_track.model_dump())
 
     async def media_play(self):
@@ -474,7 +488,8 @@ class DBusBluetoothListener:
                 interface='org.freedesktop.DBus.ObjectManager',
                 member='GetManagedObjects'
             ))
-            objects = reply.body[0] if reply.body else {}
+            objects_raw = reply.body[0] if reply.body else {}
+            objects = unwrap_variant(objects_raw)
             for path, interfaces in objects.items():
                 if 'org.bluez.MediaPlayer1' in interfaces:
                     self.active_player_path = path

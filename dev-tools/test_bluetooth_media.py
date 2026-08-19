@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 import asyncio
+from typing import Any
 from dbus_next.aio import MessageBus
 from dbus_next import BusType, Message
+
+def unwrap_variant(val: Any) -> Any:
+    if hasattr(val, 'value'):
+        return unwrap_variant(val.value)
+    if isinstance(val, dict):
+        return {str(k): unwrap_variant(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [unwrap_variant(v) for v in val]
+    return val
 
 async def diagnose_bluetooth():
     print("=" * 60)
@@ -20,42 +30,41 @@ async def diagnose_bluetooth():
                 member='GetManagedObjects'
             )
         )
-        objects = reply.body[0] if reply.body else {}
+        objects_raw = reply.body[0] if reply.body else {}
+        objects = unwrap_variant(objects_raw)
         
         found_player = False
-        found_device = False
 
         for path, interfaces in objects.items():
             if 'org.bluez.Device1' in interfaces:
-                found_device = True
                 dev = interfaces['org.bluez.Device1']
-                name = dev.get('Name', {}).value if hasattr(dev.get('Name'), 'value') else dev.get('Name', 'Unknown')
-                connected = dev.get('Connected', {}).value if hasattr(dev.get('Connected'), 'value') else dev.get('Connected', False)
-                paired = dev.get('Paired', {}).value if hasattr(dev.get('Paired'), 'value') else dev.get('Paired', False)
-                print(f"\n[Device] {name} ({path})")
-                print(f"   Connected: {connected} | Paired: {paired}")
+                name = dev.get('Name', dev.get('Alias', 'Unknown'))
+                connected = dev.get('Connected', False)
+                paired = dev.get('Paired', False)
+                if paired or connected:
+                    print(f"\n[Device] {name} ({path})")
+                    print(f"   Connected: {connected} | Paired: {paired}")
 
             if 'org.bluez.MediaPlayer1' in interfaces:
                 found_player = True
                 player = interfaces['org.bluez.MediaPlayer1']
-                status = player.get('Status', {}).value if hasattr(player.get('Status'), 'value') else player.get('Status', 'Unknown')
+                status = player.get('Status', 'Unknown')
                 track = player.get('Track', {})
-                track_val = track.value if hasattr(track, 'value') else track
-                title = track_val.get('Title', 'Unknown') if isinstance(track_val, dict) else 'Unknown'
-                artist = track_val.get('Artist', 'Unknown') if isinstance(track_val, dict) else 'Unknown'
-                album = track_val.get('Album', 'Unknown') if isinstance(track_val, dict) else 'Unknown'
-                duration = track_val.get('Duration', 0) if isinstance(track_val, dict) else 0
+                title = track.get('Title', 'Unknown') if isinstance(track, dict) else 'Unknown'
+                artist = track.get('Artist', 'Unknown') if isinstance(track, dict) else 'Unknown'
+                album = track.get('Album', 'Unknown') if isinstance(track, dict) else 'Unknown'
+                duration = track.get('Duration', 0) if isinstance(track, dict) else 0
 
                 print(f"\n[+] Active Media Player Found! ({path})")
                 print(f"   Status: {status}")
                 print(f"   Title:  {title}")
                 print(f"   Artist: {artist}")
                 print(f"   Album:  {album}")
-                print(f"   Length: {duration} ms")
+                print(f"   Length: {duration} ms ({duration // 1000}s)")
 
         if not found_player:
             print("\n[-] No org.bluez.MediaPlayer1 found.")
-            print("   -> Make sure your phone is currently playing music and Bluetooth audio is selected on your phone.")
+            print("   -> Make sure your phone is connected and playing audio via Bluetooth.")
 
         bus.disconnect()
     except Exception as e:
