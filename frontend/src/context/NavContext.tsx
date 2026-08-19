@@ -197,6 +197,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     const updated = [...waypoints, newWp];
     setWaypoints(updated);
+    setActiveStepIndex(0);
+    setInspectedStep(null);
     await calculateRoute(destination, updated, destinationName);
   };
 
@@ -205,6 +207,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!destination) return;
     const updated = waypoints.filter((w) => w.id !== id);
     setWaypoints(updated);
+    setActiveStepIndex(0);
+    setInspectedStep(null);
     await calculateRoute(destination, updated, destinationName);
   };
 
@@ -216,6 +220,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [moved] = updated.splice(fromIndex, 1);
     updated.splice(toIndex, 0, moved);
     setWaypoints(updated);
+    setActiveStepIndex(0);
+    setInspectedStep(null);
     await calculateRoute(destination, updated, destinationName);
   };
 
@@ -236,6 +242,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDestination(targetWp.coordinates);
     setDestinationName(targetWp.name);
     setWaypoints(newWaypoints);
+    setActiveStepIndex(0);
+    setInspectedStep(null);
     await calculateRoute(targetWp.coordinates, newWaypoints, targetWp.name);
   };
 
@@ -262,11 +270,15 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDestination(newDest.coordinates);
     setDestinationName(newDest.name);
     setWaypoints(newWaypoints);
+    setActiveStepIndex(0);
+    setInspectedStep(null);
     await calculateRoute(newDest.coordinates, newWaypoints, newDest.name);
   };
 
   const clearWaypoints = () => {
     setWaypoints([]);
+    setActiveStepIndex(0);
+    setInspectedStep(null);
     if (destination) {
       calculateRoute(destination, [], destinationName);
     }
@@ -298,7 +310,15 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const currentCoords = positionRef.current.coords;
         const wpCoords = waypoints.map((w) => w.coordinates);
-        const res = await fetchDirections(currentCoords, destination, wpCoords, MAPBOX_TOKEN);
+        const res = await fetchDirections(
+          currentCoords,
+          destination,
+          wpCoords,
+          MAPBOX_TOKEN,
+          undefined,
+          destinationName,
+          waypoints.map((w) => w.name)
+        );
         if (res.routes.length > 0) {
           const updatedRoute = res.routes[selectedRouteIndex] || res.activeRoute;
           setAvailableRoutes(res.routes);
@@ -315,12 +335,18 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [navStatus, destination, waypoints, selectedRouteIndex]);
+  }, [navStatus, destination, waypoints, selectedRouteIndex, destinationName]);
 
   // Step 3: Start live 3D driver follow navigation (angled behind vehicle in direction of travel)
   const startNavigation = () => {
     setNavStatus('navigating');
     setInspectedStep(null);
+    setActiveStepIndex(0);
+    if (activeRoute) {
+      setAllSteps(activeRoute.allSteps);
+      setPrimaryManeuver(activeRoute.primaryManeuver);
+      setUpcomingSteps(activeRoute.upcomingSteps);
+    }
     if (wasExpandedBeforePreviewRef.current) {
       setIsNavExpanded(true);
     }
