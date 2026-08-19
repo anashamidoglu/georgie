@@ -28,6 +28,23 @@ function getHaversineDistance(c1: [number, number], c2: [number, number]): numbe
   return Math.round(R * c);
 }
 
+function projectPointOnSegment(
+  p: [number, number],
+  a: [number, number],
+  b: [number, number]
+): { point: [number, number]; t: number } {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const l2 = dx * dx + dy * dy;
+  if (l2 === 0) return { point: a, t: 0 };
+  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return {
+    point: [a[0] + t * dx, a[1] + t * dy],
+    t,
+  };
+}
+
 function processActiveRouteGeoJson(
   features: any[],
   currentLegIndex: number,
@@ -36,64 +53,70 @@ function processActiveRouteGeoJson(
 ): any[] {
   if (!features || features.length === 0) return [];
 
-  const result: any[] = [];
-  let foundActiveSegment = false;
-
-  for (const feat of features) {
-    const legIdx = feat.properties?.legIndex ?? 0;
-
-    // 1. In navigation mode: Completely remove past completed legs
-    if (isNavigating && legIdx < currentLegIndex) {
-      continue;
-    }
-
-    // 2. Future subsequent legs: Heavily dim
-    if (legIdx > currentLegIndex) {
-      result.push({
-        ...feat,
-        properties: {
-          ...feat.properties,
-          isCurrentActiveLeg: false,
-          isSubsequentLeg: true,
-        },
-      });
-      continue;
-    }
-
-    // 3. Current active leg
-    const coords = feat.geometry?.coordinates || [];
-    if (coords.length === 0) continue;
-
-    if (!isNavigating) {
-      // In preview mode: show entire first leg brightly and subsequent dimmed
-      result.push({
+  if (!isNavigating) {
+    return features.map((feat) => {
+      const legIdx = feat.properties?.legIndex ?? 0;
+      return {
         ...feat,
         properties: {
           ...feat.properties,
           isCurrentActiveLeg: legIdx === 0,
           isSubsequentLeg: legIdx > 0,
         },
-      });
-      continue;
-    }
+      };
+    });
+  }
 
-    // In driving / simulation mode: remove polyline behind vehicle
-    let minD = Infinity;
-    let closestIdx = 0;
-    for (let i = 0; i < coords.length; i++) {
-      const d = getHaversineDistance(coords[i], vehicleCoords);
-      if (d < minD) {
-        minD = d;
-        closestIdx = i;
+  const result: any[] = [];
+  let bestFeatIdx = -1;
+  let bestSegIdx = -1;
+  let bestDist = Infinity;
+  let bestProj: [number, number] = vehicleCoords;
+
+  features.forEach((feat, fIdx) => {
+    const legIdx = feat.properties?.legIndex ?? 0;
+    if (legIdx === currentLegIndex) {
+      const coords = feat.geometry?.coordinates || [];
+      for (let i = 0; i < coords.length - 1; i++) {
+        const { point } = projectPointOnSegment(vehicleCoords, coords[i], coords[i + 1]);
+        const d = getHaversineDistance(vehicleCoords, point);
+        if (d < bestDist) {
+          bestDist = d;
+          bestFeatIdx = fIdx;
+          bestSegIdx = i;
+          bestProj = point;
+        }
       }
     }
+  });
 
-    if (!foundActiveSegment) {
-      if (minD < 350) {
-        foundActiveSegment = true;
-        const sliced = coords.slice(closestIdx);
-        const trimmedCoords = sliced.length > 0 ? [vehicleCoords, ...sliced] : [vehicleCoords];
-        if (trimmedCoords.length > 1) {
+  // If vehicle is reasonably near the current route (within 150m)
+  if (bestFeatIdx !== -1 && bestDist < 150) {
+    features.forEach((feat, fIdx) => {
+      const legIdx = feat.properties?.legIndex ?? 0;
+      if (legIdx < currentLegIndex) return; // Drop past legs
+
+      if (legIdx > currentLegIndex) {
+        result.push({
+          ...feat,
+          properties: {
+            ...feat.properties,
+            isCurrentActiveLeg: false,
+            isSubsequentLeg: true,
+          },
+        });
+        return;
+      }
+
+      if (fIdx < bestFeatIdx) {
+        // Segments before vehicle -> dropped behind
+        return;
+      }
+
+      if (fIdx === bestFeatIdx) {
+        const coords = feat.geometry?.coordinates || [];
+        const remainingCoords = [bestProj, ...coords.slice(bestSegIdx + 1)];
+        if (remainingCoords.length >= 2) {
           result.push({
             ...feat,
             properties: {
@@ -103,14 +126,14 @@ function processActiveRouteGeoJson(
             },
             geometry: {
               type: 'LineString',
-              coordinates: trimmedCoords,
+              coordinates: remainingCoords,
             },
           });
         }
+        return;
       }
-      // If segment is before the vehicle, it's skipped (removed behind the car!)
-    } else {
-      // Segments ahead of vehicle in current active leg
+
+      // Feature is ahead of vehicle in current leg
       result.push({
         ...feat,
         properties: {
@@ -119,21 +142,22 @@ function processActiveRouteGeoJson(
           isSubsequentLeg: false,
         },
       });
-    }
-  }
-
-  // Fallback: If no segment was matched as current, include remaining legs
-  if (isNavigating && !foundActiveSegment) {
-    return features
-      .filter((f) => (f.properties?.legIndex ?? 0) >= currentLegIndex)
-      .map((f) => ({
-        ...f,
-        properties: {
-          ...f.properties,
-          isCurrentActiveLeg: (f.properties?.legIndex ?? 0) === currentLegIndex,
-          isSubsequentLeg: (f.properties?.legIndex ?? 0) > currentLegIndex,
-        },
-      }));
+    });
+  } else {
+    // Fallback: If at start or off-route, show all current and subsequent legs
+    features.forEach((feat) => {
+      const legIdx = feat.properties?.legIndex ?? 0;
+      if (legIdx >= currentLegIndex) {
+        result.push({
+          ...feat,
+          properties: {
+            ...feat.properties,
+            isCurrentActiveLeg: legIdx === currentLegIndex,
+            isSubsequentLeg: legIdx > currentLegIndex,
+          },
+        });
+      }
+    });
   }
 
   return result;
