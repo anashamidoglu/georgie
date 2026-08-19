@@ -14,6 +14,12 @@ export interface EtaInfo {
   distance: string;
 }
 
+export interface Waypoint {
+  id: string;
+  name: string;
+  coordinates: [number, number];
+}
+
 // Calculate compass bearing between two coordinates in degrees
 function calculateBearing(c1: [number, number], c2: [number, number]): number {
   const rad = Math.PI / 180;
@@ -38,8 +44,14 @@ interface NavContextType {
   isLocated: boolean;
   isSearchOpen: boolean;
   setIsSearchOpen: (open: boolean) => void;
+  isAddStopMode: boolean;
+  setIsAddStopMode: (mode: boolean) => void;
   destination: [number, number] | null;
   destinationName: string;
+  waypoints: Waypoint[];
+  addWaypoint: (name: string, coordinates: [number, number]) => Promise<void>;
+  removeWaypoint: (id: string) => Promise<void>;
+  clearWaypoints: () => void;
   speed: number | null;
   mapInstance: MapboxMap | null;
   setMapInstance: (map: MapboxMap | null) => void;
@@ -68,9 +80,11 @@ const NavContext = createContext<NavContextType | undefined>(undefined);
 export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const [isAddStopMode, setIsAddStopMode] = useState<boolean>(false);
   const [navStatus, setNavStatus] = useState<NavStatus>('idle');
   const [destination, setDestination] = useState<[number, number] | null>(null);
   const [destinationName, setDestinationName] = useState<string>('');
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
   const [availableRoutes, setAvailableRoutes] = useState<RouteResult[]>([]);
@@ -107,21 +121,12 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [mapInstance, position.isLocated, position.coords[0], position.coords[1]]);
 
-  // Step 2: Route Preview with Multi-Route Candidate Calculation
-  const previewRouteTo = async (destCoords: [number, number], name?: string) => {
-    if (navStatus === 'idle') {
-      wasExpandedBeforePreviewRef.current = isNavExpanded;
-    }
-    setDestination(destCoords);
-    setDestinationName(name || 'Pinned Location');
-    setNavStatus('preview');
-    setIsNavExpanded(false);
-    setInspectedStep(null);
-    setActiveStepIndex(0);
-    setSimulatedCoords(null);
-    setSimulatedHeading(0);
-    setSelectedRouteIndex(0);
-
+  // Internal routing calculation for a given destination + waypoints
+  const calculateRoute = async (
+    destCoords: [number, number],
+    activeWaypoints: Waypoint[],
+    _destName?: string
+  ) => {
     if (!MAPBOX_TOKEN) return;
 
     if (abortControllerRef.current) {
@@ -132,7 +137,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const currentCoords = positionRef.current.coords;
-      const res = await fetchDirections(currentCoords, destCoords, MAPBOX_TOKEN, controller.signal);
+      const wpCoords = activeWaypoints.map((w) => w.coordinates);
+      const res = await fetchDirections(currentCoords, destCoords, wpCoords, MAPBOX_TOKEN, controller.signal);
       setAvailableRoutes(res.routes);
       setSelectedRouteIndex(0);
       setActiveRoute(res.activeRoute);
@@ -148,6 +154,53 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (e.name !== 'AbortError') {
         console.error('Routing calculation error:', e);
       }
+    }
+  };
+
+  // Step 2: Route Preview with Multi-Route Candidate Calculation
+  const previewRouteTo = async (destCoords: [number, number], name?: string) => {
+    if (navStatus === 'idle') {
+      wasExpandedBeforePreviewRef.current = isNavExpanded;
+    }
+    setDestination(destCoords);
+    setDestinationName(name || 'Pinned Location');
+    setWaypoints([]);
+    setNavStatus('preview');
+    setIsNavExpanded(false);
+    setInspectedStep(null);
+    setActiveStepIndex(0);
+    setSimulatedCoords(null);
+    setSimulatedHeading(0);
+    setSelectedRouteIndex(0);
+
+    await calculateRoute(destCoords, [], name);
+  };
+
+  // Multi-Stop: Add Waypoint
+  const addWaypoint = async (name: string, coords: [number, number]) => {
+    if (!destination) return;
+    const newWp: Waypoint = {
+      id: `wp-${Date.now()}`,
+      name,
+      coordinates: coords,
+    };
+    const updated = [...waypoints, newWp];
+    setWaypoints(updated);
+    await calculateRoute(destination, updated, destinationName);
+  };
+
+  // Multi-Stop: Remove Waypoint
+  const removeWaypoint = async (id: string) => {
+    if (!destination) return;
+    const updated = waypoints.filter((w) => w.id !== id);
+    setWaypoints(updated);
+    await calculateRoute(destination, updated, destinationName);
+  };
+
+  const clearWaypoints = () => {
+    setWaypoints([]);
+    if (destination) {
+      calculateRoute(destination, [], destinationName);
     }
   };
 
@@ -176,7 +229,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const interval = setInterval(async () => {
       try {
         const currentCoords = positionRef.current.coords;
-        const res = await fetchDirections(currentCoords, destination, MAPBOX_TOKEN);
+        const wpCoords = waypoints.map((w) => w.coordinates);
+        const res = await fetchDirections(currentCoords, destination, wpCoords, MAPBOX_TOKEN);
         if (res.routes.length > 0) {
           const updatedRoute = res.routes[selectedRouteIndex] || res.activeRoute;
           setAvailableRoutes(res.routes);
@@ -193,7 +247,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [navStatus, destination, selectedRouteIndex]);
+  }, [navStatus, destination, waypoints, selectedRouteIndex]);
 
   // Step 3: Start live 3D driver follow navigation (angled behind vehicle in direction of travel)
   const startNavigation = () => {
@@ -348,6 +402,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setDestination(null);
     setDestinationName('');
+    setWaypoints([]);
     setNavStatus('idle');
     setActiveRoute(null);
     setAvailableRoutes([]);
@@ -422,8 +477,14 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isLocated: position.isLocated,
         isSearchOpen,
         setIsSearchOpen,
+        isAddStopMode,
+        setIsAddStopMode,
         destination,
         destinationName,
+        waypoints,
+        addWaypoint,
+        removeWaypoint,
+        clearWaypoints,
         speed: position.speed,
         mapInstance,
         setMapInstance,

@@ -21,6 +21,7 @@ export const MapboxCanvas: React.FC = () => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const destMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -34,6 +35,7 @@ export const MapboxCanvas: React.FC = () => {
     selectedRouteIndex,
     selectRoute,
     destination,
+    waypoints,
     previewRouteTo,
     navStatus,
   } = useNav();
@@ -257,6 +259,8 @@ export const MapboxCanvas: React.FC = () => {
           destMarkerRef.current.remove();
           destMarkerRef.current = null;
         }
+        waypointMarkersRef.current.forEach((m) => m.remove());
+        waypointMarkersRef.current = [];
         map.remove();
         mapRef.current = null;
         setMapInstance(null);
@@ -299,6 +303,30 @@ export const MapboxCanvas: React.FC = () => {
       }
     }
   }, [destination, navStatus]);
+
+  // Update intermediate waypoint pin markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Clear old waypoint markers
+    waypointMarkersRef.current.forEach((m) => m.remove());
+    waypointMarkersRef.current = [];
+
+    if (navStatus !== 'idle' && waypoints.length > 0) {
+      const newMarkers = waypoints.map((wp, idx) => {
+        const wpEl = document.createElement('div');
+        wpEl.className =
+          'w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow-[0_0_10px_rgba(245,158,11,0.8)] flex items-center justify-center text-black font-black text-xs font-mono select-none';
+        wpEl.innerText = `${idx + 1}`;
+
+        return new mapboxgl.Marker({ element: wpEl })
+          .setLngLat(wp.coordinates)
+          .addTo(map);
+      });
+      waypointMarkersRef.current = newMarkers;
+    }
+  }, [waypoints, navStatus]);
 
   // Render & update live Route GeoJSON lines (Active Traffic Ribbon + Alternative Routes)
   useEffect(() => {

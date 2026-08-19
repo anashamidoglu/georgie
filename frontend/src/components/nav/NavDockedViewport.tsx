@@ -1,5 +1,5 @@
 import React from 'react';
-import { Maximize2, Minimize2, Navigation, Play, X, Search } from 'lucide-react';
+import { Maximize2, Minimize2, Navigation, Play, X, Search, Plus } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
@@ -12,8 +12,11 @@ export const NavDockedViewport: React.FC = () => {
     setIsNavExpanded,
     isSearchOpen,
     setIsSearchOpen,
+    setIsAddStopMode,
     navStatus,
     destinationName,
+    waypoints,
+    removeWaypoint,
     eta,
     primaryManeuver,
     activeRoute,
@@ -33,7 +36,7 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 2. Top Floating Overlays */}
       <div className="absolute top-0 left-0 right-0 p-3.5 flex items-start justify-between pointer-events-none z-20">
-        {/* Left Section: Turn Banner (Navigating) or Google Maps Search Bar (Expanded Idle) or Search Button (Docked) */}
+        {/* Left Section: Turn Banner (Navigating) or Search Button (Idle/Preview) */}
         {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
           <div 
             className="pointer-events-auto px-6 py-3.5 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex flex-col space-y-2 font-sf select-none max-w-[420px]"
@@ -87,6 +90,7 @@ export const NavDockedViewport: React.FC = () => {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              setIsAddStopMode(false);
               setIsSearchOpen(true);
             }}
             className="pointer-events-auto glass-btn w-11 h-11 text-white hover:text-white flex items-center justify-center transition-all"
@@ -138,18 +142,46 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Banner: Preview Confirmation Mode (Clean, no scrollbars) */}
+      {/* 3. Bottom Floating Banner: Preview Confirmation Mode with Multi-Stop Waypoints */}
       {navStatus === 'preview' && (
-        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center pointer-events-none z-30 space-y-2">
+          {/* Waypoints horizontal badge strip */}
+          {waypoints.length > 0 && (
+            <div className="pointer-events-auto flex items-center space-x-2 overflow-x-auto max-w-[500px] w-full px-1 scrollbar-none">
+              {waypoints.map((wp, idx) => (
+                <div
+                  key={wp.id}
+                  className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/90 border border-amber-500/30 text-xs font-semibold text-white/90 shadow-lg backdrop-blur-md flex-shrink-0"
+                >
+                  <span className="w-4 h-4 rounded-full bg-amber-500 text-black font-black text-[10px] flex items-center justify-center font-mono">
+                    {idx + 1}
+                  </span>
+                  <span className="truncate max-w-[120px]">{wp.name}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeWaypoint(wp.id);
+                    }}
+                    className="w-4 h-4 rounded-full hover:bg-white/20 text-white/50 hover:text-white flex items-center justify-center transition-colors ml-0.5"
+                    title="Remove stop"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-3 flex items-center justify-between font-sf select-none w-full max-w-[500px]"
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-3 flex items-center justify-between font-sf select-none w-full max-w-[500px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Route Summary & Google Maps Style Traffic-Colored ETA */}
-            <div className="flex flex-col min-w-0 mr-4">
+            <div className="flex flex-col min-w-0 mr-3">
               <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
-                {destinationName}
+                {waypoints.length > 0 ? `${destinationName} (${waypoints.length + 1} stops)` : destinationName}
               </span>
               <div className="flex items-baseline space-x-4 mt-0.5">
                 <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
@@ -164,8 +196,22 @@ export const NavDockedViewport: React.FC = () => {
               </div>
             </div>
 
-            {/* Clean Start Button & Cancel [X] Button */}
-            <div className="flex items-center space-x-2.5 flex-shrink-0">
+            {/* Action Buttons: Add Stop, Cancel [X], Start Navigation */}
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsAddStopMode(true);
+                  setIsSearchOpen(true);
+                }}
+                className="h-10 px-3 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white flex items-center space-x-1 transition-colors text-xs font-semibold"
+                title="Add a stop along route"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Add Stop</span>
+              </button>
+
               <button
                 type="button"
                 onClick={(e) => {

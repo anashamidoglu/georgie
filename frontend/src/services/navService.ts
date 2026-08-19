@@ -160,7 +160,14 @@ function extractMajorRoads(steps: any[]): string {
 
 function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
   const coords: [number, number][] = route.geometry.coordinates;
-  const congestion: string[] = route.legs?.[0]?.annotation?.congestion || [];
+  const allCongestions: string[] = [];
+  (route.legs || []).forEach((leg: any) => {
+    if (leg.annotation?.congestion) {
+      allCongestions.push(...leg.annotation.congestion);
+    }
+  });
+
+  const congestion = allCongestions;
   const features: any[] = [];
 
   if (!congestion || congestion.length === 0) {
@@ -213,69 +220,64 @@ function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
 
 function parseManeuverStep(step: any, nextStep: any, idx: number, originCoords: [number, number]): ManeuverInfo {
   const stepDist = Math.round(step.distance);
-  const distStr = stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`;
+  const distanceStr =
+    stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`;
 
-  const banners = step.bannerInstructions || [];
-  const chosenBanner =
-    banners.find((b: any) => b.sub?.components?.some((c: any) => c.type === 'lane')) ||
-    banners[banners.length - 1];
+  const bannerPrimary = step.bannerInstructions?.[0]?.primary;
+  const bannerSub = step.bannerInstructions?.[0]?.sub;
 
-  let lanes: LaneInfo[] | undefined;
-  if (chosenBanner?.sub?.components) {
-    const laneComps = chosenBanner.sub.components.filter((c: any) => c.type === 'lane');
-    if (laneComps.length > 0) {
-      lanes = laneComps.map((c: any) => ({
-        active: Boolean(c.active),
-        valid: c.valid !== false,
-        directions: c.directions || ['straight'],
-        activeDirection: c.active_direction,
-      }));
-    }
-  }
+  const rawType = bannerPrimary?.type || step.maneuver?.type || 'turn';
+  const rawModifier = bannerPrimary?.modifier || step.maneuver?.modifier || 'straight';
 
-  let shield: string | undefined;
-  if (chosenBanner?.primary?.components) {
-    for (const comp of chosenBanner.primary.components) {
-      if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
-        shield = comp.mapbox_shield.display_ref;
-        break;
-      } else if (comp.type === 'icon' && comp.text && comp.text.length <= 8) {
-        shield = comp.text;
-        break;
-      }
-    }
-  }
+  let type = rawType;
+  let modifier = rawModifier;
 
-  let exitNumber: string | undefined;
-  if (chosenBanner?.primary?.components) {
-    const exitNumComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit-number');
-    if (exitNumComp?.text) {
-      exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
-    } else {
-      const exitComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit');
-      if (exitComp?.text && /\d+/.test(exitComp.text)) {
-        exitNumber = exitComp.text;
-      }
+  if (type === 'turn' || type === 'new name') {
+    if (modifier === 'straight' || modifier === 'slight right' || modifier === 'slight left') {
+      // standard modifier
     }
   }
 
   const instruction =
-    nextStep?.maneuver?.instruction ||
-    chosenBanner?.primary?.text ||
+    bannerPrimary?.text ||
     step.maneuver?.instruction ||
-    'Proceed on route';
+    step.name ||
+    'Continue on route';
 
-  const type = chosenBanner?.primary?.type || nextStep?.maneuver?.type || step.maneuver?.type || 'turn';
-  const modifier =
-    chosenBanner?.primary?.modifier || nextStep?.maneuver?.modifier || step.maneuver?.modifier || 'straight';
+  const roadName =
+    step.name ||
+    bannerPrimary?.components?.find((c: any) => c.type === 'text')?.text ||
+    nextStep?.name ||
+    '';
+
+  const shield =
+    bannerPrimary?.components?.find((c: any) => c.type === 'icon')?.mapbox_shield?.display_ref ||
+    step.bannerInstructions?.[0]?.primary?.components?.find((c: any) => c.mapbox_shield)?.mapbox_shield?.display_ref;
+
+  const exitNumber =
+    bannerPrimary?.components?.find((c: any) => c.type === 'exit-number')?.text ||
+    step.maneuver?.exit;
+
+  let lanes: LaneInfo[] | undefined;
+  if (bannerSub?.components) {
+    const laneComponents = bannerSub.components.filter((c: any) => c.type === 'lane');
+    if (laneComponents.length > 0) {
+      lanes = laneComponents.map((lc: any) => ({
+        active: Boolean(lc.active),
+        valid: lc.valid !== false,
+        directions: lc.directions || [lc.active_direction || 'straight'],
+        activeDirection: lc.active_direction,
+      }));
+    }
+  }
 
   const location: [number, number] = step.maneuver?.location || originCoords;
 
   return {
     id: idx,
     instruction,
-    roadName: step.name || 'Current Road',
-    distanceStr: distStr,
+    roadName,
+    distanceStr,
     distanceMeters: stepDist,
     type,
     modifier,
@@ -289,17 +291,20 @@ function parseManeuverStep(step: any, nextStep: any, idx: number, originCoords: 
 export async function fetchDirections(
   origin: [number, number],
   destination: [number, number],
+  waypoints: [number, number][] = [],
   accessToken: string,
   signal?: AbortSignal
 ): Promise<DirectionsResponse> {
-  const coordinates = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`;
+  const points = [origin, ...waypoints, destination];
+  const coordinates = points.map((p) => `${p[0]},${p[1]}`).join(';');
+  const allowAlternatives = waypoints.length === 0;
 
   // Driving traffic profile with alternatives and segment congestion annotations
   const profiles = ['driving-traffic', 'driving'];
 
   for (const profile of profiles) {
     try {
-      const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordinates}?alternatives=true&annotations=congestion,distance,duration&geometries=geojson&steps=true&banner_instructions=true&overview=full&access_token=${accessToken}`;
+      const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordinates}?alternatives=${allowAlternatives}&annotations=congestion,distance,duration&geometries=geojson&steps=true&banner_instructions=true&overview=full&access_token=${accessToken}`;
       const response = await fetch(url, { signal });
       if (response.ok) {
         const data = await response.json();
@@ -327,21 +332,32 @@ export async function fetchDirections(
             const arrivalMinutes = arrivalDate.getMinutes().toString().padStart(2, '0');
             const arrivalStr = `${arrivalHours}:${arrivalMinutes} arrival`;
 
+            // Merge all legs steps
+            const allRawSteps: any[] = [];
+            (route.legs || []).forEach((leg: any) => {
+              if (leg.steps) {
+                allRawSteps.push(...leg.steps);
+              }
+            });
+
             // Highway & arterial road summary label
-            const summary = extractMajorRoads(route.legs?.[0]?.steps || []);
+            const summary = extractMajorRoads(allRawSteps);
 
             // Relative diff string
             const diffMin = Math.round((route.duration - fastestDuration) / 60);
             const diffStr = routeIdx === 0 || diffMin <= 0 ? 'Fastest' : `+${diffMin} min`;
 
             // Traffic condition and color
-            const traffic = computeTraffic(route.legs?.[0]?.annotation?.congestion);
+            const allCongestions: string[] = [];
+            (route.legs || []).forEach((leg: any) => {
+              if (leg.annotation?.congestion) {
+                allCongestions.push(...leg.annotation.congestion);
+              }
+            });
+            const traffic = computeTraffic(allCongestions);
 
-            const leg = route.legs?.[0];
-            const steps = leg?.steps || [];
-
-            const allSteps: ManeuverInfo[] = steps.map((step: any, idx: number) =>
-              parseManeuverStep(step, steps[idx + 1], idx, origin)
+            const allSteps: ManeuverInfo[] = allRawSteps.map((step: any, idx: number) =>
+              parseManeuverStep(step, allRawSteps[idx + 1], idx, origin)
             );
 
             const primaryManeuver = allSteps[0] || {

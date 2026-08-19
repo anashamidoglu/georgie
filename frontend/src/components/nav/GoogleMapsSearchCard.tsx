@@ -16,7 +16,15 @@ interface GoogleMapsSearchCardProps {
 }
 
 export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOpen, onClose }) => {
-  const { isNavExpanded, coords, vehicleCoords, previewRouteTo } = useNav();
+  const {
+    isNavExpanded,
+    coords,
+    vehicleCoords,
+    previewRouteTo,
+    isAddStopMode,
+    setIsAddStopMode,
+    addWaypoint,
+  } = useNav();
   const [query, setQuery] = useState<string>('');
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [recents, setRecents] = useState<PlaceResult[]>(INITIAL_RECENTS);
@@ -82,12 +90,14 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
 
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setIsAddStopMode(false);
         onClose();
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        setIsAddStopMode(false);
         onClose();
       }
     };
@@ -101,7 +111,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
       window.removeEventListener('touchstart', handleClickOutside);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, setIsAddStopMode]);
 
   if (!isOpen) return null;
 
@@ -123,7 +133,17 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
       ];
     });
 
-    previewRouteTo(place.coordinates, place.name);
+    if (isAddStopMode) {
+      addWaypoint(place.name, place.coordinates);
+      setIsAddStopMode(false);
+    } else {
+      previewRouteTo(place.coordinates, place.name);
+    }
+    onClose();
+  };
+
+  const handleClose = () => {
+    setIsAddStopMode(false);
     onClose();
   };
 
@@ -145,7 +165,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
           {/* Functional Back Button */}
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors mr-1 flex-shrink-0"
             aria-label="Back"
             title="Back"
@@ -158,7 +178,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search"
+            placeholder={isAddStopMode ? 'Add a stop...' : 'Search'}
             className="flex-1 bg-transparent text-white placeholder-white/45 text-sm font-medium focus:outline-none px-1"
           />
 
