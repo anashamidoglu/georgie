@@ -207,6 +207,10 @@ export async function searchPlaces(
   // Safeguard 1: Instant RAM & LocalStorage Cache (0 requests, $0.00 cost)
   const cached = getCachedResults(trimmed);
   if (cached && cached.length > 0) {
+    console.log(
+      `%c[Places Cache Hit] ⚡ "${trimmed}" served from 7-day storage (0 network requests, $0.00 cost)`,
+      'color: #10b981; font-weight: bold; background: rgba(16,185,129,0.1); padding: 2px 6px; border-radius: 4px;'
+    );
     return cached.map((p) => ({
       ...p,
       distanceKm: calculateDistance(userCoords, p.coordinates),
@@ -227,6 +231,13 @@ export async function searchPlaces(
   // 1. High-Precision Google Places API (New) with Hard Quota Safety Check
   if (GOOGLE_PLACES_KEY && checkAndIncrementDailyQuota()) {
     try {
+      const today = new Date().toISOString().split('T')[0];
+      const dailyCount = localStorage.getItem(`georgie_google_calls_${today}`) || '1';
+      console.log(
+        `%c[Google Places API] 🌐 Live Request #${dailyCount}/100: "${trimmed}"`,
+        'color: #0ea5e9; font-weight: bold; background: rgba(14,165,233,0.1); padding: 2px 6px; border-radius: 4px;'
+      );
+
       const url = 'https://places.googleapis.com/v1/places:searchText';
       const payload = {
         textQuery: trimmed,
