@@ -250,8 +250,16 @@ class DBusBluetoothListener:
                         self.active_player_path = msg.path
                         track_val = changed.get('Track', {})
                         pos_ms = changed.get('Position')
+                        status_val = changed.get('Status')
+
+                        has_update = False
                         if pos_ms is not None:
                             self.current_track.position = int(pos_ms) // 1000
+                            has_update = True
+
+                        if status_val is not None:
+                            self.current_track.status = str(status_val)
+                            has_update = True
 
                         if track_val and isinstance(track_val, dict):
                             title = str(track_val.get('Title', 'Unknown Track'))
@@ -259,12 +267,8 @@ class DBusBluetoothListener:
                             album = str(track_val.get('Album', ''))
                             duration = int(track_val.get('Duration', 0)) // 1000
                             position = self.current_track.position
-
-                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, position))
-
-                        if 'Status' in changed:
-                            status_val = str(changed['Status'])
-                            self.current_track.status = status_val
+                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, self.current_track.status))
+                        elif has_update:
                             asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
 
                 # 2. InterfacesAdded (e.g. MediaPlayer1 attached when song starts)

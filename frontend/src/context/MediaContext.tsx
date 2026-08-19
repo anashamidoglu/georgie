@@ -128,6 +128,8 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   setCurrentTrack((prev) => ({
                     ...prev,
                     isPlaying: isPlaying,
+                    currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
+                    duration: typeof trackData.duration === 'number' && trackData.duration > 0 ? trackData.duration : prev.duration,
                   }));
                   // When paused or playing, session is still active
                   if (currentTrack.title && currentTrack.title !== 'No Track Playing') {
