@@ -247,18 +247,19 @@ export const NavDockedViewport: React.FC = () => {
               </span>
             </div>
 
-            {/* End Navigation Button [X] */}
+            {/* End Navigation Button [Exit] */}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 endNavigation();
               }}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
-              aria-label="End Navigation"
-              title="End Navigation"
+              className="h-9 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center space-x-1.5 transition-colors flex-shrink-0 font-sf text-xs font-bold active:scale-95 border border-white/10"
+              aria-label="Exit Navigation"
+              title="Exit Navigation"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5 text-white/80" />
+              <span>Exit</span>
             </button>
           </div>
         </div>
