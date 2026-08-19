@@ -26,6 +26,7 @@ export const RouteSelectionCard: React.FC = () => {
   const currentRoute = activeRoute || availableRoutes[selectedRouteIndex];
   const legs = currentRoute?.legs || [];
   const totalStops = waypoints.length + 1;
+  const finalLeg = legs.length > 0 ? legs[legs.length - 1] : undefined;
 
   // Single Destination View (No extra waypoints)
   if (waypoints.length === 0) {
@@ -271,33 +272,31 @@ export const RouteSelectionCard: React.FC = () => {
         </div>
 
         {/* Body: Final Leg Road info & Final Leg ETA */}
-        {legs[legs.length - 1] && (
-          <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between">
-            <div className="flex flex-col min-w-0 flex-1 mr-2">
-              <span className="text-sm font-bold text-white/95 truncate">
-                {legs[legs.length - 1].summary || 'Final Leg'}
+        <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between">
+          <div className="flex flex-col min-w-0 flex-1 mr-2">
+            <span className="text-sm font-bold text-white/95 truncate">
+              {finalLeg?.summary || currentRoute?.summary || 'Direct Route'}
+            </span>
+            <div className="flex items-center space-x-2 mt-0.5">
+              <span className="text-xs text-white/50 tabular-nums">
+                {finalLeg?.distanceStr || currentRoute?.distanceStr || '-- km'}
               </span>
-              <div className="flex items-center space-x-2 mt-0.5">
-                <span className="text-xs text-white/50 tabular-nums">
-                  {legs[legs.length - 1].distanceStr}
-                </span>
-                <span className="text-xs text-white/30">•</span>
-                <span className="text-xs font-semibold text-emerald-400">
-                  Typical traffic
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-end flex-shrink-0">
-              <span className="text-2xl font-bold font-sf-display tabular-nums tracking-tight text-emerald-400">
-                {legs[legs.length - 1].durationStr}
-              </span>
-              <span className="text-xs font-semibold text-white/40 tabular-nums">
-                Final
+              <span className="text-xs text-white/30">•</span>
+              <span className="text-xs font-semibold text-emerald-400">
+                Typical traffic
               </span>
             </div>
           </div>
-        )}
+
+          <div className="flex flex-col items-end flex-shrink-0">
+            <span className="text-2xl font-bold font-sf-display tabular-nums tracking-tight text-emerald-400">
+              {finalLeg?.durationStr || currentRoute?.durationStr || '-- min'}
+            </span>
+            <span className="text-xs font-semibold text-white/40 tabular-nums">
+              Final
+            </span>
+          </div>
+        </div>
       </LiquidGlassCard>
     </div>
   );

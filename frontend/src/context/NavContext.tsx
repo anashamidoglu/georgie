@@ -21,7 +21,21 @@ export interface Waypoint {
 }
 
 // Calculate compass bearing between two coordinates in degrees
-function calculateBearing(c1: [number, number], c2: [number, number]): number {
+function calculateBearing(c1: [number, number] | undefined, c2: [number, number] | undefined): number {
+  if (
+    !c1 ||
+    !c2 ||
+    typeof c1[0] !== 'number' ||
+    typeof c1[1] !== 'number' ||
+    typeof c2[0] !== 'number' ||
+    typeof c2[1] !== 'number' ||
+    isNaN(c1[0]) ||
+    isNaN(c1[1]) ||
+    isNaN(c2[0]) ||
+    isNaN(c2[1])
+  ) {
+    return 0;
+  }
   const rad = Math.PI / 180;
   const lat1 = c1[1] * rad;
   const lat2 = c2[1] * rad;
@@ -29,7 +43,8 @@ function calculateBearing(c1: [number, number], c2: [number, number]): number {
   const y = Math.sin(dLon) * Math.cos(lat2);
   const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
   const brng = (Math.atan2(y, x) * 180) / Math.PI;
-  return (brng + 360) % 360;
+  const res = (brng + 360) % 360;
+  return isNaN(res) ? 0 : res;
 }
 
 interface NavContextType {
@@ -258,9 +273,12 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (fromIdx < 0 || fromIdx >= allStops.length || toIdx < 0 || toIdx >= allStops.length) return;
 
     const [moved] = allStops.splice(fromIdx, 1);
+    if (!moved) return;
     allStops.splice(toIdx, 0, moved);
 
     const newDest = allStops[allStops.length - 1];
+    if (!newDest || !newDest.coordinates) return;
+
     const newWaypoints = allStops.slice(0, allStops.length - 1).map((s, idx) => ({
       id: s.id.startsWith('wp-') ? s.id : `wp-${Date.now()}-${idx}`,
       name: s.name,

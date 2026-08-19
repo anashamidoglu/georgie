@@ -555,6 +555,16 @@ export async function fetchDirections(
     primaryManeuver: fallbackStep,
     upcomingSteps: [],
     allSteps: [fallbackStep],
+    legs: [
+      {
+        legIndex: 0,
+        summary: 'Direct Route',
+        distanceStr: `${distKm} km`,
+        durationStr: `${durMin} min`,
+        destinationName: destinationName || 'Destination',
+        steps: [fallbackStep],
+      },
+    ],
   };
 
   return {
