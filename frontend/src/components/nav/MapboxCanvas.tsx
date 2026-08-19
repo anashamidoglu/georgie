@@ -216,6 +216,8 @@ export const MapboxCanvas: React.FC = () => {
         bearing: 0,
         attributionControl: false,
         fadeDuration: 0,
+        preserveDrawingBuffer: true,
+        antialias: true,
       });
 
       map.on('style.load', () => {

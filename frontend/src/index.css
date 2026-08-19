@@ -160,3 +160,13 @@ html, body {
   transform: scale(0.95);
   background-color: rgba(35, 38, 48, 0.92);
 }
+
+/* Mapbox canvas rendering & buffer transitions */
+.mapboxgl-canvas-container,
+.mapboxgl-canvas {
+  outline: none !important;
+}
+
+.mapboxgl-map {
+  background-color: transparent !important;
+}
