@@ -16,6 +16,129 @@ function getComputedLightPreset(): 'day' | 'dusk' | 'night' | 'dawn' {
   return 'night';
 }
 
+function getHaversineDistance(c1: [number, number], c2: [number, number]): number {
+  const R = 6371e3;
+  const rad = Math.PI / 180;
+  const dLat = (c2[1] - c1[1]) * rad;
+  const dLon = (c2[0] - c1[0]) * rad;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(c1[1] * rad) * Math.cos(c2[1] * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+function processActiveRouteGeoJson(
+  features: any[],
+  currentLegIndex: number,
+  vehicleCoords: [number, number],
+  isNavigating: boolean
+): any[] {
+  if (!features || features.length === 0) return [];
+
+  const result: any[] = [];
+  let foundActiveSegment = false;
+
+  for (const feat of features) {
+    const legIdx = feat.properties?.legIndex ?? 0;
+
+    // 1. In navigation mode: Completely remove past completed legs
+    if (isNavigating && legIdx < currentLegIndex) {
+      continue;
+    }
+
+    // 2. Future subsequent legs: Heavily dim
+    if (legIdx > currentLegIndex) {
+      result.push({
+        ...feat,
+        properties: {
+          ...feat.properties,
+          isCurrentActiveLeg: false,
+          isSubsequentLeg: true,
+        },
+      });
+      continue;
+    }
+
+    // 3. Current active leg
+    const coords = feat.geometry?.coordinates || [];
+    if (coords.length === 0) continue;
+
+    if (!isNavigating) {
+      // In preview mode: show entire first leg brightly and subsequent dimmed
+      result.push({
+        ...feat,
+        properties: {
+          ...feat.properties,
+          isCurrentActiveLeg: legIdx === 0,
+          isSubsequentLeg: legIdx > 0,
+        },
+      });
+      continue;
+    }
+
+    // In driving / simulation mode: remove polyline behind vehicle
+    let minD = Infinity;
+    let closestIdx = 0;
+    for (let i = 0; i < coords.length; i++) {
+      const d = getHaversineDistance(coords[i], vehicleCoords);
+      if (d < minD) {
+        minD = d;
+        closestIdx = i;
+      }
+    }
+
+    if (!foundActiveSegment) {
+      if (minD < 350) {
+        foundActiveSegment = true;
+        const sliced = coords.slice(closestIdx);
+        const trimmedCoords = sliced.length > 0 ? [vehicleCoords, ...sliced] : [vehicleCoords];
+        if (trimmedCoords.length > 1) {
+          result.push({
+            ...feat,
+            properties: {
+              ...feat.properties,
+              isCurrentActiveLeg: true,
+              isSubsequentLeg: false,
+            },
+            geometry: {
+              type: 'LineString',
+              coordinates: trimmedCoords,
+            },
+          });
+        }
+      }
+      // If segment is before the vehicle, it's skipped (removed behind the car!)
+    } else {
+      // Segments ahead of vehicle in current active leg
+      result.push({
+        ...feat,
+        properties: {
+          ...feat.properties,
+          isCurrentActiveLeg: true,
+          isSubsequentLeg: false,
+        },
+      });
+    }
+  }
+
+  // Fallback: If no segment was matched as current, include remaining legs
+  if (isNavigating && !foundActiveSegment) {
+    return features
+      .filter((f) => (f.properties?.legIndex ?? 0) >= currentLegIndex)
+      .map((f) => ({
+        ...f,
+        properties: {
+          ...f.properties,
+          isCurrentActiveLeg: (f.properties?.legIndex ?? 0) === currentLegIndex,
+          isSubsequentLeg: (f.properties?.legIndex ?? 0) > currentLegIndex,
+        },
+      }));
+  }
+
+  return result;
+}
+
 export const MapboxCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -38,184 +161,60 @@ export const MapboxCanvas: React.FC = () => {
     waypoints,
     previewRouteTo,
     navStatus,
+    allSteps,
+    activeStepIndex,
   } = useNav();
 
-  // Keep refs up to date
-  const previewRouteToRef = useRef(previewRouteTo);
-  previewRouteToRef.current = previewRouteTo;
+  const currentLegIndex =
+    navStatus === 'navigating' ? allSteps[activeStepIndex]?.legIndex ?? 0 : 0;
 
-  const selectRouteRef = useRef(selectRoute);
-  selectRouteRef.current = selectRoute;
-
-  const applyLighting = (map: mapboxgl.Map) => {
-    const preset = getComputedLightPreset();
-    try {
-      map.setConfigProperty('basemap', 'lightPreset', preset);
-    } catch {
-      // Custom style might not use Standard lighting schema
-    }
-  };
-
+  // Initialize Mapbox 3D Standard Canvas
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || mapRef.current) return;
 
-    if (!MAPBOX_TOKEN || !MAPBOX_TOKEN.startsWith('pk.')) {
-      setErrorMsg('Mapbox requires a Public Access Token starting with "pk." (e.g. pk.eyJ1...). Please copy your default public token into frontend/.env.local');
+    if (!MAPBOX_TOKEN) {
+      setErrorMsg('Mapbox access token missing.');
       return;
     }
 
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-
     try {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+      const initialCenter: [number, number] =
+        coords && coords[0] !== 0 ? [coords[0], coords[1]] : [55.3781, 25.3223];
+
       const map = new mapboxgl.Map({
         container: containerRef.current,
         style: MAPBOX_STYLE,
-        center: vehicleCoords || coords,
+        center: initialCenter,
         zoom: 15.5,
         pitch: 50,
         bearing: 0,
         attributionControl: false,
-        preserveDrawingBuffer: false,
+        fadeDuration: 0,
       });
 
-      mapRef.current = map;
-
-      // Clean Apple Maps style vehicle position puck
-      const puckEl = document.createElement('div');
-      puckEl.className = 'relative flex items-center justify-center';
-      puckEl.innerHTML = `
-        <div class="w-6 h-6 rounded-full bg-[#0ea5e9] border-[2.5px] border-white shadow-[0_2px_10px_rgba(14,165,233,0.9)] flex items-center justify-center">
-          <div class="w-2 h-2 rounded-full bg-white"></div>
-        </div>
-      `;
-
-      const marker = new mapboxgl.Marker({
-        element: puckEl,
-        rotationAlignment: 'map',
-        pitchAlignment: 'map',
-      })
-        .setLngLat(vehicleCoords || coords)
-        .addTo(map);
-
-      markerRef.current = marker;
-
-      // Strict Long-Press (600ms hold) Pin-Dropping Logic
-      let longPressTimer: any = null;
-      let startPoint: { x: number; y: number } | null = null;
-      let isLongPressed = false;
-
-      const cancelLongPress = () => {
-        if (longPressTimer) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-        }
-        startPoint = null;
-      };
-
-      const startLongPress = (point: { x: number; y: number }, lngLat: [number, number], target: HTMLElement | null) => {
-        if (target && target.closest('.pointer-events-auto')) return;
-        isLongPressed = false;
-        startPoint = point;
-
-        cancelLongPress();
-        longPressTimer = setTimeout(() => {
-          isLongPressed = true;
-          if (navigator.vibrate) {
-            try {
-              navigator.vibrate(50);
-            } catch {}
-          }
-          previewRouteToRef.current(lngLat, 'Pinned Location');
-        }, 600);
-      };
-
-      map.on('mousedown', (e) => {
-        startLongPress(e.point, [e.lngLat.lng, e.lngLat.lat], e.originalEvent?.target as HTMLElement);
-      });
-
-      map.on('mousemove', (e) => {
-        if (startPoint) {
-          const dx = Math.abs(e.point.x - startPoint.x);
-          const dy = Math.abs(e.point.y - startPoint.y);
-          if (dx > 10 || dy > 10) {
-            cancelLongPress();
-          }
+      map.on('style.load', () => {
+        try {
+          const preset = getComputedLightPreset();
+          map.setConfigProperty('basemap', 'lightPreset', preset);
+          map.setConfigProperty('basemap', 'showPlaceLabels', true);
+          map.setConfigProperty('basemap', 'showPointOfInterestLabels', true);
+          map.setConfigProperty('basemap', 'showTransitLabels', true);
+        } catch {
+          // Standard style config fallback
         }
       });
 
-      map.on('mouseup', cancelLongPress);
-      map.on('dragstart', cancelLongPress);
-
-      map.on('touchstart', (e) => {
-        if (e.points && e.points.length === 1) {
-          startLongPress(e.points[0], [e.lngLats[0].lng, e.lngLats[0].lat], e.originalEvent?.target as HTMLElement);
-        }
-      });
-
-      map.on('touchmove', (e) => {
-        if (startPoint && e.points && e.points.length === 1) {
-          const dx = Math.abs(e.points[0].x - startPoint.x);
-          const dy = Math.abs(e.points[0].y - startPoint.y);
-          if (dx > 10 || dy > 10) {
-            cancelLongPress();
-          }
-        }
-      });
-
-      map.on('touchend', cancelLongPress);
-      map.on('touchcancel', cancelLongPress);
-
-      // Direct layer click listeners for alternative routes
+      // Interactive Alternative Route Selection
       map.on('click', 'alt-routes-hitbox', (e) => {
-        const targetRouteId = (e.features?.[0] as any)?.properties?.routeId;
-        if (typeof targetRouteId === 'number') {
-          selectRouteRef.current(targetRouteId);
-        }
-      });
-
-      map.on('click', 'alt-routes-layer', (e) => {
-        const targetRouteId = (e.features?.[0] as any)?.properties?.routeId;
-        if (typeof targetRouteId === 'number') {
-          selectRouteRef.current(targetRouteId);
-        }
-      });
-
-      // Map Click Fallback with 80px bounding box
-      map.on('click', (e) => {
-        if (isLongPressed) {
-          isLongPressed = false;
-          return;
-        }
-
-        const originalTarget = e.originalEvent?.target as HTMLElement | null;
-        if (originalTarget && originalTarget.closest('.pointer-events-auto')) {
-          return;
-        }
-
-        // Generous 80px touch bounding box (±40px) for 7-inch touchscreens
-        if (map.getLayer('alt-routes-layer') || map.getLayer('alt-routes-hitbox')) {
-          const bbox: [mapboxgl.PointLike, mapboxgl.PointLike] = [
-            [e.point.x - 40, e.point.y - 40],
-            [e.point.x + 40, e.point.y + 40],
-          ];
-          const queryLayers = ['alt-routes-hitbox', 'alt-routes-layer'].filter((id) => map.getLayer(id));
-          const features = map.queryRenderedFeatures(bbox, { layers: queryLayers });
-
-          if (features && features.length > 0) {
-            const targetRouteId = (features[0] as any).properties?.routeId;
-            if (typeof targetRouteId === 'number') {
-              selectRouteRef.current(targetRouteId);
-            }
+        if (e.features && e.features.length > 0) {
+          const clickedRouteId = (e.features[0] as any)?.properties?.routeId;
+          if (typeof clickedRouteId === 'number') {
+            selectRoute(clickedRouteId);
           }
         }
       });
 
-      map.on('mouseenter', 'alt-routes-layer', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', 'alt-routes-layer', () => {
-        map.getCanvas().style.cursor = '';
-      });
       map.on('mouseenter', 'alt-routes-hitbox', () => {
         map.getCanvas().style.cursor = 'pointer';
       });
@@ -223,63 +222,73 @@ export const MapboxCanvas: React.FC = () => {
         map.getCanvas().style.cursor = '';
       });
 
-      map.on('style.load', () => {
-        applyLighting(map);
+      // Quick POI Tap-to-Route
+      map.on('click', (e) => {
+        const poiFeatures = map.queryRenderedFeatures(e.point, {
+          layers: ['poi-label', 'transit-label'],
+        });
+
+        if (poiFeatures.length > 0) {
+          const poi = poiFeatures[0] as any;
+          const poiName = poi?.properties?.name || 'Selected POI';
+          const poiLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+          previewRouteTo(poiLngLat, poiName);
+        }
       });
 
-      map.on('load', () => {
-        applyLighting(map);
-        setMapInstance(map);
-        map.resize();
-      });
+      mapRef.current = map;
+      setMapInstance(map);
+    } catch (err: any) {
+      console.error('Error initializing map:', err);
+      setErrorMsg(err?.message || 'Failed to initialize Mapbox.');
+    }
 
-      map.on('error', (e) => {
-        console.error('Mapbox runtime error:', e);
-      });
-
-      const handleResize = () => {
-        map.resize();
-      };
-      window.addEventListener('resize', handleResize);
-
-      const lightInterval = setInterval(() => {
-        if (mapRef.current) {
-          applyLighting(mapRef.current);
-        }
-      }, 60000);
-
-      return () => {
-        clearInterval(lightInterval);
-        window.removeEventListener('resize', handleResize);
-        if (markerRef.current) {
-          markerRef.current.remove();
-          markerRef.current = null;
-        }
-        if (destMarkerRef.current) {
-          destMarkerRef.current.remove();
-          destMarkerRef.current = null;
-        }
-        waypointMarkersRef.current.forEach((m) => m.remove());
-        waypointMarkersRef.current = [];
-        map.remove();
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
         mapRef.current = null;
         setMapInstance(null);
-      };
-    } catch (err: any) {
-      console.error('Mapbox initialization failed:', err);
-      setErrorMsg(err.message || 'Mapbox initialization failed');
-    }
+      }
+    };
   }, []);
 
-  // Update vehicle puck position on coordinates change
+  // Update Driver Vehicle Puck (Live GPS or Simulated navigation step)
   useEffect(() => {
-    if (markerRef.current && (vehicleCoords || coords)) {
-      markerRef.current.setLngLat(vehicleCoords || coords);
+    const map = mapRef.current;
+    if (!map) return;
+
+    const targetCoords = vehicleCoords || coords;
+    if (!targetCoords || (targetCoords[0] === 0 && targetCoords[1] === 0)) return;
+
+    if (!markerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'vehicle-puck relative flex items-center justify-center pointer-events-none';
+      el.style.width = '38px';
+      el.style.height = '38px';
+      el.innerHTML = `
+        <div class="relative w-8 h-8 flex items-center justify-center">
+          <div class="absolute inset-0 rounded-full bg-sky-500/25 animate-ping"></div>
+          <div class="relative w-7 h-7 rounded-full bg-sky-500 border-2 border-white shadow-[0_0_16px_rgba(14,165,233,0.9)] flex items-center justify-center transition-transform duration-300">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white" class="drop-shadow-sm">
+              <path d="M12 2L2 22L12 18L22 22L12 2Z"/>
+            </svg>
+          </div>
+        </div>
+      `;
+
+      markerRef.current = new mapboxgl.Marker({
+        element: el,
+        rotationAlignment: 'map',
+      })
+        .setLngLat(targetCoords)
+        .addTo(map);
+    } else {
+      markerRef.current.setLngLat(targetCoords);
       markerRef.current.setRotation(vehicleHeading || 0);
     }
   }, [vehicleCoords, coords, vehicleHeading]);
 
-  // Update destination pin marker
+  // Update Destination Pin Marker (Google Maps Red Pin)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -311,7 +320,7 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [destination, navStatus]);
 
-  // Update intermediate waypoint pin markers
+  // Update intermediate waypoint pin markers (auto-remove reached stops)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -321,19 +330,26 @@ export const MapboxCanvas: React.FC = () => {
     waypointMarkersRef.current = [];
 
     if (navStatus !== 'idle' && waypoints.length > 0) {
-      const newMarkers = waypoints.map((wp, idx) => {
-        const wpEl = document.createElement('div');
-        wpEl.className =
-          'w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow-[0_0_10px_rgba(245,158,11,0.8)] flex items-center justify-center text-black font-black text-xs font-mono select-none';
-        wpEl.innerText = `${idx + 1}`;
+      const newMarkers = waypoints
+        .map((wp, idx) => {
+          // If navigating and this stop has already been reached in the past, hide its pin
+          if (navStatus === 'navigating' && idx < currentLegIndex) {
+            return null;
+          }
 
-        return new mapboxgl.Marker({ element: wpEl })
-          .setLngLat(wp.coordinates)
-          .addTo(map);
-      });
+          const wpEl = document.createElement('div');
+          wpEl.className =
+            'w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow-[0_0_10px_rgba(245,158,11,0.8)] flex items-center justify-center text-black font-black text-xs font-mono select-none';
+          wpEl.innerText = `${idx + 1}`;
+
+          return new mapboxgl.Marker({ element: wpEl })
+            .setLngLat(wp.coordinates)
+            .addTo(map);
+        })
+        .filter(Boolean) as mapboxgl.Marker[];
       waypointMarkersRef.current = newMarkers;
     }
-  }, [waypoints, navStatus]);
+  }, [waypoints, navStatus, currentLegIndex]);
 
   // Render & update live Route GeoJSON lines (Active Traffic Ribbon + Alternative Routes)
   useEffect(() => {
@@ -417,8 +433,19 @@ export const MapboxCanvas: React.FC = () => {
         });
       }
 
-      // 2. Render Active Traffic-Colored Route Line
-      const activeGeoJson = activeRoute.geoJson;
+      // 2. Render Active Route Line with breadcrumb trailing removal & heavily dimmed subsequent legs
+      const processedFeatures = processActiveRouteGeoJson(
+        activeRoute.geoJson?.features || [],
+        currentLegIndex,
+        vehicleCoords || coords,
+        navStatus === 'navigating'
+      );
+
+      const activeGeoJson = {
+        type: 'FeatureCollection',
+        features: processedFeatures,
+      };
+
       const existingActiveSource = map.getSource(activeSourceId) as mapboxgl.GeoJSONSource;
       if (existingActiveSource) {
         existingActiveSource.setData(activeGeoJson as any);
@@ -440,12 +467,17 @@ export const MapboxCanvas: React.FC = () => {
           },
           paint: {
             'line-color': [
-              'match',
-              ['get', 'congestion'],
-              'moderate', '#b45309',
-              'heavy', '#b91c1c',
-              'severe', '#7f1d1d',
-              '#0284c7',
+              'case',
+              ['==', ['get', 'isSubsequentLeg'], true],
+              '#090d16',
+              [
+                'match',
+                ['get', 'congestion'],
+                'moderate', '#b45309',
+                'heavy', '#b91c1c',
+                'severe', '#7f1d1d',
+                '#0284c7',
+              ],
             ],
             'line-width': [
               'interpolate',
@@ -457,12 +489,17 @@ export const MapboxCanvas: React.FC = () => {
             ],
             'line-opacity': [
               'case',
-              ['==', ['get', 'isFirstLeg'], false],
-              0.55,
+              ['==', ['get', 'isSubsequentLeg'], true],
+              0.15,
               0.9,
             ],
             'line-blur': 0,
-            'line-emissive-strength': 0.8,
+            'line-emissive-strength': [
+              'case',
+              ['==', ['get', 'isSubsequentLeg'], true],
+              0.05,
+              0.8,
+            ],
           },
         });
 
@@ -478,12 +515,17 @@ export const MapboxCanvas: React.FC = () => {
           },
           paint: {
             'line-color': [
-              'match',
-              ['get', 'congestion'],
-              'moderate', '#f59e0b',
-              'heavy', '#ef4444',
-              'severe', '#dc2626',
-              '#0ea5e9',
+              'case',
+              ['==', ['get', 'isSubsequentLeg'], true],
+              '#1e293b',
+              [
+                'match',
+                ['get', 'congestion'],
+                'moderate', '#f59e0b',
+                'heavy', '#ef4444',
+                'severe', '#dc2626',
+                '#0ea5e9',
+              ],
             ],
             'line-width': [
               'interpolate',
@@ -495,11 +537,16 @@ export const MapboxCanvas: React.FC = () => {
             ],
             'line-opacity': [
               'case',
-              ['==', ['get', 'isFirstLeg'], false],
-              0.65,
+              ['==', ['get', 'isSubsequentLeg'], true],
+              0.25,
               1.0,
             ],
-            'line-emissive-strength': 1.0,
+            'line-emissive-strength': [
+              'case',
+              ['==', ['get', 'isSubsequentLeg'], true],
+              0.05,
+              1.0,
+            ],
           },
         });
       }
@@ -511,7 +558,7 @@ export const MapboxCanvas: React.FC = () => {
           const firstCoord = coordinates[0] as [number, number];
           const bounds = new mapboxgl.LngLatBounds(firstCoord, firstCoord);
           availableRoutes.forEach((r) => {
-            r.rawGeometry?.coordinates.forEach((coord) => {
+            r.rawGeometry?.coordinates?.forEach((coord) => {
               bounds.extend(coord as [number, number]);
             });
           });
@@ -533,37 +580,47 @@ export const MapboxCanvas: React.FC = () => {
       if (map.getLayer(altLayerId)) map.removeLayer(altLayerId);
       if (map.getSource(altSourceId)) map.removeSource(altSourceId);
     }
-  }, [activeRoute, availableRoutes, selectedRouteIndex, navStatus]);
+  }, [
+    activeRoute,
+    availableRoutes,
+    selectedRouteIndex,
+    navStatus,
+    currentLegIndex,
+    vehicleCoords,
+    coords,
+  ]);
 
   // Trigger smooth resize on view-state changes
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 150);
+      if (mapRef.current) {
+        mapRef.current.resize();
+      }
+    }, 280);
     return () => clearTimeout(timer);
   }, [isNavExpanded]);
 
-  if (errorMsg) {
-    return (
-      <div className="absolute inset-0 w-full h-full bg-[#0c0d11] flex flex-col items-center justify-center text-center p-6 select-none font-sf">
-        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-3 text-amber-400 font-bold text-lg">
-          !
-        </div>
-        <span className="text-sm font-semibold text-white/90 max-w-sm leading-snug">
-          Mapbox Public Token Required
-        </span>
-        <span className="text-xs text-white/50 max-w-xs mt-1.5 leading-normal">
-          {errorMsg}
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 w-full h-full bg-[#08080a]"
-      style={{ width: '100%', height: '100%' }}
-    />
+    <div className="w-full h-full relative overflow-hidden bg-[#090a0f]">
+      {/* 3D Mapbox Container */}
+      <div ref={containerRef} className="w-full h-full" />
+
+      {/* Subtle vignette border overlay */}
+      <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_28px_rgba(0,0,0,0.5)] z-10" />
+
+      {/* Error Fallback */}
+      {errorMsg && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/85 backdrop-blur-md">
+          <div className="max-w-md p-6 rounded-2xl bg-red-950/40 border border-red-500/30 text-center">
+            <h3 className="text-lg font-bold text-red-400 mb-2 font-sf">
+              Map Configuration Error
+            </h3>
+            <p className="text-xs text-white/80 font-sf leading-relaxed mb-4">
+              {errorMsg}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
