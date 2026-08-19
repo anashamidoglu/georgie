@@ -276,6 +276,16 @@ export const MapboxCanvas: React.FC = () => {
     }
 
     return () => {
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+      if (destMarkerRef.current) {
+        destMarkerRef.current.remove();
+        destMarkerRef.current = null;
+      }
+      waypointMarkersRef.current.forEach((m) => m.remove());
+      waypointMarkersRef.current = [];
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -299,7 +309,7 @@ export const MapboxCanvas: React.FC = () => {
 
     if (!markerRef.current) {
       const el = document.createElement('div');
-      el.className = 'vehicle-puck relative flex items-center justify-center pointer-events-none';
+      el.className = 'vehicle-puck relative flex items-center justify-center pointer-events-none z-30';
       el.style.width = '38px';
       el.style.height = '38px';
       el.innerHTML = `
