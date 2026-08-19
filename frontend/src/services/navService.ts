@@ -279,17 +279,17 @@ function parseManeuverStep(
   let type = rawType;
   let modifier = rawModifier;
 
-  if (type === 'turn' || type === 'new name') {
-    if (modifier === 'straight' || modifier === 'slight right' || modifier === 'slight left') {
-      // standard modifier
-    }
+  if (isWaypointStop && stopName) {
+    type = 'destination';
+    modifier = 'destination';
   }
 
-  const instruction =
-    bannerPrimary?.text ||
-    step.maneuver?.instruction ||
-    step.name ||
-    'Continue on route';
+  const instruction = isWaypointStop && stopName
+    ? `${stopName} reached`
+    : bannerPrimary?.text ||
+      step.maneuver?.instruction ||
+      step.name ||
+      'Continue on route';
 
   const roadName =
     step.name ||

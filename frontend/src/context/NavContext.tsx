@@ -53,6 +53,7 @@ interface NavContextType {
   removeWaypoint: (id: string) => Promise<void>;
   moveWaypoint: (fromIndex: number, toIndex: number) => Promise<void>;
   swapWaypointWithDestination: (waypointIndex: number) => Promise<void>;
+  reorderStop: (fromIndex: number, toIndex: number) => Promise<void>;
   clearWaypoints: () => void;
   speed: number | null;
   mapInstance: MapboxMap | null;
@@ -236,6 +237,32 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDestinationName(targetWp.name);
     setWaypoints(newWaypoints);
     await calculateRoute(targetWp.coordinates, newWaypoints, targetWp.name);
+  };
+
+  // Multi-Stop: Reorder any stop across the entire itinerary (including final destination)
+  const reorderStop = async (fromIdx: number, toIdx: number) => {
+    if (!destination) return;
+    const allStops: Array<{ id: string; name: string; coordinates: [number, number] }> = [
+      ...waypoints,
+      { id: 'final-dest', name: destinationName, coordinates: destination },
+    ];
+
+    if (fromIdx < 0 || fromIdx >= allStops.length || toIdx < 0 || toIdx >= allStops.length) return;
+
+    const [moved] = allStops.splice(fromIdx, 1);
+    allStops.splice(toIdx, 0, moved);
+
+    const newDest = allStops[allStops.length - 1];
+    const newWaypoints = allStops.slice(0, allStops.length - 1).map((s, idx) => ({
+      id: s.id.startsWith('wp-') ? s.id : `wp-${Date.now()}-${idx}`,
+      name: s.name,
+      coordinates: s.coordinates,
+    }));
+
+    setDestination(newDest.coordinates);
+    setDestinationName(newDest.name);
+    setWaypoints(newWaypoints);
+    await calculateRoute(newDest.coordinates, newWaypoints, newDest.name);
   };
 
   const clearWaypoints = () => {
@@ -527,6 +554,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeWaypoint,
         moveWaypoint,
         swapWaypointWithDestination,
+        reorderStop,
         clearWaypoints,
         speed: position.speed,
         mapInstance,

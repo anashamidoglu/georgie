@@ -15,7 +15,6 @@ export const DashboardView: React.FC = () => {
     isNavExpanded,
     setIsNavExpanded,
     navStatus,
-    waypoints,
     inspectedStep,
   } = useNav();
 
@@ -68,13 +67,13 @@ export const DashboardView: React.FC = () => {
               )}
             </div>
 
-            {/* Bottom Right: Upcoming Steps (if single-route preview or navigating) OR Media Card */}
+            {/* Bottom Right: Upcoming Steps (if Nav active/preview) OR Media Card */}
             <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden">
-              {navStatus === 'navigating' || (navStatus === 'preview' && waypoints.length === 0) ? (
-                /* Single destination preview or active navigation -> Full upcoming steps */
+              {navStatus !== 'idle' ? (
+                /* Nav preview or active navigation -> Full upcoming steps */
                 <UpcomingManeuversCard />
               ) : hasActiveMedia ? (
-                /* When multi-stop preview or idle & media playing -> Full Media Card */
+                /* When Nav is idle & media is playing -> Full Media Card */
                 <MediaDockedCard
                   track={currentTrack}
                   onPlayPause={togglePlayPause}

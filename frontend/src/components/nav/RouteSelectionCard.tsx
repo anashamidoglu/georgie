@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   ChevronDown,
+  ChevronUp,
   Check,
   GitFork,
-  Plus,
   X,
 } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
@@ -14,32 +14,27 @@ export const RouteSelectionCard: React.FC = () => {
     destinationName,
     waypoints,
     removeWaypoint,
+    reorderStop,
     availableRoutes,
     selectedRouteIndex,
     selectRoute,
     activeRoute,
-    setIsAddStopMode,
-    setIsSearchOpen,
   } = useNav();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
   const currentRoute = activeRoute || availableRoutes[selectedRouteIndex];
   const legs = currentRoute?.legs || [];
+  const totalStops = waypoints.length + 1;
 
-  const handleOpenAddStop = () => {
-    setIsAddStopMode(true);
-    setIsSearchOpen(true);
-  };
-
-  // If no intermediate waypoints exist, render the single clean card
+  // Single Destination View (No extra waypoints)
   if (waypoints.length === 0) {
     return (
       <LiquidGlassCard
         padding="lg"
         className="w-full flex flex-col justify-center select-none font-sf relative transition-all duration-200"
       >
-        {/* Top Header: Destination Title & Header Action Buttons (+ Add Stop / Routes) */}
+        {/* Top Header: Destination Title & Multi-Route Button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0 flex-1 mr-3">
             <span className="text-xl font-bold font-sf-display text-white truncate max-w-full tracking-tight">
@@ -47,35 +42,22 @@ export const RouteSelectionCard: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center space-x-2 flex-shrink-0">
-            {/* Add Stop Button on the Right Banner */}
+          {/* Multi-Route Toggle Button (if more than 1 route) */}
+          {availableRoutes.length > 1 && (
             <button
               type="button"
-              onClick={handleOpenAddStop}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold"
-              title="Add a stop along this route"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold flex-shrink-0"
             >
-              <Plus className="w-3.5 h-3.5 text-sky-400" />
-              <span>Add Stop</span>
+              <GitFork className="w-3.5 h-3.5 text-sky-400" />
+              <span>{availableRoutes.length} Routes</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                  isDropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
             </button>
-
-            {/* Multi-Route Toggle Button (if more than 1 route) */}
-            {availableRoutes.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold"
-              >
-                <GitFork className="w-3.5 h-3.5 text-sky-400" />
-                <span>{availableRoutes.length} Routes</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                    isDropdownOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Primary Route Summary */}
@@ -171,10 +153,10 @@ export const RouteSelectionCard: React.FC = () => {
     );
   }
 
-  // When multiple stops exist: Replicate the clean card layout for each stop in sequence
+  // Multi-Stop Itinerary View: Stacked clean cards with simple up/down arrows
   return (
     <div className="w-full flex flex-col space-y-3 select-none font-sf">
-      {/* 1. Intermediate Waypoint Cards */}
+      {/* 1. Intermediate Waypoints */}
       {waypoints.map((wp, idx) => {
         const leg = legs[idx];
 
@@ -184,9 +166,9 @@ export const RouteSelectionCard: React.FC = () => {
             padding="lg"
             className="w-full flex flex-col justify-center select-none font-sf relative transition-all duration-200 border-amber-500/30"
           >
-            {/* Header: Stop Name + Delete Button */}
+            {/* Header: Stop Name + Reorder Up/Down + Remove Button */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 min-w-0 flex-1 mr-3">
+              <div className="flex items-center space-x-2 min-w-0 flex-1 mr-2">
                 <span className="w-5 h-5 rounded-full bg-amber-500 text-black font-black text-xs flex items-center justify-center font-mono flex-shrink-0">
                   {idx + 1}
                 </span>
@@ -195,14 +177,39 @@ export const RouteSelectionCard: React.FC = () => {
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => removeWaypoint(wp.id)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white flex items-center justify-center transition-colors"
-                title="Remove stop"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center space-x-1 flex-shrink-0">
+                {/* Move Up */}
+                {idx > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => reorderStop(idx, idx - 1)}
+                    className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-colors"
+                    title="Move stop up"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                )}
+
+                {/* Move Down */}
+                <button
+                  type="button"
+                  onClick={() => reorderStop(idx, idx + 1)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-colors"
+                  title="Move stop down"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+
+                {/* Delete Stop */}
+                <button
+                  type="button"
+                  onClick={() => removeWaypoint(wp.id)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white flex items-center justify-center transition-colors ml-1"
+                  title="Remove stop"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {/* Body: Road info & Leg ETA */}
@@ -240,24 +247,26 @@ export const RouteSelectionCard: React.FC = () => {
         padding="lg"
         className="w-full flex flex-col justify-center select-none font-sf relative transition-all duration-200"
       >
-        {/* Header: Destination Name + Add Stop Button */}
+        {/* Header: Destination Name + Move Up Button */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center min-w-0 flex-1 mr-3">
+          <div className="flex items-center min-w-0 flex-1 mr-2">
             <span className="text-xl font-bold font-sf-display text-white truncate max-w-full tracking-tight">
               {destinationName || 'Pinned Location'}
             </span>
           </div>
 
-          <div className="flex items-center space-x-2 flex-shrink-0">
-            <button
-              type="button"
-              onClick={handleOpenAddStop}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold"
-              title="Add another stop"
-            >
-              <Plus className="w-3.5 h-3.5 text-sky-400" />
-              <span>Add Stop</span>
-            </button>
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            {/* Move Up (Swap with preceding stop) */}
+            {totalStops > 1 && (
+              <button
+                type="button"
+                onClick={() => reorderStop(waypoints.length, waypoints.length - 1)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-colors"
+                title="Move stop earlier"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import {
   Play,
   X,
   Search,
+  Plus,
 } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
@@ -148,9 +149,26 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Banner: Preview Confirmation Mode */}
+      {/* 3. Bottom Floating Banner: Preview Confirmation Mode + Floating Add Stop Pill */}
       {navStatus === 'preview' && (
-        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center pointer-events-none z-30 space-y-2">
+          {/* Add Stop pill matching the ETA banner style, aligned to the left */}
+          <div className="w-full max-w-[480px] flex justify-start px-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsAddStopMode(true);
+                setIsSearchOpen(true);
+              }}
+              className="pointer-events-auto rounded-full bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-3.5 py-1.5 flex items-center space-x-1.5 text-xs font-semibold text-white/90 hover:text-white hover:border-white/40 transition-all font-sf active:scale-95"
+              title="Add a stop along route"
+            >
+              <Plus className="w-3.5 h-3.5 text-sky-400" />
+              <span>Add Stop</span>
+            </button>
+          </div>
+
           <div 
             className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-3 flex items-center justify-between font-sf select-none w-full max-w-[480px]"
             onClick={(e) => e.stopPropagation()}
