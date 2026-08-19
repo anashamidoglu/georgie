@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { LiquidGlassCard } from './LiquidGlassCard';
 
 export const DateTimeCard: React.FC = () => {
   const [timeStr, setTimeStr] = useState<string>('');
@@ -31,15 +30,12 @@ export const DateTimeCard: React.FC = () => {
   }, []);
 
   return (
-    <LiquidGlassCard
-      padding="lg"
-      className="w-full min-h-[116px] flex items-center justify-between select-none font-sf"
-    >
+    <div className="w-full min-h-[116px] px-5 flex items-center justify-between select-none font-sf">
       <div className="flex flex-col justify-center">
-        <span className="text-xs font-bold text-sky-400 uppercase tracking-widest">
+        <span className="text-xs font-semibold text-white/40 uppercase tracking-widest">
           {dayStr}
         </span>
-        <span className="text-xl font-bold text-white tracking-tight mt-0.5">
+        <span className="text-lg font-semibold text-white/90 mt-0.5">
           {dateStr}
         </span>
       </div>
@@ -48,10 +44,10 @@ export const DateTimeCard: React.FC = () => {
         <span className="text-3xl font-bold font-sf-display text-white tabular-nums tracking-tight">
           {timeStr || '12:00'}
         </span>
-        <span className="text-xs font-bold text-white/50">
+        <span className="text-xs font-bold text-white/40">
           {periodStr}
         </span>
       </div>
-    </LiquidGlassCard>
+    </div>
   );
 };
