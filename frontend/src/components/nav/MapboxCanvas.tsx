@@ -97,27 +97,96 @@ export const MapboxCanvas: React.FC = () => {
 
       markerRef.current = marker;
 
-      // Map click handler (guarded against clicks on UI overlay buttons)
+      // Long-press detection (500ms hold) for pin dropping (Google Maps style)
+      let longPressTimeout: any = null;
+      let startPoint: { x: number; y: number } | null = null;
+      let didLongPress = false;
+
+      const handlePressStart = (point: { x: number; y: number }, lngLat: [number, number], target: HTMLElement | null) => {
+        if (target && target.closest('.pointer-events-auto')) return;
+        didLongPress = false;
+        startPoint = point;
+
+        if (longPressTimeout) clearTimeout(longPressTimeout);
+        longPressTimeout = setTimeout(() => {
+          didLongPress = true;
+          if (navigator.vibrate) {
+            try {
+              navigator.vibrate(40);
+            } catch {}
+          }
+          previewRouteToRef.current(lngLat, 'Pinned Location');
+        }, 500);
+      };
+
+      const handlePressMove = (point: { x: number; y: number }) => {
+        if (!startPoint) return;
+        const dx = Math.abs(point.x - startPoint.x);
+        const dy = Math.abs(point.y - startPoint.y);
+        if (dx > 8 || dy > 8) {
+          if (longPressTimeout) {
+            clearTimeout(longPressTimeout);
+            longPressTimeout = null;
+          }
+        }
+      };
+
+      const handlePressEnd = () => {
+        if (longPressTimeout) {
+          clearTimeout(longPressTimeout);
+          longPressTimeout = null;
+        }
+        startPoint = null;
+      };
+
+      map.on('mousedown', (e) => {
+        handlePressStart(e.point, [e.lngLat.lng, e.lngLat.lat], e.originalEvent?.target as HTMLElement);
+      });
+      map.on('mousemove', (e) => {
+        handlePressMove(e.point);
+      });
+      map.on('mouseup', handlePressEnd);
+      map.on('dragstart', handlePressEnd);
+
+      map.on('touchstart', (e) => {
+        if (e.points && e.points.length === 1) {
+          handlePressStart(e.points[0], [e.lngLats[0].lng, e.lngLats[0].lat], e.originalEvent?.target as HTMLElement);
+        }
+      });
+      map.on('touchmove', (e) => {
+        if (e.points && e.points.length === 1) {
+          handlePressMove(e.points[0]);
+        }
+      });
+      map.on('touchend', handlePressEnd);
+      map.on('touchcancel', handlePressEnd);
+
+      // Map click handler (For tapping alternative routes with 30px touch buffer for 7-inch displays)
       map.on('click', (e) => {
+        if (didLongPress) {
+          didLongPress = false;
+          return;
+        }
+
         const originalTarget = e.originalEvent?.target as HTMLElement | null;
         if (originalTarget && originalTarget.closest('.pointer-events-auto')) {
           return;
         }
 
-        // Check if an alternative route line was clicked
+        // Check if an alternative route line was clicked (with 30px touch buffer)
         if (map.getLayer('alt-routes-layer')) {
-          const features = map.queryRenderedFeatures(e.point, { layers: ['alt-routes-layer'] });
+          const bbox: [mapboxgl.PointLike, mapboxgl.PointLike] = [
+            [e.point.x - 15, e.point.y - 15],
+            [e.point.x + 15, e.point.y + 15],
+          ];
+          const features = map.queryRenderedFeatures(bbox, { layers: ['alt-routes-layer'] });
           if (features && features.length > 0) {
             const targetRouteId = (features[0] as any).properties?.routeId;
             if (typeof targetRouteId === 'number') {
               selectRouteRef.current(targetRouteId);
-              return;
             }
           }
         }
-
-        const clickedLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-        previewRouteToRef.current(clickedLngLat, 'Pinned Location');
       });
 
       map.on('mouseenter', 'alt-routes-layer', () => {
