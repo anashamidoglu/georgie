@@ -99,11 +99,9 @@ interface NavContextType {
   approachingIncident: TrafficIncident | null;
   dismissIncident: (id: string) => void;
   isRerouting: boolean;
-
-  // Dev Testing Tool Helpers
-  simulateOffRouteDeviation: () => void;
-  injectCustomIncident: (type: 'accident' | 'roadwork' | 'closure' | 'hazard') => void;
-  clearAllIncidents: () => void;
+  simulateOffRoute: () => void;
+  simulateIncidentAlert: () => void;
+  resetSimulatedPosition: () => void;
 }
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
@@ -724,69 +722,37 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Dev Tool: Simulate vehicle missing a turn / deviating off-route by 60m
-  const simulateOffRouteDeviation = () => {
+  // Dev Testing Helpers: Trigger incident alert & simulate missing a turn / going off-route
+  const simulateOffRoute = () => {
     if (!vehicleCoords || vehicleCoords[0] === 0) return;
-    const shifted: [number, number] = [
-      vehicleCoords[0] + 0.0007,
-      vehicleCoords[1] + 0.0006,
+    // Shift vehicle coordinates ~120m perpendicularly
+    const offsetCoords: [number, number] = [
+      vehicleCoords[0] + 0.0012,
+      vehicleCoords[1] + 0.0012,
     ];
-    setSimulatedCoords(shifted);
-    if (mapInstance) {
-      mapInstance.easeTo({
-        center: shifted,
-        duration: 500,
-      });
+    setSimulatedCoords(offsetCoords);
+  };
+
+  const simulateIncidentAlert = () => {
+    const testInc: TrafficIncident = {
+      id: `test-inc-${Date.now()}`,
+      type: 'accident',
+      severity: 'major',
+      location: [vehicleCoords[0] + 0.003, vehicleCoords[1] + 0.003],
+      title: 'Accident reported ahead',
+      description: 'Two vehicles involved on highway. Right lane blocked.',
+      delaySeconds: 240,
+      distanceAheadMeters: 450,
+    };
+    setApproachingIncident(testInc);
+  };
+
+  const resetSimulatedPosition = () => {
+    if (allSteps.length > 0 && allSteps[activeStepIndex]?.location) {
+      setSimulatedCoords(allSteps[activeStepIndex].location);
+    } else {
+      setSimulatedCoords(null);
     }
-  };
-
-  // Dev Tool: Inject custom incident ahead on the route for immediate alert testing
-  const injectCustomIncident = (type: 'accident' | 'roadwork' | 'closure' | 'hazard') => {
-    const titles = {
-      accident: 'Accident reported ahead',
-      roadwork: 'Roadwork construction',
-      closure: 'Lane closure ahead',
-      hazard: 'Hazard / Debris on road',
-    };
-    const descriptions = {
-      accident: 'Two vehicles in right lane. Caution advised.',
-      roadwork: 'Shoulder maintenance in progress.',
-      closure: 'Emergency roadworks blocking exit ramp.',
-      hazard: 'Debris reported in center lane.',
-    };
-    const delays = {
-      accident: 360,
-      roadwork: 180,
-      closure: 420,
-      hazard: 120,
-    };
-
-    const incLoc: [number, number] = [
-      vehicleCoords[0] + 0.003,
-      vehicleCoords[1] + 0.002,
-    ];
-
-    const newInc: TrafficIncident = {
-      id: `dev-inc-${Date.now()}`,
-      type,
-      severity: 'moderate',
-      location: incLoc,
-      title: titles[type],
-      description: descriptions[type],
-      delaySeconds: delays[type],
-      distanceAheadMeters: 800,
-    };
-
-    setIncidents((prev) => [newInc, ...prev]);
-    setApproachingIncident(newInc);
-    setDismissedIncidentIds([]);
-  };
-
-  // Dev Tool: Clear all active incidents
-  const clearAllIncidents = () => {
-    setIncidents([]);
-    setApproachingIncident(null);
-    setDismissedIncidentIds([]);
   };
 
   return (
@@ -841,11 +807,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approachingIncident,
         dismissIncident,
         isRerouting,
-
-        // Dev helpers
-        simulateOffRouteDeviation,
-        injectCustomIncident,
-        clearAllIncidents,
+        simulateOffRoute,
+        simulateIncidentAlert,
+        resetSimulatedPosition,
       }}
     >
       {children}
