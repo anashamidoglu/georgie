@@ -30,21 +30,21 @@ export const DateTimeCard: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full min-h-[116px] px-5 flex items-center justify-between select-none font-sf">
+    <div className="w-full min-h-[116px] px-6 flex items-center justify-between select-none font-sf">
       <div className="flex flex-col justify-center">
-        <span className="text-xs font-semibold text-white/40 uppercase tracking-widest">
+        <span className="text-sm font-bold text-white/50 uppercase tracking-widest">
           {dayStr}
         </span>
-        <span className="text-lg font-semibold text-white/90 mt-0.5">
+        <span className="text-2xl font-bold text-white mt-1 tracking-tight">
           {dateStr}
         </span>
       </div>
 
-      <div className="flex items-baseline space-x-1.5 text-right font-sf">
-        <span className="text-3xl font-bold font-sf-display text-white tabular-nums tracking-tight">
+      <div className="flex items-baseline space-x-2 text-right font-sf">
+        <span className="text-6xl font-bold font-sf-display text-white tabular-nums tracking-tight leading-none">
           {timeStr || '12:00'}
         </span>
-        <span className="text-xs font-bold text-white/40">
+        <span className="text-base font-bold text-white/50 uppercase">
           {periodStr}
         </span>
       </div>

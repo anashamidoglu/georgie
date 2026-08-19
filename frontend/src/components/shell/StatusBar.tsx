@@ -112,75 +112,76 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     Boolean(currentTrack.title && currentTrack.title !== 'No Track Playing');
 
   return (
-    <header className="w-full h-12 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-40 font-sf relative">
+    <header className="w-full h-14 px-5 flex items-center justify-between border-b border-white/[0.08] bg-[#09090b] select-none z-40 font-sf relative">
       {/* Left: Navigation Simulator, Miss Turn, and Phone Call Dev Tools */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2.5">
         {/* Driving Step Simulator (Active when a route is active) */}
         {allSteps.length > 0 && (
-          <div className="flex items-center space-x-1 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/30 animate-in fade-in duration-150">
-            <button
-              type="button"
-              onClick={prevSimulationStep}
-              disabled={activeStepIndex <= 0}
-              className="p-0.5 text-white/70 hover:text-white disabled:opacity-30 transition-opacity"
-              title="Previous Turn"
-            >
-              <StepBack className="w-3 h-3" />
-            </button>
-            <span className="text-[9px] font-sf font-bold text-sky-300 px-1 tabular-nums">
+          <div className="flex items-center space-x-1.5 bg-sky-500/15 px-3 py-1 rounded-full border border-sky-500/40 animate-in fade-in duration-150">
+            <span className="text-xs font-bold text-sky-200 font-sf mr-1 tabular-nums">
               Step {activeStepIndex + 1}/{allSteps.length}
             </span>
             <button
               type="button"
+              onClick={prevSimulationStep}
+              disabled={activeStepIndex === 0}
+              aria-label="Previous step"
+              className="p-1 rounded-full hover:bg-sky-500/30 text-sky-300 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              title="Previous Turn"
+            >
+              <StepBack className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
               onClick={nextSimulationStep}
-              disabled={activeStepIndex >= allSteps.length - 1}
-              className="p-0.5 text-white/70 hover:text-white disabled:opacity-30 transition-opacity"
+              disabled={activeStepIndex === allSteps.length - 1}
+              aria-label="Next step"
+              className="p-1 rounded-full hover:bg-sky-500/30 text-sky-300 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               title="Next Turn"
             >
-              <StepForward className="w-3 h-3" />
+              <StepForward className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        {/* Miss Turn & Reset Position (Active during navigation) */}
-        {navStatus !== 'idle' && (
-          <div className="flex items-center space-x-1.5 animate-in fade-in duration-150">
+        {/* Miss Turn / Dynamic Off-Route Simulation Button */}
+        {navStatus === 'navigating' && (
+          <div className="flex items-center space-x-1.5">
             <button
               type="button"
               onClick={simulateOffRoute}
-              className="text-[9px] font-sf font-semibold px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center space-x-1 transition-colors active:scale-95"
-              title="Simulate driving past turn / missing turn to trigger dynamic rerouting"
+              className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-bold transition-colors shadow-sm"
+              title="Simulate driver missing a turn to trigger dynamic rerouting"
             >
-              <RotateCcw className="w-2.5 h-2.5" />
+              <RotateCcw className="w-3.5 h-3.5 text-amber-300" />
               <span>Miss Turn</span>
             </button>
 
             <button
               type="button"
               onClick={resetSimulatedPosition}
-              className="text-[9px] font-sf font-medium px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/10 flex items-center space-x-1 transition-colors"
-              title="Snap vehicle puck back to current turn"
+              className="p-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white/70 hover:text-white transition-colors"
+              title="Reset vehicle position back to GPS"
             >
-              <MapPin className="w-2.5 h-2.5" />
-              <span>Reset Pos</span>
+              <MapPin className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        {/* Simulate Incoming Call Dev Trigger */}
+        {/* Incoming Call Tester Button */}
         <button
           type="button"
-          onClick={() => simulateIncomingCall('Sarah', '+971 50 123 4567')}
-          className="text-[9px] font-sf font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1 transition-colors active:scale-95"
-          title="Simulate incoming call from Sarah"
+          onClick={() => simulateIncomingCall('+971 50 123 4567', 'Mom')}
+          className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-xs font-bold transition-colors shadow-sm"
+          title="Simulate incoming Bluetooth Hands-Free call"
         >
-          <Phone className="w-2.5 h-2.5 fill-current" />
+          <Phone className="w-3.5 h-3.5 text-rose-300" />
           <span>Test Call</span>
         </button>
       </div>
 
       {/* Center/Right: Touch-Friendly Media Pill + Connectivity & Clock */}
-      <div className="flex items-center space-x-2.5">
+      <div className="flex items-center space-x-3.5">
         {/* Media Pill Container with Anchor for Popover */}
         {shouldShowMediaPill && (
           <div ref={pillRef} className="relative flex items-center">
@@ -188,10 +189,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             <button
               type="button"
               onClick={() => setIsMediaPopoverOpen(!isMediaPopoverOpen)}
-              className={`h-8 px-2.5 rounded-full border flex items-center space-x-2 transition-all active:scale-95 shadow-md ${
+              className={`h-9 px-3 rounded-full border flex items-center space-x-2.5 transition-all active:scale-95 shadow-lg ${
                 isMediaPopoverOpen
-                  ? 'bg-white/20 border-white/30 text-white'
-                  : 'bg-white/[0.08] hover:bg-white/[0.14] border-white/15 text-white/90'
+                  ? 'bg-white/25 border-white/40 text-white'
+                  : 'bg-white/[0.09] hover:bg-white/[0.16] border-white/20 text-white'
               }`}
               title="Quick Media Controls"
             >
@@ -200,38 +201,38 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                 <img
                   src={currentTrack.artworkUrl}
                   alt="Art"
-                  className="w-5 h-5 rounded-md object-cover border border-white/10 flex-shrink-0"
+                  className="w-6 h-6 rounded-lg object-cover border border-white/15 flex-shrink-0"
                 />
               ) : (
-                <div className="w-5 h-5 rounded-md bg-white/10 flex items-center justify-center text-[9px] font-bold text-white/70">
-                  <Volume2 className="w-3 h-3" />
+                <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white/80">
+                  <Volume2 className="w-3.5 h-3.5" />
                 </div>
               )}
 
               {/* Title & Artist */}
-              <div className="flex flex-col text-left max-w-[110px] min-w-0 font-sf">
-                <span className="text-[11px] font-semibold text-white truncate leading-tight">
+              <div className="flex flex-col text-left max-w-[130px] min-w-0 font-sf">
+                <span className="text-xs font-bold text-white truncate leading-tight">
                   {currentTrack.title || 'No Media'}
                 </span>
-                <span className="text-[9px] text-white/50 truncate leading-tight">
+                <span className="text-[10px] text-white/60 font-medium truncate leading-tight">
                   {currentTrack.artist || 'Unknown'}
                 </span>
               </div>
             </button>
 
-            {/* Media Popover Styled Identically to MediaDockedCard */}
+            {/* Media Popover */}
             {isMediaPopoverOpen && (
               <div
-                className="absolute top-11 right-0 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
-                style={{ width: '260px' }}
+                className="absolute top-12 right-0 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                style={{ width: '280px' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <LiquidGlassCard
                   padding="md"
-                  className="rounded-3xl border border-white/20 shadow-2xl bg-[#090a0f]/95 backdrop-blur-2xl p-5 font-sf flex flex-col items-center text-center select-none space-y-3"
+                  className="rounded-3xl border border-white/20 shadow-2xl bg-[#090a0f]/95 backdrop-blur-2xl p-5 font-sf flex flex-col items-center text-center select-none space-y-3.5"
                 >
-                  {/* Top: Prominent Album Artwork with 🐻 fallback */}
-                  <div className="w-20 h-20 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-0.5">
+                  {/* Top: Album Artwork with 🐻 fallback */}
+                  <div className="w-24 h-24 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-0.5">
                     {currentTrack.artworkUrl ? (
                       <img
                         src={currentTrack.artworkUrl}
@@ -240,44 +241,44 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                       />
                     ) : (
                       <div className="w-full h-full bg-[#181920] flex flex-col items-center justify-center p-2">
-                        <span className="text-3xl leading-none">🐻</span>
+                        <span className="text-4xl leading-none">🐻</span>
                       </div>
                     )}
                   </div>
 
                   {/* Middle: Title & Artist */}
                   <div className="flex flex-col items-center justify-center w-full px-2">
-                    <span className="text-base font-bold text-white tracking-tight leading-tight truncate max-w-full">
+                    <span className="text-lg font-bold text-white tracking-tight leading-tight truncate max-w-full">
                       {currentTrack.title || 'Not Playing'}
                     </span>
-                    <span className="text-xs text-white/50 font-normal mt-0.5 truncate max-w-full">
+                    <span className="text-sm text-white/60 font-medium mt-0.5 truncate max-w-full">
                       {currentTrack.artist || 'Unknown Artist'}
                     </span>
                   </div>
 
                   {/* Progress Bar & Timestamps */}
                   <div className="w-full px-1">
-                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-1.5">
+                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-1.5">
                       <div
                         className="h-full bg-white rounded-full transition-all duration-300"
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
-                    <div className="flex justify-between items-center text-xs font-sf tabular-nums text-white/40">
+                    <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
                       <span>{formatTime(currentTrack.currentTime)}</span>
                       <span>{currentTrack.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
                     </div>
                   </div>
 
                   {/* Bottom: Tactile Transport Controls */}
-                  <div className="w-full flex items-center justify-center space-x-6 pt-0.5 pb-0.5">
+                  <div className="w-full flex items-center justify-center space-x-7 pt-1 pb-0.5">
                     <button
                       type="button"
                       onClick={prevTrack}
                       aria-label="Previous Track"
                       className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                     >
-                      <SkipBack className="w-5 h-5 fill-white/80" />
+                      <SkipBack className="w-6 h-6 fill-white/80" />
                     </button>
 
                     <button
@@ -287,9 +288,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                       className="text-white hover:text-white transition-transform active:scale-90 p-1.5"
                     >
                       {currentTrack.isPlaying ? (
-                        <Pause className="w-6 h-6 fill-white" />
+                        <Pause className="w-7 h-7 fill-white" />
                       ) : (
-                        <Play className="w-6 h-6 fill-white translate-x-0.5" />
+                        <Play className="w-7 h-7 fill-white translate-x-0.5" />
                       )}
                     </button>
 
@@ -299,7 +300,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                       aria-label="Next Track"
                       className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                     >
-                      <SkipForward className="w-5 h-5 fill-white/80" />
+                      <SkipForward className="w-6 h-6 fill-white/80" />
                     </button>
                   </div>
                 </LiquidGlassCard>
@@ -309,26 +310,26 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         )}
 
         {/* Connectivity Status */}
-        <div className="flex items-center space-x-2 text-white/50">
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/[0.08] text-white/90 tracking-tight">
+        <div className="flex items-center space-x-2.5 text-white/60">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/[0.10] text-white tracking-tight">
             {connectivity.cellular}
           </span>
           {connectivity.wifi && (
-            <Wifi className="w-3.5 h-3.5 text-white/80" />
+            <Wifi className="w-4 h-4 text-white" />
           )}
           {connectivity.bluetooth && (
-            <Bluetooth className="w-3.5 h-3.5 text-white/80" />
+            <Bluetooth className="w-4 h-4 text-sky-400" />
           )}
         </div>
 
-        <div className="h-3.5 w-[1px] bg-white/10" />
+        <div className="h-4 w-[1px] bg-white/15" />
 
         {/* Live SF Pro Clock */}
-        <div className="flex items-center space-x-2 font-sf">
-          <span className="text-xs font-semibold text-white/50 tracking-wider">
+        <div className="flex items-center space-x-2.5 font-sf">
+          <span className="text-xs font-bold text-white/50 tracking-wider">
             {dateStr || 'WED 19'}
           </span>
-          <span className="text-sm font-bold text-white tabular-nums tracking-tight">
+          <span className="text-base font-bold font-sf-display text-white tabular-nums tracking-tight">
             {timeStr || '12:00 PM'}
           </span>
         </div>
