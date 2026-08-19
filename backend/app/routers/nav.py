@@ -133,6 +133,18 @@ async def voice_speak(req: VoicePromptRequest):
     success = await voice_service.speak(req.text, priority=req.priority or "normal")
     return {"status": "ok", "spoken": success}
 
+@router.get("/voice/audio")
+async def get_voice_audio(text: str = Query(..., description="Text to synthesize")):
+    """
+    Returns high-fidelity Neural MP3 stream for direct browser audio playback.
+    """
+    from fastapi import Response
+    from ..services.voice_service import voice_service, normalize_road_text
+    audio_bytes = await voice_service.generate_speech_bytes(text)
+    if not audio_bytes:
+        raise HTTPException(status_code=500, detail="Voice synthesis failed")
+    return Response(content=audio_bytes, media_type="audio/mpeg")
+
 @router.post("/voice/stop")
 async def voice_stop():
     """

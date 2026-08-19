@@ -9,3 +9,4 @@ aiosqlite>=0.20.0
 requests>=2.32.0
 dbus-next>=0.2.3
 dasbus>=1.7
+edge-tts>=6.1.12

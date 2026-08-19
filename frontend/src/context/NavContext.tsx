@@ -202,19 +202,29 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!maneuver) return '';
     let instr = maneuver.instruction || maneuver.roadName || 'Continue on route';
 
-    // Clean up road abbreviations for natural speech
-    instr = instr
-      .replace(/\bRd\b/g, 'Road')
-      .replace(/\bSt\b/g, 'Street')
-      .replace(/\bAve\b/g, 'Avenue')
-      .replace(/\bBlvd\b/g, 'Boulevard')
-      .replace(/\bDr\b/g, 'Drive')
-      .replace(/\bHwy\b/g, 'Highway')
-      .replace(/\bExit\s*(\d+)/gi, 'Exit $1')
-      .replace(/\b([E|D]\d+)\b/g, '$1');
+    // 1. Expand metric distance abbreviations (e.g. "500 m" -> "500 meters")
+    let cleanDist = prefixDistance;
+    if (cleanDist) {
+      cleanDist = cleanDist
+        .replace(/(\d+(?:\.\d+)?)\s*m\b/gi, '$1 meters')
+        .replace(/(\d+(?:\.\d+)?)\s*km\b/gi, '$1 kilometers');
+    }
 
-    if (prefixDistance) {
-      return `In ${prefixDistance}, ${instr.charAt(0).toLowerCase() + instr.slice(1)}`;
+    // 2. Clean up road abbreviations for natural human speech
+    instr = instr
+      .replace(/\bRd\b\.?/g, 'Road')
+      .replace(/\bSt\b\.?/g, 'Street')
+      .replace(/\bAve\b\.?/g, 'Avenue')
+      .replace(/\bBlvd\b\.?/g, 'Boulevard')
+      .replace(/\bDr\b\.?/g, 'Drive')
+      .replace(/\bHwy\b\.?/g, 'Highway')
+      .replace(/\bShk\b\.?/g, 'Sheikh')
+      .replace(/\bSh\b\.?/g, 'Sheikh')
+      .replace(/\bExit\s*(\d+)/gi, 'Exit $1')
+      .replace(/\b([ED])(\d+)\b/g, '$1 $2');
+
+    if (cleanDist) {
+      return `In ${cleanDist}, ${instr.charAt(0).toLowerCase() + instr.slice(1)}`;
     }
     return instr;
   };
