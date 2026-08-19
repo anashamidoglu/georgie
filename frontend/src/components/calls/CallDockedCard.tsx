@@ -2,8 +2,15 @@ import React from 'react';
 import { Phone, PhoneOff, Mic, MicOff, User } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useCall } from '../../context/CallContext';
+import { useNav } from '../../context/NavContext';
 
-export const CallDockedCard: React.FC = () => {
+interface CallDockedCardProps {
+  variant?: 'hero' | 'compact' | 'auto';
+}
+
+export const CallDockedCard: React.FC<CallDockedCardProps> = ({
+  variant = 'auto',
+}) => {
   const {
     callStatus,
     callerName,
@@ -16,64 +23,160 @@ export const CallDockedCard: React.FC = () => {
     toggleMute,
   } = useCall();
 
+  const { navStatus } = useNav();
+
+  const isCompact =
+    variant === 'compact' || (variant === 'auto' && navStatus !== 'idle');
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // ==========================================
+  // 1. COMPACT HORIZONTAL LAYOUT (Nav Split View)
+  // ==========================================
+  if (isCompact) {
+    return (
+      <LiquidGlassCard
+        padding="none"
+        className="w-full h-full p-4 flex flex-col justify-between select-none font-sf animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+      >
+        {/* Top Row: Contact Avatar on Left + Caller Details on Right */}
+        <div className="flex items-center space-x-3.5 w-full flex-shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-lg">
+            <div className="w-full h-full bg-[#16171f] flex items-center justify-center">
+              <User className="w-7 h-7 text-white/50" />
+            </div>
+          </div>
+
+          <div className="flex flex-col min-w-0 flex-1 text-left">
+            <span className="text-base font-bold text-white tracking-tight leading-snug truncate">
+              {callerName}
+            </span>
+            <span className="text-xs text-white/50 font-medium truncate mt-0.5">
+              {callerNumber}
+            </span>
+          </div>
+
+          {/* Active Call Duration Pill */}
+          {callStatus === 'active' && (
+            <div className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold font-sf tabular-nums flex-shrink-0">
+              {formatTime(durationSeconds)}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Row: Centered Tactile Call Actions (Cleanly above pagination dots) */}
+        <div className="w-full flex items-center justify-center space-x-7 flex-shrink-0 pb-1">
+          {callStatus === 'incoming' ? (
+            <>
+              {/* Decline Button (Red) */}
+              <button
+                type="button"
+                onClick={declineCall}
+                aria-label="Decline Call"
+                className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl transition-transform active:scale-90"
+                title="Decline"
+              >
+                <PhoneOff className="w-5 h-5 text-white" />
+              </button>
+
+              {/* Answer Button (Green) */}
+              <button
+                type="button"
+                onClick={answerCall}
+                aria-label="Answer Call"
+                className="w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-xl transition-transform active:scale-90"
+                title="Answer"
+              >
+                <Phone className="w-5 h-5 fill-white text-white" />
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Mute Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleMute}
+                aria-label={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform active:scale-90 border shadow-lg ${
+                  isMuted
+                    ? 'bg-white text-black border-white'
+                    : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                }`}
+                title={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? <MicOff className="w-5 h-5 text-black" /> : <Mic className="w-5 h-5 text-white" />}
+              </button>
+
+              {/* Hang Up Button (Red) */}
+              <button
+                type="button"
+                onClick={hangupCall}
+                aria-label="End Call"
+                className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl transition-transform active:scale-90"
+                title="End Call"
+              >
+                <PhoneOff className="w-5 h-5 text-white" />
+              </button>
+            </>
+          )}
+        </div>
+      </LiquidGlassCard>
+    );
+  }
+
+  // ==========================================
+  // 2. HERO CENTERED LAYOUT (Home Dashboard Idle)
+  // ==========================================
   return (
     <LiquidGlassCard
-      padding="lg"
-      className="w-full h-full flex flex-col justify-between items-center text-center select-none font-sf animate-in fade-in zoom-in-95 duration-200"
+      padding="none"
+      className="w-full h-full p-4 sm:p-5 flex flex-col justify-between items-center text-center select-none font-sf animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
     >
-      {/* Top: Prominent Contact Avatar */}
-      <div className="w-28 h-28 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-1 relative">
-        <div className="w-full h-full bg-[#16171f] flex flex-col items-center justify-center">
+      {/* Top: Large Contact Avatar */}
+      <div className="w-24 h-24 sm:w-28 sm:h-28 max-h-[38%] aspect-square rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink flex items-center justify-center shadow-2xl mt-1">
+        <div className="w-full h-full bg-[#16171f] flex items-center justify-center">
           <User className="w-12 h-12 text-white/50" />
         </div>
       </div>
 
       {/* Middle: Caller Name & Phone Number */}
-      <div className="flex flex-col items-center justify-center w-full px-3 my-1">
-        <span className="text-xl font-bold text-white tracking-tight leading-tight truncate max-w-full">
+      <div className="flex flex-col items-center justify-center w-full px-3 mt-2 mb-1 flex-shrink-0 min-w-0">
+        <span className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug truncate max-w-full">
           {callerName}
         </span>
-        <span className="text-sm text-white/50 font-normal mt-1 truncate max-w-full">
+        <span className="text-xs sm:text-sm text-white/60 font-semibold mt-1 truncate max-w-full">
           {callerNumber}
         </span>
-      </div>
-
-      {/* Status / Timer Section (Clean, no pulsing graphics or text) */}
-      <div className="w-full px-2 my-1 flex flex-col items-center justify-center min-h-[24px]">
         {callStatus === 'active' && (
-          <span className="text-base font-bold font-sf-display tabular-nums text-white/90">
+          <span className="text-sm font-bold font-sf-display tabular-nums text-emerald-400 mt-1">
             {formatTime(durationSeconds)}
           </span>
         )}
       </div>
 
       {/* Bottom: Tactile Phone Actions */}
-      <div className="w-full flex items-center justify-center space-x-8 pb-1">
+      <div className="w-full flex items-center justify-center space-x-8 pt-1 pb-1 flex-shrink-0 mt-auto">
         {callStatus === 'incoming' ? (
           <>
-            {/* Decline Button (Red) */}
             <button
               type="button"
               onClick={declineCall}
               aria-label="Decline Call"
-              className="w-13 h-13 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 p-3.5"
+              className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-2xl transition-transform active:scale-90"
               title="Decline"
             >
               <PhoneOff className="w-6 h-6 text-white" />
             </button>
 
-            {/* Answer Button (White icon within Green background) */}
             <button
               type="button"
               onClick={answerCall}
               aria-label="Answer Call"
-              className="w-13 h-13 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 p-3.5"
+              className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-2xl transition-transform active:scale-90"
               title="Answer"
             >
               <Phone className="w-6 h-6 fill-white text-white" />
@@ -81,14 +184,13 @@ export const CallDockedCard: React.FC = () => {
           </>
         ) : (
           <>
-            {/* Mute Toggle Button (Turns solid white when active, not yellow) */}
             <button
               type="button"
               onClick={toggleMute}
               aria-label={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-              className={`w-13 h-13 rounded-full flex items-center justify-center transition-transform active:scale-90 p-3.5 border ${
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform active:scale-90 border shadow-2xl ${
                 isMuted
-                  ? 'bg-white text-black border-white shadow-md'
+                  ? 'bg-white text-black border-white'
                   : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
               }`}
               title={isMuted ? 'Unmute' : 'Mute'}
@@ -96,12 +198,11 @@ export const CallDockedCard: React.FC = () => {
               {isMuted ? <MicOff className="w-6 h-6 text-black" /> : <Mic className="w-6 h-6 text-white" />}
             </button>
 
-            {/* Hang Up Button (Red) */}
             <button
               type="button"
               onClick={hangupCall}
               aria-label="End Call"
-              className="w-13 h-13 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 p-3.5"
+              className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-2xl transition-transform active:scale-90"
               title="End Call"
             >
               <PhoneOff className="w-6 h-6 text-white" />
