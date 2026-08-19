@@ -29,6 +29,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [hasActiveMedia, setHasActiveMedia] = useState<boolean>(false);
   const [currentTrack, setCurrentTrack] = useState<MediaTrack>(DEFAULT_TRACK);
   const progressTimerRef = useRef<number | null>(null);
+  const stopDebounceRef = useRef<number | null>(null);
 
   // Initial fetch of current track on mount
   useEffect(() => {
@@ -87,7 +88,19 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const data = JSON.parse(event.data);
             if (data.event === 'media:track_changed') {
               const trackData = data.data;
-              if (trackData && trackData.title && trackData.title !== 'No Track Playing' && trackData.title.trim() !== '') {
+              if (
+                trackData &&
+                trackData.title &&
+                trackData.title !== 'No Track Playing' &&
+                trackData.title !== 'Unknown Track' &&
+                trackData.title.trim() !== ''
+              ) {
+                // Cancel any pending stop debounce since a new track has arrived
+                if (stopDebounceRef.current) {
+                  clearTimeout(stopDebounceRef.current);
+                  stopDebounceRef.current = null;
+                }
+
                 const isPlaying = trackData.status === 'playing';
                 setCurrentTrack((prev) => ({
                   title: trackData.title,
@@ -98,19 +111,36 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   isPlaying: isPlaying,
                   artworkUrl: trackData.artwork_url || prev.artworkUrl,
                 }));
-                setHasActiveMedia(trackData.status !== 'stopped');
+                setHasActiveMedia(true);
               } else if (trackData?.status === 'stopped' || trackData?.title === 'No Track Playing') {
-                setCurrentTrack(DEFAULT_TRACK);
-                setHasActiveMedia(false);
+                // Debounce clearing to prevent track switch flickering
+                if (!stopDebounceRef.current) {
+                  stopDebounceRef.current = window.setTimeout(() => {
+                    setCurrentTrack(DEFAULT_TRACK);
+                    setHasActiveMedia(false);
+                    stopDebounceRef.current = null;
+                  }, 2000);
+                }
               }
             } else if (data.event === 'media:playback_state') {
               const trackData = data.data;
               if (trackData) {
                 const status = trackData.status || 'stopped';
                 if (status === 'stopped') {
-                  setCurrentTrack(DEFAULT_TRACK);
-                  setHasActiveMedia(false);
+                  setCurrentTrack((prev) => ({ ...prev, isPlaying: false }));
+                  if (!stopDebounceRef.current) {
+                    stopDebounceRef.current = window.setTimeout(() => {
+                      setCurrentTrack(DEFAULT_TRACK);
+                      setHasActiveMedia(false);
+                      stopDebounceRef.current = null;
+                    }, 2000);
+                  }
                 } else {
+                  // Active play or pause
+                  if (stopDebounceRef.current) {
+                    clearTimeout(stopDebounceRef.current);
+                    stopDebounceRef.current = null;
+                  }
                   const isPlaying = status === 'playing';
                   setCurrentTrack((prev) => ({
                     ...prev,
@@ -148,6 +178,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       isComponentMounted = false;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (stopDebounceRef.current) clearTimeout(stopDebounceRef.current);
       if (ws) {
         ws.onclose = null;
         ws.close();

@@ -259,12 +259,14 @@ class DBusBluetoothListener:
                             has_update = True
 
                         if track_val and isinstance(track_val, dict):
-                            title = str(track_val.get('Title', 'Unknown Track'))
-                            artist = str(track_val.get('Artist', 'Unknown Artist'))
-                            album = str(track_val.get('Album', ''))
-                            duration = int(track_val.get('Duration', 0)) // 1000
-                            position = self.current_track.position
-                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, self.current_track.status))
+                            raw_title = track_val.get('Title')
+                            if raw_title and str(raw_title).strip() and str(raw_title) != 'Unknown Track':
+                                title = str(raw_title)
+                                artist = str(track_val.get('Artist', 'Unknown Artist'))
+                                album = str(track_val.get('Album', ''))
+                                duration = int(track_val.get('Duration', 0)) // 1000
+                                position = self.current_track.position
+                                asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, self.current_track.status))
                         elif has_update:
                             asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
 
@@ -280,11 +282,13 @@ class DBusBluetoothListener:
                         pos_ms = props.get('Position', 0)
                         position = int(pos_ms) // 1000
                         if track_val and isinstance(track_val, dict):
-                            title = str(track_val.get('Title', 'Unknown Track'))
-                            artist = str(track_val.get('Artist', 'Unknown Artist'))
-                            album = str(track_val.get('Album', ''))
-                            duration = int(track_val.get('Duration', 0)) // 1000
-                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, status_val))
+                            raw_title = track_val.get('Title')
+                            if raw_title and str(raw_title).strip() and str(raw_title) != 'Unknown Track':
+                                title = str(raw_title)
+                                artist = str(track_val.get('Artist', 'Unknown Artist'))
+                                album = str(track_val.get('Album', ''))
+                                duration = int(track_val.get('Duration', 0)) // 1000
+                                asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, status_val))
 
                 # 3. InterfacesRemoved (e.g. music app closed on phone)
                 elif msg.member == 'InterfacesRemoved' and msg.interface == 'org.freedesktop.DBus.ObjectManager':
