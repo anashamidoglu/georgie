@@ -6,6 +6,7 @@ import { DateTimeCard } from '../components/common/DateTimeCard';
 import { MediaDockedCard } from '../components/media/MediaDockedCard';
 import { CallDockedCard } from '../components/calls/CallDockedCard';
 import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
+import { WidgetStackCard, type WidgetItem } from '../components/common/WidgetStackCard';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
 import { Music, PlusCircle } from 'lucide-react';
 import { useNav } from '../context/NavContext';
@@ -47,6 +48,53 @@ export const DashboardView: React.FC = () => {
     }
   }, [hasActiveMedia, navStatus, callStatus, setIsNavExpanded]);
 
+  // Media Player Card Element (shared across widget stack & idle views)
+  const mediaCardContent = hasActiveMedia ? (
+    <MediaDockedCard
+      track={currentTrack}
+      onPlayPause={togglePlayPause}
+      onNext={nextTrack}
+      onPrev={prevTrack}
+    />
+  ) : (
+    <LiquidGlassCard
+      padding="lg"
+      className="w-full h-full flex flex-col items-center justify-center text-center border-dashed border-white/10"
+    >
+      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white/40">
+        <Music className="w-6 h-6" />
+      </div>
+      <span className="text-sm font-semibold text-white/80 font-sf">
+        No Media Playing
+      </span>
+      <span className="text-xs text-white/40 mt-1">
+        Connect Bluetooth to stream audio
+      </span>
+      <button
+        type="button"
+        onClick={() => setHasActiveMedia(true)}
+        className="mt-4 inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white/80 transition-colors"
+      >
+        <PlusCircle className="w-3.5 h-3.5" />
+        <span>Connect Audio</span>
+      </button>
+    </LiquidGlassCard>
+  );
+
+  // Stackable Widgets for Navigation Mode (Upcoming Steps + Media)
+  const navWidgets: WidgetItem[] = [
+    {
+      id: 'upcoming_steps',
+      label: 'Upcoming Steps',
+      content: <UpcomingManeuversCard />,
+    },
+    {
+      id: 'media_player',
+      label: 'Media Player',
+      content: mediaCardContent,
+    },
+  ];
+
   return (
     <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between max-h-full">
       {/* Main Container: Left Primary Map vs Right Stacked Cards with smooth CSS width & fade transition */}
@@ -60,7 +108,7 @@ export const DashboardView: React.FC = () => {
           <NavDockedViewport />
         </div>
 
-        {/* Right Column: Stacked Turn/Route/Date Card & Call/Media/Turns/Placeholder */}
+        {/* Right Column: Top Card (Turn/Route/Date) & Bottom Stackable Widget (Upcoming Steps <-> Media) */}
         <div
           className={`h-full min-h-0 max-h-full flex flex-col space-y-3.5 overflow-hidden transition-[width,opacity,transform,padding,margin] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
             isNavExpanded
@@ -68,7 +116,7 @@ export const DashboardView: React.FC = () => {
               : 'w-[41.667%] opacity-100 flex-1 ml-3.5 scale-100'
           }`}
         >
-          {/* Top Right: Active Turn (Navigating OR Step Preview) OR Route Selection Dropdown OR Free-sitting Date/Time */}
+          {/* Top Right: Active Turn (Navigating OR Step Preview) OR Route Selection Dropdown OR Formatted Date/Time */}
           <div className="flex-shrink-0">
             {navStatus === 'navigating' || inspectedStep !== null ? (
               <NavPreviewCard />
@@ -79,46 +127,21 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom Right: Upcoming Steps (if Nav active/preview) OR Call Card OR Media Card */}
-          <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden">
-            {navStatus !== 'idle' ? (
-              /* Nav preview or active navigation -> Full upcoming steps */
-              <UpcomingManeuversCard />
-            ) : callStatus !== 'idle' ? (
-              /* Phone Call in progress or incoming -> Takes place of Media Card */
+          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Upcoming Steps <-> Media) OR Active Call */}
+          <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden relative">
+            {callStatus !== 'idle' ? (
+              /* Phone Call in progress or incoming -> Takes full priority */
               <CallDockedCard />
-            ) : hasActiveMedia ? (
-              /* When Nav is idle & media is playing -> Full Media Card */
-              <MediaDockedCard
-                track={currentTrack}
-                onPlayPause={togglePlayPause}
-                onNext={nextTrack}
-                onPrev={prevTrack}
+            ) : navStatus !== 'idle' ? (
+              /* Active Navigation / Preview -> Swipeable iOS Widget Stack */
+              <WidgetStackCard
+                widgets={navWidgets}
+                defaultIndex={0}
+                className="w-full h-full"
               />
             ) : (
-              /* Clean audio placeholder */
-              <LiquidGlassCard
-                padding="lg"
-                className="w-full h-full flex flex-col items-center justify-center text-center border-dashed border-white/10"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white/40">
-                  <Music className="w-6 h-6" />
-                </div>
-                <span className="text-sm font-semibold text-white/80 font-sf">
-                  No Media Playing
-                </span>
-                <span className="text-xs text-white/40 mt-1">
-                  Connect Bluetooth to stream audio
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setHasActiveMedia(true)}
-                  className="mt-4 inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white/80 transition-colors"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Connect Audio</span>
-                </button>
-              </LiquidGlassCard>
+              /* Idle Mode -> Direct Media Player Card */
+              mediaCardContent
             )}
           </div>
         </div>
