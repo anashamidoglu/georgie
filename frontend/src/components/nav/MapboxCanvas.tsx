@@ -172,7 +172,6 @@ export const MapboxCanvas: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
-    isNavExpanded,
     coords,
     vehicleCoords,
     vehicleHeading,
@@ -638,15 +637,28 @@ export const MapboxCanvas: React.FC = () => {
     coords,
   ]);
 
-  // Trigger smooth resize on view-state changes
+  // Continuous ResizeObserver for silky-smooth CSS layout transitions
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.resize();
-      }
-    }, 280);
-    return () => clearTimeout(timer);
-  }, [isNavExpanded]);
+    const container = containerRef.current;
+    if (!container) return;
+
+    let rAFId: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (rAFId) cancelAnimationFrame(rAFId);
+      rAFId = requestAnimationFrame(() => {
+        if (mapRef.current) {
+          mapRef.current.resize();
+        }
+      });
+    });
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      if (rAFId) cancelAnimationFrame(rAFId);
+    };
+  }, [mapLoaded]);
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-[#090a0f]">
