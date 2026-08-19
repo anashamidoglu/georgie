@@ -287,10 +287,17 @@ export const MapboxCanvas: React.FC = () => {
     if (destination && navStatus !== 'idle') {
       if (!destMarkerRef.current) {
         const destEl = document.createElement('div');
-        destEl.className = 'w-7 h-7 rounded-full bg-emerald-500 border-2 border-white shadow-[0_0_12px_rgba(16,185,129,0.8)] flex items-center justify-center';
-        destEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-white"></div>';
+        destEl.className = 'cursor-pointer select-none filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.75)]';
+        destEl.innerHTML = `
+          <svg width="28" height="36" viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 0C7.163 0 0 7.163 0 16C0 26.5 14.2 39 15.2 39.7C15.6 40.1 16.4 40.1 16.8 39.7C17.8 39 32 26.5 32 16C32 7.163 24.837 0 16 0Z" fill="#EA4335"/>
+            <path d="M16 2C8.268 2 2 8.268 2 16C2 25 14.5 36.5 16 37.8C17.5 36.5 30 25 30 16C30 8.268 23.732 2 16 2Z" fill="#D93025"/>
+            <circle cx="16" cy="15" r="5.5" fill="#781005"/>
+            <circle cx="16" cy="15" r="4.2" fill="#FFFFFF"/>
+          </svg>
+        `;
 
-        destMarkerRef.current = new mapboxgl.Marker({ element: destEl })
+        destMarkerRef.current = new mapboxgl.Marker({ element: destEl, offset: [0, -18] })
           .setLngLat(destination)
           .addTo(map);
       } else {
@@ -448,7 +455,12 @@ export const MapboxCanvas: React.FC = () => {
               14, 7.0,
               17, 9.5,
             ],
-            'line-opacity': 0.9,
+            'line-opacity': [
+              'case',
+              ['==', ['get', 'isFirstLeg'], false],
+              0.55,
+              0.9,
+            ],
             'line-blur': 0,
             'line-emissive-strength': 0.8,
           },
@@ -481,7 +493,12 @@ export const MapboxCanvas: React.FC = () => {
               14, 4.8,
               17, 6.8,
             ],
-            'line-opacity': 1.0,
+            'line-opacity': [
+              'case',
+              ['==', ['get', 'isFirstLeg'], false],
+              0.65,
+              1.0,
+            ],
             'line-emissive-strength': 1.0,
           },
         });

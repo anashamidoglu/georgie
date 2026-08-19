@@ -51,6 +51,8 @@ interface NavContextType {
   waypoints: Waypoint[];
   addWaypoint: (name: string, coordinates: [number, number]) => Promise<void>;
   removeWaypoint: (id: string) => Promise<void>;
+  moveWaypoint: (fromIndex: number, toIndex: number) => Promise<void>;
+  swapWaypointWithDestination: (waypointIndex: number) => Promise<void>;
   clearWaypoints: () => void;
   speed: number | null;
   mapInstance: MapboxMap | null;
@@ -195,6 +197,37 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = waypoints.filter((w) => w.id !== id);
     setWaypoints(updated);
     await calculateRoute(destination, updated, destinationName);
+  };
+
+  // Multi-Stop: Reorder Waypoint
+  const moveWaypoint = async (fromIndex: number, toIndex: number) => {
+    if (!destination) return;
+    if (fromIndex < 0 || fromIndex >= waypoints.length || toIndex < 0 || toIndex >= waypoints.length) return;
+    const updated = [...waypoints];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setWaypoints(updated);
+    await calculateRoute(destination, updated, destinationName);
+  };
+
+  // Multi-Stop: Swap an intermediate stop to become the final destination
+  const swapWaypointWithDestination = async (waypointIndex: number) => {
+    if (!destination || !waypoints[waypointIndex]) return;
+    const targetWp = waypoints[waypointIndex];
+    const oldDestCoords = destination;
+    const oldDestName = destinationName;
+
+    const newWaypoints = [...waypoints];
+    newWaypoints[waypointIndex] = {
+      id: `wp-${Date.now()}`,
+      name: oldDestName,
+      coordinates: oldDestCoords,
+    };
+
+    setDestination(targetWp.coordinates);
+    setDestinationName(targetWp.name);
+    setWaypoints(newWaypoints);
+    await calculateRoute(targetWp.coordinates, newWaypoints, targetWp.name);
   };
 
   const clearWaypoints = () => {
@@ -484,6 +517,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         waypoints,
         addWaypoint,
         removeWaypoint,
+        moveWaypoint,
+        swapWaypointWithDestination,
         clearWaypoints,
         speed: position.speed,
         mapInstance,

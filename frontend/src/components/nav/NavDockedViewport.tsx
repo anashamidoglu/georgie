@@ -1,5 +1,16 @@
 import React from 'react';
-import { Maximize2, Minimize2, Navigation, Play, X, Search, Plus } from 'lucide-react';
+import {
+  Maximize2,
+  Minimize2,
+  Navigation,
+  Play,
+  X,
+  Search,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeftRight,
+} from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
@@ -17,6 +28,8 @@ export const NavDockedViewport: React.FC = () => {
     destinationName,
     waypoints,
     removeWaypoint,
+    moveWaypoint,
+    swapWaypointWithDestination,
     eta,
     primaryManeuver,
     activeRoute,
@@ -147,16 +160,61 @@ export const NavDockedViewport: React.FC = () => {
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center pointer-events-none z-30 space-y-2">
           {/* Waypoints horizontal badge strip */}
           {waypoints.length > 0 && (
-            <div className="pointer-events-auto flex items-center space-x-2 overflow-x-auto max-w-[500px] w-full px-1 scrollbar-none">
+            <div className="pointer-events-auto flex items-center space-x-2 overflow-x-auto max-w-[520px] w-full px-1 scrollbar-none">
               {waypoints.map((wp, idx) => (
                 <div
                   key={wp.id}
-                  className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/90 border border-amber-500/30 text-xs font-semibold text-white/90 shadow-lg backdrop-blur-md flex-shrink-0"
+                  className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-black/90 border border-amber-500/40 text-xs font-semibold text-white/90 shadow-lg backdrop-blur-md flex-shrink-0"
                 >
                   <span className="w-4 h-4 rounded-full bg-amber-500 text-black font-black text-[10px] flex items-center justify-center font-mono">
                     {idx + 1}
                   </span>
-                  <span className="truncate max-w-[120px]">{wp.name}</span>
+                  <span className="truncate max-w-[100px]">{wp.name}</span>
+
+                  {/* Reorder Earlier */}
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveWaypoint(idx, idx - 1);
+                      }}
+                      className="w-4 h-4 rounded-full hover:bg-white/20 text-white/50 hover:text-white flex items-center justify-center transition-colors"
+                      title="Move stop earlier"
+                    >
+                      <ChevronLeft className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {/* Reorder Later */}
+                  {idx < waypoints.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveWaypoint(idx, idx + 1);
+                      }}
+                      className="w-4 h-4 rounded-full hover:bg-white/20 text-white/50 hover:text-white flex items-center justify-center transition-colors"
+                      title="Move stop later"
+                    >
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {/* Swap with Final Destination */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      swapWaypointWithDestination(idx);
+                    }}
+                    className="w-4 h-4 rounded-full hover:bg-amber-500/20 text-amber-400/70 hover:text-amber-300 flex items-center justify-center transition-colors"
+                    title="Make this the final destination"
+                  >
+                    <ArrowLeftRight className="w-2.5 h-2.5" />
+                  </button>
+
+                  {/* Delete Stop */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -174,7 +232,7 @@ export const NavDockedViewport: React.FC = () => {
           )}
 
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-3 flex items-center justify-between font-sf select-none w-full max-w-[500px]"
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-3 flex items-center justify-between font-sf select-none w-full max-w-[520px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -183,14 +241,14 @@ export const NavDockedViewport: React.FC = () => {
               <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
                 {waypoints.length > 0 ? `${destinationName} (${waypoints.length + 1} stops)` : destinationName}
               </span>
-              <div className="flex items-baseline space-x-4 mt-0.5">
-                <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
+              <div className="flex items-baseline space-x-3.5 mt-0.5 whitespace-nowrap">
+                <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight whitespace-nowrap ${trafficColorClass}`}>
                   {eta.duration}
                 </span>
-                <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums">
+                <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums whitespace-nowrap">
                   {eta.distance}
                 </span>
-                <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums">
+                <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums whitespace-nowrap">
                   {eta.arrival}
                 </span>
               </div>
@@ -205,11 +263,11 @@ export const NavDockedViewport: React.FC = () => {
                   setIsAddStopMode(true);
                   setIsSearchOpen(true);
                 }}
-                className="h-10 px-3 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white flex items-center space-x-1 transition-colors text-xs font-semibold"
+                className="h-10 px-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold"
                 title="Add a stop along route"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Add Stop</span>
+                <span>Stop</span>
               </button>
 
               <button
@@ -249,14 +307,14 @@ export const NavDockedViewport: React.FC = () => {
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Live ETA Stats (Traffic Colored, Larger & Spaced) */}
-            <div className="flex items-baseline space-x-5 mr-3">
-              <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
+            <div className="flex items-baseline space-x-5 mr-3 whitespace-nowrap">
+              <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight whitespace-nowrap ${trafficColorClass}`}>
                 {eta.duration}
               </span>
-              <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums tracking-tight">
+              <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums tracking-tight whitespace-nowrap">
                 {eta.distance}
               </span>
-              <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums tracking-tight">
+              <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums tracking-tight whitespace-nowrap">
                 {eta.arrival}
               </span>
             </div>

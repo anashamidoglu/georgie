@@ -31,6 +31,8 @@ export interface RouteGeoJSON {
     properties: {
       congestion: 'low' | 'moderate' | 'heavy' | 'severe' | 'unknown';
       routeId?: number;
+      isFirstLeg?: boolean;
+      legIndex?: number;
     };
     geometry: {
       type: 'LineString';
@@ -159,58 +161,82 @@ function extractMajorRoads(steps: any[]): string {
 }
 
 function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
-  const coords: [number, number][] = route.geometry.coordinates;
-  const allCongestions: string[] = [];
-  (route.legs || []).forEach((leg: any) => {
-    if (leg.annotation?.congestion) {
-      allCongestions.push(...leg.annotation.congestion);
-    }
-  });
-
-  const congestion = allCongestions;
   const features: any[] = [];
+  const legs = route.legs || [];
 
-  if (!congestion || congestion.length === 0) {
+  if (legs.length === 0) {
+    const coords: [number, number][] = route.geometry?.coordinates || [];
     return {
       type: 'FeatureCollection',
       features: [
         {
           type: 'Feature',
-          properties: { congestion: 'low', routeId },
+          properties: { congestion: 'low', routeId, isFirstLeg: true },
           geometry: { type: 'LineString', coordinates: coords },
         },
       ],
     };
   }
 
-  let currentLevel = (congestion[0] || 'low') as any;
-  let currentCoords: [number, number][] = [coords[0]];
+  // Iterate over each leg to enable dimming for subsequent legs
+  legs.forEach((leg: any, legIdx: number) => {
+    const isFirstLeg = legIdx === 0;
+    const legCoords: [number, number][] = [];
+    (leg.steps || []).forEach((step: any) => {
+      if (step.geometry?.coordinates) {
+        step.geometry.coordinates.forEach((c: [number, number]) => {
+          if (
+            legCoords.length === 0 ||
+            legCoords[legCoords.length - 1][0] !== c[0] ||
+            legCoords[legCoords.length - 1][1] !== c[1]
+          ) {
+            legCoords.push(c);
+          }
+        });
+      }
+    });
 
-  for (let i = 0; i < congestion.length; i++) {
-    const level = (congestion[i] || 'low') as any;
-    const nextCoord = coords[i + 1];
+    const coordsToUse = legCoords.length > 1 ? legCoords : route.geometry?.coordinates || [];
+    const congestion: string[] = leg.annotation?.congestion || [];
 
-    if (level === currentLevel) {
-      currentCoords.push(nextCoord);
-    } else {
-      currentCoords.push(nextCoord);
+    if (!congestion || congestion.length === 0) {
       features.push({
         type: 'Feature',
-        properties: { congestion: currentLevel, routeId },
+        properties: { congestion: 'low', routeId, isFirstLeg },
+        geometry: { type: 'LineString', coordinates: coordsToUse },
+      });
+      return;
+    }
+
+    let currentLevel = (congestion[0] || 'low') as any;
+    let currentCoords: [number, number][] = [coordsToUse[0]];
+
+    for (let i = 0; i < congestion.length; i++) {
+      const level = (congestion[i] || 'low') as any;
+      const nextCoord = coordsToUse[i + 1] || coordsToUse[i];
+
+      if (level === currentLevel) {
+        currentCoords.push(nextCoord);
+      } else {
+        currentCoords.push(nextCoord);
+        features.push({
+          type: 'Feature',
+          properties: { congestion: currentLevel, routeId, isFirstLeg },
+          geometry: { type: 'LineString', coordinates: currentCoords },
+        });
+        currentLevel = level;
+        currentCoords = [coordsToUse[i] || nextCoord, nextCoord];
+      }
+    }
+
+    if (currentCoords.length > 1) {
+      features.push({
+        type: 'Feature',
+        properties: { congestion: currentLevel, routeId, isFirstLeg },
         geometry: { type: 'LineString', coordinates: currentCoords },
       });
-      currentLevel = level;
-      currentCoords = [coords[i], nextCoord];
     }
-  }
-
-  if (currentCoords.length > 1) {
-    features.push({
-      type: 'Feature',
-      properties: { congestion: currentLevel, routeId },
-      geometry: { type: 'LineString', coordinates: currentCoords },
-    });
-  }
+  });
 
   return {
     type: 'FeatureCollection',
