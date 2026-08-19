@@ -168,6 +168,8 @@ export const MapboxCanvas: React.FC = () => {
   const currentLegIndex =
     navStatus === 'navigating' ? allSteps[activeStepIndex]?.legIndex ?? 0 : 0;
 
+  const [mapLoaded, setMapLoaded] = useState<boolean>(false);
+
   // Initialize Mapbox 3D Standard Canvas
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -203,6 +205,11 @@ export const MapboxCanvas: React.FC = () => {
         } catch {
           // Standard style config fallback
         }
+        setMapLoaded(true);
+      });
+
+      map.on('load', () => {
+        setMapLoaded(true);
       });
 
       // Interactive Alternative Route Selection
@@ -238,6 +245,7 @@ export const MapboxCanvas: React.FC = () => {
 
       mapRef.current = map;
       setMapInstance(map);
+      setMapLoaded(true);
     } catch (err: any) {
       console.error('Error initializing map:', err);
       setErrorMsg(err?.message || 'Failed to initialize Mapbox.');
@@ -248,6 +256,7 @@ export const MapboxCanvas: React.FC = () => {
         mapRef.current.remove();
         mapRef.current = null;
         setMapInstance(null);
+        setMapLoaded(false);
       }
     };
   }, []);
@@ -257,8 +266,12 @@ export const MapboxCanvas: React.FC = () => {
     const map = mapRef.current;
     if (!map) return;
 
-    const targetCoords = vehicleCoords || coords;
-    if (!targetCoords || (targetCoords[0] === 0 && targetCoords[1] === 0)) return;
+    const targetCoords: [number, number] =
+      vehicleCoords && vehicleCoords[0] !== 0
+        ? vehicleCoords
+        : coords && coords[0] !== 0
+        ? coords
+        : [55.3781, 25.3223];
 
     if (!markerRef.current) {
       const el = document.createElement('div');
@@ -286,7 +299,7 @@ export const MapboxCanvas: React.FC = () => {
       markerRef.current.setLngLat(targetCoords);
       markerRef.current.setRotation(vehicleHeading || 0);
     }
-  }, [vehicleCoords, coords, vehicleHeading]);
+  }, [vehicleCoords, coords, vehicleHeading, mapLoaded]);
 
   // Update Destination Pin Marker (Google Maps Red Pin)
   useEffect(() => {
