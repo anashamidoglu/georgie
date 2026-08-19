@@ -3,7 +3,7 @@ import { Maximize2, Minimize2, Navigation, Play, X, Search } from 'lucide-react'
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
-import { SearchPlacesModal } from './SearchPlacesModal';
+import { GoogleMapsSearchCard } from './GoogleMapsSearchCard';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
@@ -232,8 +232,8 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       )}
 
-      {/* 5. In-Car POI & Destination Search Modal */}
-      <SearchPlacesModal
+      {/* 5. Google Maps Style In-Nav Search Card */}
+      <GoogleMapsSearchCard
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
       />
