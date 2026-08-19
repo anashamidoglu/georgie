@@ -31,7 +31,7 @@ class DBusBluetoothListener:
 
     async def start(self):
         """
-        Starts the D-Bus connection loop using dbus-next or dasbus.
+        Starts the D-Bus connection loop using dbus-next.
         """
         self.running = True
         try:
@@ -41,7 +41,9 @@ class DBusBluetoothListener:
             self.bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
             logger.info("[DBusListener] Connected to Linux System D-Bus via dbus-next")
 
-            # Subscribe to oFono VoiceCallManager signals
+            # Auto-enable any connected oFono modems
+            await self._auto_enable_modems()
+            # Subscribe to oFono Manager & VoiceCallManager signals
             await self._subscribe_ofono()
             # Subscribe to BlueZ Media Player signals
             await self._subscribe_bluez()
@@ -57,11 +59,67 @@ class DBusBluetoothListener:
         except Exception as e:
             logger.error(f"[DBusListener] Error initializing D-Bus listener: {e}")
 
+    async def _auto_enable_modems(self):
+        """
+        Queries org.ofono.Manager for all modems and powers them on + sets them online.
+        """
+        try:
+            from dbus_next import Message, Variant
+
+            reply = await self.bus.call(
+                Message(
+                    destination='org.ofono',
+                    path='/',
+                    interface='org.ofono.Manager',
+                    member='GetModems'
+                )
+            )
+            modems = reply.body[0] if reply.body else []
+            for path, props in modems:
+                logger.info(f"[oFono] Found modem: {path}, powering on & setting online...")
+                await self._activate_modem(path)
+        except Exception as e:
+            logger.warning(f"[DBusListener] Auto-enable modems check: {e}")
+
+    async def _activate_modem(self, path: str):
+        """
+        Sets Powered=True and Online=True on a specific oFono modem.
+        """
+        try:
+            from dbus_next import Message, Variant
+            # Powered = True
+            await self.bus.call(
+                Message(
+                    destination='org.ofono',
+                    path=path,
+                    interface='org.ofono.Modem',
+                    member='SetProperty',
+                    signature='sv',
+                    body=['Powered', Variant('b', True)]
+                )
+            )
+            # Online = True
+            await self.bus.call(
+                Message(
+                    destination='org.ofono',
+                    path=path,
+                    interface='org.ofono.Modem',
+                    member='SetProperty',
+                    signature='sv',
+                    body=['Online', Variant('b', True)]
+                )
+            )
+            logger.info(f"[oFono] Successfully activated modem: {path}")
+        except Exception as e:
+            logger.warning(f"[oFono] Failed activating modem {path}: {e}")
+
     async def _subscribe_ofono(self):
         """
-        Subscribes to oFono VoiceCallManager signals:
-        - CallAdded(object path, dict properties)
-        - CallRemoved(object path)
+        Subscribes to oFono signals:
+        - Manager.ModemAdded (auto activates new Bluetooth phones)
+        - VoiceCallManager.CallAdded (incoming calls)
+        - VoiceCallManager.CallRemoved (ended calls)
+        - VoiceCall.PropertyChanged (state transitions)
         """
         try:
             from dbus_next import Message, MessageType
@@ -70,8 +128,14 @@ class DBusBluetoothListener:
                 if msg.message_type != MessageType.SIGNAL:
                     return
 
+                # oFono Manager.ModemAdded
+                if msg.member == 'ModemAdded' and msg.interface == 'org.ofono.Manager':
+                    modem_path, _ = msg.body
+                    logger.info(f"[oFono] New modem connected: {modem_path}, activating...")
+                    asyncio.create_task(self._activate_modem(modem_path))
+
                 # VoiceCallManager.CallAdded
-                if msg.member == 'CallAdded' and msg.interface == 'org.ofono.VoiceCallManager':
+                elif msg.member == 'CallAdded' and msg.interface == 'org.ofono.VoiceCallManager':
                     call_path, properties = msg.body
                     self.active_call_path = call_path
                     caller_number = properties.get('LineIdentification', {}).value if hasattr(properties.get('LineIdentification'), 'value') else properties.get('LineIdentification', 'Unknown')
@@ -227,7 +291,7 @@ class DBusBluetoothListener:
                     member='Hangup'
                 )
             )
-            self.active_call_state = CallState(state="idle")
+            self.active_call_state.state = 'idle'
             self.active_call_path = None
             await audio_ducker.restore()
             await ws_manager.broadcast("call:ended", self.active_call_state.model_dump())
