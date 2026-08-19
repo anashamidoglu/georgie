@@ -37,11 +37,11 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
 
   return (
     <LiquidGlassCard
-      padding="lg"
-      className="w-full h-full flex flex-col justify-between items-center text-center select-none font-sf"
+      padding="none"
+      className="w-full h-full p-3 sm:p-4 flex flex-col justify-between items-center text-center select-none font-sf overflow-hidden"
     >
-      {/* Top: Large Prominent Album Artwork */}
-      <div className="w-28 h-28 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-1">
+      {/* Top: Dynamic Scaling Album Artwork (Never pushes content off-screen) */}
+      <div className="flex-1 min-h-[64px] max-h-[112px] aspect-square rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex items-center justify-center shadow-xl my-auto flex-shrink">
         {track.artworkUrl ? (
           <img
             src={track.artworkUrl}
@@ -50,57 +50,57 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
           />
         ) : (
           <div className="w-full h-full bg-[#181920] flex flex-col items-center justify-center p-2">
-            <span className="text-4xl leading-none">🐻</span>
+            <span className="text-3xl leading-none">🐻</span>
           </div>
         )}
       </div>
 
-      {/* Middle: Much Bigger Track Title & Artist */}
-      <div className="flex flex-col items-center justify-center w-full px-3 my-1">
-        <span className="text-xl font-bold text-white tracking-tight leading-tight truncate max-w-full">
+      {/* Middle: Dynamic Track Title & Artist */}
+      <div className="flex flex-col items-center justify-center w-full px-2 my-1 flex-shrink-0 min-w-0">
+        <span className="text-sm sm:text-base font-bold text-white tracking-tight leading-tight truncate max-w-full">
           {track.title}
         </span>
-        <span className="text-sm text-white/50 font-normal mt-1 truncate max-w-full">
+        <span className="text-xs text-white/50 font-medium mt-0.5 truncate max-w-full">
           {track.artist}
         </span>
       </div>
 
       {/* Progress Bar with Elapsed & Remaining Time */}
-      <div className="w-full px-2 my-1">
-        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-1.5">
+      <div className="w-full px-1 my-1 flex-shrink-0">
+        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-1">
           <div
             className="h-full bg-white rounded-full transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
-        <div className="flex justify-between items-center text-xs font-sf tabular-nums text-white/40">
+        <div className="flex justify-between items-center text-[10px] sm:text-xs font-sf tabular-nums text-white/40 font-medium">
           <span>{formatTime(track.currentTime)}</span>
           <span>{track.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
         </div>
       </div>
 
-      {/* Bottom: Large Tactile Transport Controls for Driving Accessibility */}
-      <div className="w-full flex items-center justify-center space-x-8 pb-1">
+      {/* Bottom: Fixed Visible Tactile Transport Controls */}
+      <div className="w-full flex items-center justify-center space-x-6 pt-0.5 pb-0.5 flex-shrink-0">
         <button
           type="button"
           onClick={onPrev}
           aria-label="Previous Track"
-          className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
+          className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
         >
-          <SkipBack className="w-7 h-7 fill-white/80" />
+          <SkipBack className="w-6 h-6 fill-white/80" />
         </button>
 
         <button
           type="button"
           onClick={onPlayPause}
           aria-label={track.isPlaying ? 'Pause' : 'Play'}
-          className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-lg hover:bg-white/90 active:scale-90 transition-transform"
+          className="w-11 h-11 rounded-full bg-white text-black flex items-center justify-center shadow-lg hover:bg-white/90 active:scale-90 transition-transform flex-shrink-0"
         >
           {track.isPlaying ? (
-            <Pause className="w-6 h-6 fill-black" />
+            <Pause className="w-5 h-5 fill-black" />
           ) : (
-            <Play className="w-6 h-6 fill-black translate-x-0.5" />
+            <Play className="w-5 h-5 fill-black translate-x-0.5" />
           )}
         </button>
 
@@ -108,9 +108,9 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
           type="button"
           onClick={onNext}
           aria-label="Next Track"
-          className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
+          className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
         >
-          <SkipForward className="w-7 h-7 fill-white/80" />
+          <SkipForward className="w-6 h-6 fill-white/80" />
         </button>
       </div>
     </LiquidGlassCard>
