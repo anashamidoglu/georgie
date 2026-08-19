@@ -280,6 +280,9 @@ export async function searchPlaces(
             };
           });
 
+          // Sort by distance ascending so closest places appear first
+          results.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+
           // Save to 7-day cache so future identical searches cost $0.00
           setCachedResults(trimmed, results);
           return results;
@@ -303,6 +306,7 @@ export async function searchPlaces(
   }));
 
   if (!accessToken) {
+    localMatches.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
     return localMatches;
   }
 
@@ -321,11 +325,20 @@ export async function searchPlaces(
           const coords: [number, number] = f.center || [0, 0];
           const distKm = calculateDistance(userCoords, coords);
 
+          let cat: PlaceResult['category'] = 'place';
+          const types = (f.properties?.category || '').toLowerCase();
+          if (types.includes('gas') || types.includes('fuel')) cat = 'fuel';
+          else if (types.includes('coffee') || types.includes('cafe')) cat = 'coffee';
+          else if (types.includes('parking')) cat = 'parking';
+          else if (types.includes('grocery') || types.includes('supermarket')) cat = 'grocery';
+          else if (types.includes('hospital') || types.includes('medical')) cat = 'hospital';
+          else if (types.includes('mall') || types.includes('shop')) cat = 'mall';
+
           return {
             id: f.id,
             name: f.text || f.place_name?.split(',')[0] || 'Location',
             address: f.place_name || f.properties?.address || 'United Arab Emirates',
-            category: 'place',
+            category: cat,
             coordinates: coords,
             distanceKm: distKm,
             isHistory: false,
@@ -339,6 +352,7 @@ export async function searchPlaces(
           }
         });
 
+        combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
         setCachedResults(trimmed, combined.slice(0, 8));
         return combined.slice(0, 8);
       }
@@ -347,5 +361,6 @@ export async function searchPlaces(
     if (err.name === 'AbortError') throw err;
   }
 
+  localMatches.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
   return localMatches;
 }

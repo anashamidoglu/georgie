@@ -233,6 +233,12 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                         {place.address}
                       </span>
                     </div>
+
+                    {typeof place.distanceKm === 'number' && (
+                      <span className="text-[11px] font-semibold text-white/50 group-hover:text-white/80 tabular-nums px-2 py-0.5 rounded-full bg-white/[0.06] flex-shrink-0 ml-2">
+                        {place.distanceKm} km
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -303,6 +309,12 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                       </span>
                     )}
                   </div>
+
+                  {typeof recent.distanceKm === 'number' && (
+                    <span className="text-[11px] font-semibold text-white/50 group-hover:text-white/80 tabular-nums px-2 py-0.5 rounded-full bg-white/[0.06] flex-shrink-0 ml-2 mt-0.5">
+                      {recent.distanceKm} km
+                    </span>
+                  )}
                 </button>
               ))}
 
