@@ -78,7 +78,7 @@ export const MapboxCanvas: React.FC = () => {
 
       mapRef.current = map;
 
-      // Clean, non-pulsing Apple Maps style vehicle position puck
+      // Clean Apple Maps style vehicle position puck
       const puckEl = document.createElement('div');
       puckEl.className = 'relative flex items-center justify-center';
       puckEl.innerHTML = `
@@ -97,74 +97,76 @@ export const MapboxCanvas: React.FC = () => {
 
       markerRef.current = marker;
 
-      // Long-press detection (500ms hold) for pin dropping (Google Maps style)
-      let longPressTimeout: any = null;
+      // Strict Long-Press (600ms hold) Pin-Dropping Logic
+      let longPressTimer: any = null;
       let startPoint: { x: number; y: number } | null = null;
-      let didLongPress = false;
+      let isLongPressed = false;
 
-      const handlePressStart = (point: { x: number; y: number }, lngLat: [number, number], target: HTMLElement | null) => {
-        if (target && target.closest('.pointer-events-auto')) return;
-        didLongPress = false;
-        startPoint = point;
-
-        if (longPressTimeout) clearTimeout(longPressTimeout);
-        longPressTimeout = setTimeout(() => {
-          didLongPress = true;
-          if (navigator.vibrate) {
-            try {
-              navigator.vibrate(40);
-            } catch {}
-          }
-          previewRouteToRef.current(lngLat, 'Pinned Location');
-        }, 500);
-      };
-
-      const handlePressMove = (point: { x: number; y: number }) => {
-        if (!startPoint) return;
-        const dx = Math.abs(point.x - startPoint.x);
-        const dy = Math.abs(point.y - startPoint.y);
-        if (dx > 8 || dy > 8) {
-          if (longPressTimeout) {
-            clearTimeout(longPressTimeout);
-            longPressTimeout = null;
-          }
-        }
-      };
-
-      const handlePressEnd = () => {
-        if (longPressTimeout) {
-          clearTimeout(longPressTimeout);
-          longPressTimeout = null;
+      const cancelLongPress = () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
         }
         startPoint = null;
       };
 
+      const startLongPress = (point: { x: number; y: number }, lngLat: [number, number], target: HTMLElement | null) => {
+        if (target && target.closest('.pointer-events-auto')) return;
+        isLongPressed = false;
+        startPoint = point;
+
+        cancelLongPress();
+        longPressTimer = setTimeout(() => {
+          isLongPressed = true;
+          if (navigator.vibrate) {
+            try {
+              navigator.vibrate(50);
+            } catch {}
+          }
+          previewRouteToRef.current(lngLat, 'Pinned Location');
+        }, 600);
+      };
+
       map.on('mousedown', (e) => {
-        handlePressStart(e.point, [e.lngLat.lng, e.lngLat.lat], e.originalEvent?.target as HTMLElement);
+        startLongPress(e.point, [e.lngLat.lng, e.lngLat.lat], e.originalEvent?.target as HTMLElement);
       });
+
       map.on('mousemove', (e) => {
-        handlePressMove(e.point);
+        if (startPoint) {
+          const dx = Math.abs(e.point.x - startPoint.x);
+          const dy = Math.abs(e.point.y - startPoint.y);
+          if (dx > 10 || dy > 10) {
+            cancelLongPress();
+          }
+        }
       });
-      map.on('mouseup', handlePressEnd);
-      map.on('dragstart', handlePressEnd);
+
+      map.on('mouseup', cancelLongPress);
+      map.on('dragstart', cancelLongPress);
 
       map.on('touchstart', (e) => {
         if (e.points && e.points.length === 1) {
-          handlePressStart(e.points[0], [e.lngLats[0].lng, e.lngLats[0].lat], e.originalEvent?.target as HTMLElement);
+          startLongPress(e.points[0], [e.lngLats[0].lng, e.lngLats[0].lat], e.originalEvent?.target as HTMLElement);
         }
       });
-      map.on('touchmove', (e) => {
-        if (e.points && e.points.length === 1) {
-          handlePressMove(e.points[0]);
-        }
-      });
-      map.on('touchend', handlePressEnd);
-      map.on('touchcancel', handlePressEnd);
 
-      // Map click handler (For tapping alternative routes with 30px touch buffer for 7-inch displays)
+      map.on('touchmove', (e) => {
+        if (startPoint && e.points && e.points.length === 1) {
+          const dx = Math.abs(e.points[0].x - startPoint.x);
+          const dy = Math.abs(e.points[0].y - startPoint.y);
+          if (dx > 10 || dy > 10) {
+            cancelLongPress();
+          }
+        }
+      });
+
+      map.on('touchend', cancelLongPress);
+      map.on('touchcancel', cancelLongPress);
+
+      // Map Click Handler: ONLY triggers alternative route switching with wide 50px hitbox (NEVER drops a pin on click)
       map.on('click', (e) => {
-        if (didLongPress) {
-          didLongPress = false;
+        if (isLongPressed) {
+          isLongPressed = false;
           return;
         }
 
@@ -173,13 +175,15 @@ export const MapboxCanvas: React.FC = () => {
           return;
         }
 
-        // Check if an alternative route line was clicked (with 30px touch buffer)
-        if (map.getLayer('alt-routes-layer')) {
+        // Generous 50px touch bounding box (±25px) for 7-inch touchscreens
+        if (map.getLayer('alt-routes-layer') || map.getLayer('alt-routes-hitbox')) {
           const bbox: [mapboxgl.PointLike, mapboxgl.PointLike] = [
-            [e.point.x - 15, e.point.y - 15],
-            [e.point.x + 15, e.point.y + 15],
+            [e.point.x - 25, e.point.y - 25],
+            [e.point.x + 25, e.point.y + 25],
           ];
-          const features = map.queryRenderedFeatures(bbox, { layers: ['alt-routes-layer'] });
+          const queryLayers = ['alt-routes-hitbox', 'alt-routes-layer'].filter((id) => map.getLayer(id));
+          const features = map.queryRenderedFeatures(bbox, { layers: queryLayers });
+
           if (features && features.length > 0) {
             const targetRouteId = (features[0] as any).properties?.routeId;
             if (typeof targetRouteId === 'number') {
@@ -282,6 +286,7 @@ export const MapboxCanvas: React.FC = () => {
 
     const altSourceId = 'alt-routes-source';
     const altLayerId = 'alt-routes-layer';
+    const altHitboxLayerId = 'alt-routes-hitbox';
     const activeSourceId = 'active-route-source';
     const casingLayerId = 'active-route-casing';
     const coreLayerId = 'active-route-core';
@@ -313,6 +318,7 @@ export const MapboxCanvas: React.FC = () => {
           data: altGeoJson as any,
         });
 
+        // Visible Muted Dark Blue alternative route line
         map.addLayer({
           id: altLayerId,
           type: 'line',
@@ -329,11 +335,28 @@ export const MapboxCanvas: React.FC = () => {
               ['linear'],
               ['zoom'],
               10, 3.5,
-              14, 5.0,
-              17, 7.0,
+              14, 5.5,
+              17, 7.5,
             ],
             'line-opacity': 0.85,
             'line-emissive-strength': 0.65,
+          },
+        });
+
+        // Invisible extra-wide 44px tap hitbox layer for effortless in-car touch selection
+        map.addLayer({
+          id: altHitboxLayerId,
+          type: 'line',
+          source: altSourceId,
+          slot: 'middle',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#1d4ed8',
+            'line-width': 44,
+            'line-opacity': 0.001,
           },
         });
       }
@@ -440,6 +463,7 @@ export const MapboxCanvas: React.FC = () => {
       if (map.getLayer(coreLayerId)) map.removeLayer(coreLayerId);
       if (map.getLayer(casingLayerId)) map.removeLayer(casingLayerId);
       if (map.getSource(activeSourceId)) map.removeSource(activeSourceId);
+      if (map.getLayer(altHitboxLayerId)) map.removeLayer(altHitboxLayerId);
       if (map.getLayer(altLayerId)) map.removeLayer(altLayerId);
       if (map.getSource(altSourceId)) map.removeSource(altSourceId);
     }
