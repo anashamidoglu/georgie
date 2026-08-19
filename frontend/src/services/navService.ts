@@ -315,21 +315,35 @@ function parseManeuverStep(
       ? matchedShield.toUpperCase().replace(/\s+/, '')
       : undefined;
 
-  const rawExit =
-    bannerPrimary?.components?.find((c: any) => c.type === 'exit-number')?.text ||
-    step.maneuver?.exit;
+  const isRoundabout =
+    rawType.includes('roundabout') ||
+    rawType.includes('rotary') ||
+    (typeof instruction === 'string' && instruction.toLowerCase().includes('roundabout'));
 
-  const explicitExit = typeof rawExit === 'string' ? rawExit : typeof rawExit === 'number' ? String(rawExit) : '';
+  let exitNumber: string | undefined = undefined;
 
-  const matchedExit =
-    explicitExit ||
-    (typeof instruction === 'string' ? instruction.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null) ||
-    (typeof roadName === 'string' ? roadName.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null);
+  if (!isRoundabout) {
+    const rawExit =
+      bannerPrimary?.components?.find((c: any) => c.type === 'exit-number')?.text ||
+      step.maneuver?.exit;
 
-  const exitNumber =
-    typeof matchedExit === 'string' && matchedExit.trim().length > 0
-      ? matchedExit
-      : undefined;
+    const explicitExit =
+      typeof rawExit === 'string'
+        ? rawExit
+        : typeof rawExit === 'number'
+        ? `Exit ${rawExit}`
+        : '';
+
+    const matchedExit =
+      explicitExit ||
+      (typeof instruction === 'string' ? instruction.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null) ||
+      (typeof roadName === 'string' ? roadName.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null);
+
+    exitNumber =
+      typeof matchedExit === 'string' && matchedExit.trim().length > 0
+        ? matchedExit
+        : undefined;
+  }
 
   let lanes: LaneInfo[] | undefined;
   if (bannerSub?.components) {

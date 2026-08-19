@@ -13,7 +13,7 @@ interface ExitShieldProps {
 }
 
 /**
- * Parses road codes like "E11", "E 311", "D71", "D 83", "S116", "I-95" into category and clean number
+ * Parses road codes like "E11", "E 311", "D71", "D 83", "S116" into category and number
  */
 function parseRoadCode(rawCode?: string | number | null): { type: 'E' | 'D' | 'S' | 'generic'; number: string } | null {
   if (rawCode === undefined || rawCode === null) return null;
@@ -39,7 +39,7 @@ function parseRoadCode(rawCode?: string | number | null): { type: 'E' | 'D' | 'S
     return { type: 'S', number: matchS[1] || '' };
   }
 
-  // Generic valid highway / route code (contains at least one number and max 8 chars)
+  // Valid short road codes
   if (/^[A-Z0-9\s-]{1,8}$/.test(cleaned) && /\d/.test(cleaned)) {
     return { type: 'generic', number: cleaned };
   }
@@ -48,8 +48,8 @@ function parseRoadCode(rawCode?: string | number | null): { type: 'E' | 'D' | 'S
 }
 
 /**
- * Authentic UAE National Highway Falcon Shield (E-Routes)
- * Official Royal Blue Falcon silhouette with yellow 'E', Arabic 'إ', and route number
+ * Exact Official UAE National Highway Falcon Shield (E-Routes)
+ * Extracted directly from official UAE E11 Wikimedia SVG (362.3 x 481.2)
  */
 export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
@@ -57,86 +57,54 @@ export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 's
 }) => {
   const numStr = String(number ?? '');
   const dimensions = {
-    sm: { width: 28, height: 35 },
-    md: { width: 34, height: 42 },
-    lg: { width: 44, height: 55 },
+    sm: { width: 28, height: 37 },
+    md: { width: 34, height: 45 },
+    lg: { width: 44, height: 58 },
   }[size];
 
   return (
     <svg
       width={dimensions.width}
       height={dimensions.height}
-      viewBox="0 0 100 125"
+      viewBox="298 236 363 482"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
       <title>{`UAE Highway E ${numStr}`}</title>
-      {/* UAE National Falcon Silhouette Body */}
+      
+      {/* Outer White Board Border */}
       <path
-        d="M 50 10
-           C 46 8, 41 8, 38 12
-           C 36 14, 36 17, 39 19
-           C 35 22, 33 24, 34 26
-           C 38 27, 43 25, 46 22
-           C 43 27, 42 32, 45 35
-           C 33 34, 22 37, 16 46
-           C 13 52, 12 60, 16 68
-           C 14 70, 12 73, 15 76
-           C 12 80, 12 86, 17 90
-           C 14 93, 14 97, 18 100
-           C 18 107, 21 113, 27 116
-           C 36 121, 64 121, 73 116
-           C 79 113, 82 107, 82 100
-           C 86 97, 86 93, 83 90
-           C 88 86, 88 80, 85 76
-           C 88 73, 86 70, 84 68
-           C 88 60, 87 52, 84 46
-           C 78 37, 67 34, 55 35
-           C 58 32, 57 27, 54 22
-           C 57 25, 62 27, 66 26
-           C 67 24, 65 22, 61 19
-           C 64 17, 64 14, 62 12
-           C 59 8, 54 8, 50 10 Z"
-        fill="#003882"
-        stroke="#ffffff"
-        strokeWidth="2.5"
+        d="M 298.6,236.8 V 717 H 659.9 V 236.8 Z"
+        fill="#ffffff"
       />
 
-      {/* English 'E' */}
-      <text
-        x="34"
-        y="58"
-        fill="#FFC20E"
-        fontSize="25"
-        fontWeight="900"
-        fontFamily="system-ui, -apple-system, sans-serif"
-        textAnchor="middle"
-      >
-        E
-      </text>
+      {/* Official UAE Falcon Silhouette (Royal Blue) */}
+      <path
+        d="m 616.6,499.4 1.4,11.8 0.7,3.9 1.2,4.1 0.6,5.3 2.7,9.2 0.7,3.3 0.8,4 h -11.5 l 13.4,63.9 h -17.3 l 0.6,35.2 -5.9,4.6 -7.9,4.7 -12,6.6 -9.9,5.2 -19.9,8.1 -11.2,3.3 -7.2,1.8 -9.9,2.7 -7.3,1.5 -11.4,1.3 -9.6,1.2 -11.4,0.8 h -11.9 l -11.2,-0.8 -11.2,-0.6 -9.4,-1.3 -8.6,-2.1 -7.2,-1.2 -6.1,-2.1 -8.5,-1.8 -7.3,-2.7 -7.9,-3.3 -9.2,-3.3 -8.7,-4.1 -7.3,-4.1 -5.3,-3.2 -7.2,-4.6 -6.6,-3.9 -3.9,-2.7 0.6,-35.2 H 332.2 L 345.4,541 H 334 l 5.1,-23.2 2.4,-8.4 0.6,-8.8 0.6,-6.6 h -9.3 l 3.9,-18.5 1.4,-10.6 2,-11.3 0.8,-8.6 0.6,-5.1 -12.8,1.2 2.9,-6 1.8,-8.4 0.8,-4.7 0.7,-6.7 v -7.2 l -0.7,-7.4 -0.8,-6.5 v -6.6 l 0.8,-7.9 1.9,-8 2,-6 2,-5.1 2,-3.9 2.7,-4.8 2.8,-4 3.9,-4.5 2.6,-3.3 4,-3.3 6.6,-3.4 3.9,-1.4 5.4,-0.6 4.5,0.6 6.1,1.4 5.1,2.6 6,3.2 6,2.7 4.5,1.5 5.4,0.6 h 4.5 l 5.5,-1.5 4.6,-0.6 3.3,-1.2 6.5,-3.3 3.3,-2.7 3.4,-2.1 7.2,-7.2 2.7,-3.3 0.6,-3.9 0.9,-2.7 -0.9,-3.3 -1.8,-1.2 -1.5,-0.7 -1.9,-1.4 -2,-1.8 -0.7,-2.1 -0.6,-1.2 -13.2,-1.4 -2,4.7 -1.3,-1.5 -0.6,-1.8 -0.8,-2.7 -0.6,-2.2 0.6,-2.5 0.8,-2 2.5,-3.9 1.4,-1.5 2.7,-1.2 3.9,-2.7 2.6,-1.8 4,-4.2 1.9,-2.5 1.4,-1.4 2.7,-1.2 4,-0.7 6,-0.8 4.5,-0.6 h 4.5 l 6,0.6 4.8,1.5 4.5,1.8 2.8,2.7 2.6,3.2 3.3,4 5.3,9.3 2,5.4 1.9,4.6 1.4,4.5 1.2,5.4 2.1,5.4 1.8,3.9 6.7,7.8 2,2.7 2.8,1.3 3.3,2.6 3.9,1.5 5.8,1.2 h 6.6 l 4.7,-0.6 6,-1.4 4,-1.3 3.9,-2 4,-2.6 4.7,-2.7 3.9,-1.4 4.5,-1.2 h 4 l 5.4,0.6 4,1.4 4.7,1.9 7.9,6.6 3.3,3.3 5.3,6.6 2.4,4.1 4.9,9.2 1.8,5.9 2.1,5.5 0.6,3.9 1.5,7.1 V 396 l -0.8,5.4 -0.7,6.1 v 5.1 l 0.7,7.5 v 4.5 l 1.4,3.9 1.3,5.4 1.4,4.6 1.2,2.6 -12.6,-1.2 0.6,5.7 0.8,7.4 0.7,6 1.2,7.4 1.4,9.1 1.3,6.5 0.6,4.1 0.7,3.4 1.4,4.5 H 616 Z"
+        fill="#0044aa"
+      />
 
-      {/* Arabic 'إ' */}
+      {/* Official English 'E' */}
+      <path
+        d="m 435,428.9 h -36.1 v -20.6 h 31 v -11.5 h -31 v -19.8 h 33.9 v -11.6 h -46.8 v 75 h 49 z"
+        fill="#ffcc00"
+      />
+
+      {/* Official Arabic 'إ' */}
+      <g fill="#ffcc00">
+        <path d="m 567,412.8 1.4,-3.2 0.7,-4.8 0.6,-7.9 0.6,-13.9 v -8 l -0.6,-5.7 -1.3,-8.7 -0.8,-7.2 -0.6,-1.5 -1.2,1.5 -9.4,11.1 -0.6,0.6 v 9.9 l 0.6,6 0.7,6.6 0.6,9.9 v 16 l -1.3,13.2 h 1.3 l 0.8,-1.5 2.5,-3.2 4.2,-6.7 z" />
+        <path d="m 566.2,450.6 6.5,-8.6 h -2.6 l -2.5,0.6 -3.3,-0.6 -5.4,-1.3 -1.2,-1.4 1.2,-1.2 h 2.1 l 3.3,0.6 1.9,0.6 2.6,-5.2 V 432 l -1.2,-1.2 h -3.3 l -4.2,0.6 -3.2,1.8 -4,4.2 -1.9,3.3 -1.4,1.9 0.6,3.9 2,2.6 1.3,0.6 -3.3,6.8 10.8,-4.7 2.5,-1.2 z" />
+      </g>
+
+      {/* Dynamic Road Number in Official Bold Highway Font */}
       <text
-        x="67"
-        y="58"
-        fill="#FFC20E"
-        fontSize="27"
+        x="479"
+        y="620"
+        fill="#ffcc00"
+        fontSize={numStr.length > 2 ? '140' : '176'}
         fontWeight="bold"
-        fontFamily="sans-serif"
-        textAnchor="middle"
-      >
-        إ
-      </text>
-
-      {/* Highway Number in Heavy Road Font */}
-      <text
-        x="50"
-        y="104"
-        fill="#FFC20E"
-        fontSize={numStr.length > 2 ? '36' : '44'}
-        fontWeight="900"
         fontFamily="'SF Pro Display', 'DIN Alternate', 'DIN 1451', 'Arial Black', sans-serif"
         textAnchor="middle"
-        letterSpacing={numStr.length > 2 ? '-1.5' : '-0.5'}
+        letterSpacing={numStr.length > 2 ? '-6' : '-2'}
       >
         {numStr}
       </text>
@@ -145,8 +113,8 @@ export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 's
 };
 
 /**
- * Authentic Dubai City Route Fort Shield (D-Routes)
- * Official RTA Green Castle/Fortress tower silhouette with yellow 'D', Arabic 'د', and route number
+ * Exact Official Dubai Fort / Castle Route Shield (D-Routes)
+ * Extracted directly from official UAE D71 Wikimedia SVG (301 x 401)
  */
 export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
@@ -154,68 +122,57 @@ export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 
 }) => {
   const numStr = String(number ?? '');
   const dimensions = {
-    sm: { width: 28, height: 35 },
-    md: { width: 34, height: 42 },
-    lg: { width: 44, height: 55 },
+    sm: { width: 28, height: 37 },
+    md: { width: 34, height: 45 },
+    lg: { width: 44, height: 58 },
   }[size];
 
   return (
     <svg
       width={dimensions.width}
       height={dimensions.height}
-      viewBox="0 0 100 125"
+      viewBox="274 80 302 402"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
       <title>{`Dubai Route D ${numStr}`}</title>
-      {/* Dubai Fort / Castle Silhouette with Crenellations */}
-      <path
-        d="M 20 18
-           L 32 18 L 32 25 L 42 25 L 42 18 L 58 18 L 58 25 L 68 25 L 68 18 L 80 18
-           L 82 45 L 85 48 L 82 75 L 86 78 L 82 105
-           C 82 114, 68 120, 50 120
-           C 32 120, 18 114, 18 105
-           L 14 78 L 18 75 L 15 48 L 18 45 Z"
-        fill="#007a3d"
-        stroke="#ffffff"
-        strokeWidth="2.5"
+      
+      {/* Outer White Board Border */}
+      <rect
+        y="81.1"
+        x="274.7"
+        height="400"
+        width="300"
+        fill="#ffffff"
       />
 
-      {/* English 'D' */}
-      <text
-        x="35"
-        y="58"
-        fill="#FFC20E"
-        fontSize="25"
-        fontWeight="900"
-        fontFamily="system-ui, -apple-system, sans-serif"
-        textAnchor="middle"
-      >
-        D
-      </text>
+      {/* Official Dubai Fort Castle Silhouette with 7 Battlements (RTA Green) */}
+      <path
+        d="m 299.7,108.4 v 69.2 h 10.5 c -10.5,44.5 -10.5,89.8 -10.5,134.9 0,47 0,141.2 0,141.2 l 250.1,0.1 V 312.5 c 0,-45.1 0,-90.4 -10.5,-134.9 h 10.5 V 108.4 H 527 v 23.1 h -22.8 v -23.1 h -22.7 v 23.1 H 458.8 V 108.4 H 436 v 23.1 h -22.7 v -23.1 h -22.7 v 23.1 h -22.7 v -23.1 h -22.7 v 23.1 h -22.8 l 0.1,-23.1 z"
+        fill="#00703c"
+      />
 
-      {/* Arabic 'د' */}
+      {/* Official English 'D' */}
+      <path
+        d="m 384.7,203.05 c 0,12.4 -5.7,26.5 -20,26.5 h -15.2 v -52 h 15.9 c 12.9,0 19.3,14.5 19.3,25.5 z m 12.9,0 c 0,-18.2 -10.1,-37 -33.3,-37 h -27.6 v 75 h 27.5 c 23.3,0 33.4,-17.8 33.4,-38 z"
+        fill="#ffcc00"
+      />
+
+      {/* Official Arabic 'د' */}
+      <path
+        fill="#ffcc00"
+        d="m 501.8,236 h -48.4 l 4.6,-21.1 h 36.3 l -0.8,-5.4 -2.3,-4.5 -4.5,-3.8 -4.5,-4.5 -7.6,-4.5 -4.5,-0.8 0.7,-5.3 4.6,-7.6 2.2,-6 2.3,-1.5 5.3,1.5 6,3 8.4,6.8 6,8.3 3.8,7.6 2.3,5.3 0.7,6 -0.7,5.4 -3.1,9.1 z"
+      />
+
+      {/* Dynamic Road Number in Official Bold Highway Font */}
       <text
-        x="66"
-        y="58"
-        fill="#FFC20E"
-        fontSize="27"
+        x="424"
+        y="395"
+        fill="#ffcc00"
+        fontSize={numStr.length > 2 ? '135' : '176'}
         fontWeight="bold"
-        fontFamily="sans-serif"
-        textAnchor="middle"
-      >
-        د
-      </text>
-
-      {/* Road Number in Heavy Road Font */}
-      <text
-        x="50"
-        y="104"
-        fill="#FFC20E"
-        fontSize={numStr.length > 2 ? '36' : '44'}
-        fontWeight="900"
         fontFamily="'SF Pro Display', 'DIN Alternate', 'DIN 1451', 'Arial Black', sans-serif"
         textAnchor="middle"
-        letterSpacing={numStr.length > 2 ? '-1.5' : '-0.5'}
+        letterSpacing={numStr.length > 2 ? '-6' : '-2'}
       >
         {numStr}
       </text>
@@ -224,7 +181,7 @@ export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 
 };
 
 /**
- * Authentic Sharjah Route Shield (S-Routes)
+ * Official Sharjah Route Shield (S-Routes)
  */
 export const SharjahRouteShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
@@ -232,49 +189,44 @@ export const SharjahRouteShield: React.FC<{ number: string | number; size?: 'sm'
 }) => {
   const numStr = String(number ?? '');
   const dimensions = {
-    sm: { width: 28, height: 35 },
-    md: { width: 34, height: 42 },
-    lg: { width: 44, height: 55 },
+    sm: { width: 28, height: 37 },
+    md: { width: 34, height: 45 },
+    lg: { width: 44, height: 58 },
   }[size];
 
   return (
     <svg
       width={dimensions.width}
       height={dimensions.height}
-      viewBox="0 0 100 125"
+      viewBox="0 0 100 130"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
       <title>{`Sharjah Route S ${numStr}`}</title>
+      
+      {/* Outer White Board Border */}
+      <rect x="0" y="0" width="100" height="130" rx="4" fill="#ffffff" />
+      
+      {/* Sharjah Green Shield */}
       <path
-        d="M 18 20
-           L 82 20
-           L 84 55
-           L 88 78
-           L 82 102
-           C 82 114, 68 120, 50 120
-           C 32 120, 18 114, 18 102
-           L 12 78
-           L 16 55 Z"
+        d="M 6 6 L 94 6 L 94 92 C 94 116, 75 124, 50 124 C 25 124, 6 116, 6 92 Z"
         fill="#0f5132"
-        stroke="#ffffff"
-        strokeWidth="2.5"
       />
 
       <text
-        x="35"
-        y="58"
+        x="30"
+        y="46"
         fill="#ffffff"
         fontSize="24"
-        fontWeight="900"
-        fontFamily="system-ui, -apple-system, sans-serif"
+        fontWeight="bold"
+        fontFamily="sans-serif"
         textAnchor="middle"
       >
         S
       </text>
 
       <text
-        x="66"
-        y="58"
+        x="70"
+        y="46"
         fill="#ffffff"
         fontSize="26"
         fontWeight="bold"
@@ -286,13 +238,13 @@ export const SharjahRouteShield: React.FC<{ number: string | number; size?: 'sm'
 
       <text
         x="50"
-        y="104"
+        y="98"
         fill="#ffffff"
-        fontSize={numStr.length > 2 ? '36' : '44'}
-        fontWeight="900"
+        fontSize={numStr.length > 2 ? '38' : '48'}
+        fontWeight="bold"
         fontFamily="'SF Pro Display', 'DIN Alternate', 'DIN 1451', 'Arial Black', sans-serif"
         textAnchor="middle"
-        letterSpacing={numStr.length > 2 ? '-1.5' : '-0.5'}
+        letterSpacing={numStr.length > 2 ? '-2' : '-0.5'}
       >
         {numStr}
       </text>
@@ -352,7 +304,6 @@ export const ExitShield: React.FC<ExitShieldProps> = ({
 
 /**
  * Universal Unified Road Shield Component
- * Automatically resolves and renders authentic UAE Falcon (E), Dubai Fort (D), Sharjah (S), Exit, or generic shields
  */
 export const RoadShield: React.FC<RoadShieldProps> = ({
   code,
