@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import platform
+import subprocess
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -27,7 +28,6 @@ class BluetoothStatus(BaseModel):
     connected_device: Optional[str] = None
     devices: List[BluetoothDevice] = []
 
-# Mock devices for development / fallback
 mock_devices: List[BluetoothDevice] = [
     BluetoothDevice(id="4C:9F:F1:B6:97:F5", name="anas’s iPhone", connected=True, paired=True, type="phone"),
 ]
@@ -46,13 +46,12 @@ async def get_bluetooth_status():
             devices=mock_devices
         )
 
-    # Linux Live BlueZ Query via dbus-next / bluetoothctl
+    # Linux Live BlueZ Query via dbus-next
     try:
         from dbus_next.aio import MessageBus
         from dbus_next import BusType, Message
 
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-        # Query ObjectManager on org.bluez
         reply = await bus.call(
             Message(
                 destination='org.bluez',
@@ -75,10 +74,19 @@ async def get_bluetooth_status():
 
             if 'org.bluez.Device1' in interfaces:
                 props = interfaces['org.bluez.Device1']
-                name = str(props.get('Name', {}).value if hasattr(props.get('Name'), 'value') else props.get('Name', 'Unknown Device'))
-                address = str(props.get('Address', {}).value if hasattr(props.get('Address'), 'value') else props.get('Address', path))
-                connected = bool(props.get('Connected', {}).value if hasattr(props.get('Connected'), 'value') else props.get('Connected', False))
                 paired = bool(props.get('Paired', {}).value if hasattr(props.get('Paired'), 'value') else props.get('Paired', False))
+                connected = bool(props.get('Connected', {}).value if hasattr(props.get('Connected'), 'value') else props.get('Connected', False))
+
+                # STRICT FILTER: Only show paired devices or currently connected devices.
+                # Discard random background BLE beacons and unknown overhead signals.
+                if not paired and not connected:
+                    continue
+
+                raw_name = props.get('Name', {}).value if hasattr(props.get('Name'), 'value') else props.get('Name', None)
+                alias = props.get('Alias', {}).value if hasattr(props.get('Alias'), 'value') else props.get('Alias', None)
+                name = str(alias or raw_name or 'Paired Device')
+
+                address = str(props.get('Address', {}).value if hasattr(props.get('Address'), 'value') else props.get('Address', path))
                 icon = str(props.get('Icon', {}).value if hasattr(props.get('Icon'), 'value') else props.get('Icon', 'phone'))
 
                 if connected:
@@ -115,8 +123,8 @@ async def get_bluetooth_status():
 @router.post("/pairable")
 async def set_pairable(enabled: bool = True, timeout_seconds: int = 60):
     """
-    Puts the Raspberry Pi Bluetooth adapter into Discoverable & Pairable mode.
-    Phones can search and find 'Georgie Dash' to pair directly from their phone.
+    Puts the Linux Bluetooth adapter into Discoverable & Pairable mode,
+    and ensures the pairing agent is active so phones pair with 1-tap.
     """
     global mock_pairable_state
     mock_pairable_state = enabled
@@ -125,29 +133,13 @@ async def set_pairable(enabled: bool = True, timeout_seconds: int = 60):
         return {"status": "ok", "pairable": enabled, "timeout": timeout_seconds}
 
     try:
-        from dbus_next.aio import MessageBus
-        from dbus_next import BusType, Message, Variant
-
-        bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-        # Set Pairable, Discoverable, and DiscoverableTimeout on /org/bluez/hci0
-        adapter_path = '/org/bluez/hci0'
-        await bus.call(Message(
-            destination='org.bluez',
-            path=adapter_path,
-            interface='org.freedesktop.DBus.Properties',
-            member='Set',
-            signature='ssv',
-            body=['org.bluez.Adapter1', 'Discoverable', Variant('b', enabled)]
-        ))
-        await bus.call(Message(
-            destination='org.bluez',
-            path=adapter_path,
-            interface='org.freedesktop.DBus.Properties',
-            member='Set',
-            signature='ssv',
-            body=['org.bluez.Adapter1', 'Pairable', Variant('b', enabled)]
-        ))
-        bus.disconnect()
+        # Run bluetoothctl commands to ensure discoverability and auto-pairing agent
+        if enabled:
+            cmd = "bluetoothctl power on; bluetoothctl discoverable-timeout 60; bluetoothctl pairable-timeout 60; bluetoothctl discoverable on; bluetoothctl pairable on; bluetoothctl agent NoInputNoOutput; bluetoothctl default-agent"
+        else:
+            cmd = "bluetoothctl discoverable off; bluetoothctl pairable off"
+        
+        subprocess.Popen(cmd, shell=True)
         return {"status": "ok", "pairable": enabled, "timeout": timeout_seconds}
     except Exception as e:
         logger.error(f"[Bluetooth] Failed setting pairable mode: {e}")
@@ -179,7 +171,9 @@ async def connect_device(device_address: str):
         return {"status": "connected", "device": device_address}
     except Exception as e:
         logger.error(f"[Bluetooth] Failed to connect device: {e}")
-        return {"status": "error", "message": str(e)}
+        # Fallback to bluetoothctl
+        subprocess.Popen(f"bluetoothctl connect {device_address}", shell=True)
+        return {"status": "connecting", "device": device_address}
 
 @router.post("/disconnect/{device_address}")
 async def disconnect_device(device_address: str):
@@ -208,7 +202,8 @@ async def disconnect_device(device_address: str):
         return {"status": "disconnected", "device": device_address}
     except Exception as e:
         logger.error(f"[Bluetooth] Failed to disconnect device: {e}")
-        return {"status": "error", "message": str(e)}
+        subprocess.Popen(f"bluetoothctl disconnect {device_address}", shell=True)
+        return {"status": "disconnected", "device": device_address}
 
 @router.delete("/forget/{device_address}")
 async def forget_device(device_address: str):
@@ -221,20 +216,7 @@ async def forget_device(device_address: str):
         return {"status": "forgotten", "device": device_address}
 
     try:
-        from dbus_next.aio import MessageBus
-        from dbus_next import BusType, Message, Variant
-
-        dev_path = f"/org/bluez/hci0/dev_{device_address.replace(':', '_')}"
-        bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-        await bus.call(Message(
-            destination='org.bluez',
-            path='/org/bluez/hci0',
-            interface='org.bluez.Adapter1',
-            member='RemoveDevice',
-            signature='o',
-            body=[dev_path]
-        ))
-        bus.disconnect()
+        subprocess.Popen(f"bluetoothctl remove {device_address}", shell=True)
         return {"status": "forgotten", "device": device_address}
     except Exception as e:
         logger.error(f"[Bluetooth] Failed to forget device: {e}")
