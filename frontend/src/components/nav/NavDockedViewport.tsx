@@ -157,14 +157,14 @@ export const NavDockedViewport: React.FC = () => {
               <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
                 {destinationName}
               </span>
-              <div className="flex items-baseline space-x-2.5 mt-0.5">
-                <span className={`text-xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
+              <div className="flex items-baseline space-x-4 mt-0.5">
+                <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
                   {eta.duration}
                 </span>
-                <span className="text-sm font-semibold font-sf-display text-white/80 tabular-nums">
+                <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums">
                   {eta.distance}
                 </span>
-                <span className="text-xs text-white/40 tabular-nums">
+                <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums">
                   {eta.arrival}
                 </span>
               </div>
@@ -204,19 +204,19 @@ export const NavDockedViewport: React.FC = () => {
       {navStatus === 'navigating' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[420px]"
+            className="pointer-events-auto rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[460px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {/* Live ETA Stats (Traffic Colored) */}
-            <div className="flex items-baseline space-x-3.5">
-              <span className={`text-xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
+            {/* Live ETA Stats (Traffic Colored, Larger & Spaced) */}
+            <div className="flex items-baseline space-x-5">
+              <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
                 {eta.duration}
               </span>
-              <span className="text-sm font-semibold font-sf-display text-white/80 tabular-nums tracking-tight">
+              <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums tracking-tight">
                 {eta.distance}
               </span>
-              <span className="text-xs font-medium text-white/40 tabular-nums tracking-tight">
+              <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums tracking-tight">
                 {eta.arrival}
               </span>
             </div>
