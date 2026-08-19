@@ -18,6 +18,11 @@ export interface SavedPlace {
 
 const GOOGLE_PLACES_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY || '';
 
+// Hard Daily Budget Safety Limit (Maximum 100 remote Google API calls per day to guarantee $0.00 bill)
+const DAILY_MAX_GOOGLE_REQUESTS = 100;
+const CACHE_PREFIX = 'georgie_places_v1_';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days cache
+
 function calculateDistance(c1: [number, number], c2: [number, number]): number {
   const R = 6371; // Earth radius in km
   const rad = Math.PI / 180;
@@ -28,6 +33,62 @@ function calculateDistance(c1: [number, number], c2: [number, number]): number {
     Math.cos(c1[1] * rad) * Math.cos(c2[1] * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c * 10) / 10;
+}
+
+// In-Memory Fast Cache
+const memoryCache = new Map<string, { data: PlaceResult[]; timestamp: number }>();
+
+function getCachedResults(key: string): PlaceResult[] | null {
+  const normalizedKey = key.trim().toLowerCase();
+
+  // 1. Check RAM cache
+  const inMem = memoryCache.get(normalizedKey);
+  if (inMem && Date.now() - inMem.timestamp < CACHE_TTL_MS) {
+    return inMem.data;
+  }
+
+  // 2. Check localStorage
+  try {
+    const itemStr = localStorage.getItem(`${CACHE_PREFIX}${normalizedKey}`);
+    if (itemStr) {
+      const parsed = JSON.parse(itemStr);
+      if (parsed && Date.now() - parsed.timestamp < CACHE_TTL_MS) {
+        memoryCache.set(normalizedKey, parsed);
+        return parsed.data;
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+function setCachedResults(key: string, data: PlaceResult[]) {
+  const normalizedKey = key.trim().toLowerCase();
+  const entry = { data, timestamp: Date.now() };
+  memoryCache.set(normalizedKey, entry);
+
+  try {
+    localStorage.setItem(`${CACHE_PREFIX}${normalizedKey}`, JSON.stringify(entry));
+  } catch {}
+}
+
+// Daily Circuit Breaker: Track daily request count
+function checkAndIncrementDailyQuota(): boolean {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const key = `georgie_google_calls_${today}`;
+    const currentCount = parseInt(localStorage.getItem(key) || '0', 10);
+
+    if (currentCount >= DAILY_MAX_GOOGLE_REQUESTS) {
+      console.warn(`[SAFETY] Daily Google Places API quota reached (${DAILY_MAX_GOOGLE_REQUESTS} calls). Using local knowledge base to prevent any billing.`);
+      return false;
+    }
+
+    localStorage.setItem(key, (currentCount + 1).toString());
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 export const SAVED_PLACES: SavedPlace[] = [
@@ -75,7 +136,7 @@ export const INITIAL_RECENTS: PlaceResult[] = [
   },
 ];
 
-// Comprehensive Curated UAE POI & Knowledge Base
+// Curated UAE Knowledge Base
 const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
   // Malls & Shopping
   { id: 'mcc', name: 'Mirdif City Centre', address: 'Sheikh Mohammed Bin Zayed Rd, Mirdif, Dubai', coordinates: [55.4077, 25.2155], category: 'mall' },
@@ -143,8 +204,28 @@ export async function searchPlaces(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // 1. High-Precision Google Places API (New) if key is configured
-  if (GOOGLE_PLACES_KEY) {
+  // Safeguard 1: Instant RAM & LocalStorage Cache (0 requests, $0.00 cost)
+  const cached = getCachedResults(trimmed);
+  if (cached && cached.length > 0) {
+    return cached.map((p) => ({
+      ...p,
+      distanceKm: calculateDistance(userCoords, p.coordinates),
+    }));
+  }
+
+  // Safeguard 2: Require at least 3 characters before hitting any remote API
+  if (trimmed.length < 3) {
+    const lower = trimmed.toLowerCase();
+    return UAE_KNOWLEDGE_BASE.filter(
+      (p) => p.name.toLowerCase().includes(lower) || p.address.toLowerCase().includes(lower)
+    ).map((p) => ({
+      ...p,
+      distanceKm: calculateDistance(userCoords, p.coordinates),
+    }));
+  }
+
+  // 1. High-Precision Google Places API (New) with Hard Quota Safety Check
+  if (GOOGLE_PLACES_KEY && checkAndIncrementDailyQuota()) {
     try {
       const url = 'https://places.googleapis.com/v1/places:searchText';
       const payload = {
@@ -152,7 +233,7 @@ export async function searchPlaces(
         locationBias: {
           circle: {
             center: { latitude: userCoords[1], longitude: userCoords[0] },
-            radius: 50000.0, // 50km radius bias
+            radius: 50000.0, // 50km radius bias around car
           },
         },
       };
@@ -171,7 +252,7 @@ export async function searchPlaces(
       if (response.ok) {
         const data = await response.json();
         if (data.places && data.places.length > 0) {
-          return data.places.map((p: any) => {
+          const results: PlaceResult[] = data.places.map((p: any) => {
             const lat = p.location?.latitude || 0;
             const lng = p.location?.longitude || 0;
             const coords: [number, number] = [lng, lat];
@@ -187,6 +268,10 @@ export async function searchPlaces(
               isHistory: false,
             };
           });
+
+          // Save to 7-day cache so future identical searches cost $0.00
+          setCachedResults(trimmed, results);
+          return results;
         }
       }
     } catch (err: any) {
@@ -195,7 +280,7 @@ export async function searchPlaces(
     }
   }
 
-  // 2. Local comprehensive match (instant prefix / substring match)
+  // 2. Fallback: Local curated knowledge base
   const lowerTrimmed = trimmed.toLowerCase();
   const localMatches = UAE_KNOWLEDGE_BASE.filter((p) => {
     const nameMatch = p.name.toLowerCase().includes(lowerTrimmed);
@@ -210,7 +295,7 @@ export async function searchPlaces(
     return localMatches;
   }
 
-  // 3. Fallback: Mapbox Forward Geocoding with UAE Bounding Box
+  // 3. Secondary Fallback: Mapbox Forward Geocoding
   try {
     const encoded = encodeURIComponent(trimmed);
     const proximity = `${userCoords[0]},${userCoords[1]}`;
@@ -225,27 +310,17 @@ export async function searchPlaces(
           const coords: [number, number] = f.center || [0, 0];
           const distKm = calculateDistance(userCoords, coords);
 
-          let cat: PlaceResult['category'] = 'place';
-          const types = (f.properties?.category || '').toLowerCase();
-          if (types.includes('gas') || types.includes('fuel')) cat = 'fuel';
-          else if (types.includes('coffee') || types.includes('cafe')) cat = 'coffee';
-          else if (types.includes('parking')) cat = 'parking';
-          else if (types.includes('grocery') || types.includes('supermarket')) cat = 'grocery';
-          else if (types.includes('hospital') || types.includes('medical')) cat = 'hospital';
-          else if (types.includes('mall') || types.includes('shop')) cat = 'mall';
-
           return {
             id: f.id,
             name: f.text || f.place_name?.split(',')[0] || 'Location',
             address: f.place_name || f.properties?.address || 'United Arab Emirates',
-            category: cat,
+            category: 'place',
             coordinates: coords,
             distanceKm: distKm,
             isHistory: false,
           };
         });
 
-        // Combine local results (highest relevance) with remote results
         const combined: PlaceResult[] = [...localMatches];
         remoteResults.forEach((remote) => {
           if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
@@ -253,12 +328,12 @@ export async function searchPlaces(
           }
         });
 
+        setCachedResults(trimmed, combined.slice(0, 8));
         return combined.slice(0, 8);
       }
     }
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
-    console.warn('Geocoding error, using local UAE knowledge base:', err);
   }
 
   return localMatches;

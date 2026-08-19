@@ -68,7 +68,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
       } finally {
         setIsLoading(false);
       }
-    }, 100);
+    }, 350);
 
     return () => {
       clearTimeout(timer);
