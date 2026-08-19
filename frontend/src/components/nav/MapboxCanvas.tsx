@@ -186,6 +186,7 @@ export const MapboxCanvas: React.FC = () => {
     navStatus,
     allSteps,
     activeStepIndex,
+    inspectedStep,
   } = useNav();
 
   const currentLegIndex =
@@ -315,8 +316,8 @@ export const MapboxCanvas: React.FC = () => {
       el.style.height = '38px';
       el.innerHTML = `
         <div class="relative w-8 h-8 flex items-center justify-center">
-          <div class="w-7 h-7 rounded-full bg-sky-500 border-2 border-white shadow-[0_0_16px_rgba(14,165,233,0.9)] flex items-center justify-center transition-transform duration-300">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white" class="drop-shadow-sm">
+          <div class="w-7 h-7 rounded-full bg-sky-500 border-2 border-white shadow-md flex items-center justify-center transition-transform duration-300">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
               <path d="M12 2L2 22L12 18L22 22L12 2Z"/>
             </svg>
           </div>
@@ -343,7 +344,7 @@ export const MapboxCanvas: React.FC = () => {
     if (destination && navStatus !== 'idle') {
       if (!destMarkerRef.current) {
         const destEl = document.createElement('div');
-        destEl.className = 'cursor-pointer select-none filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.75)]';
+        destEl.className = 'cursor-pointer select-none filter drop-shadow-md';
         destEl.innerHTML = `
           <svg width="28" height="36" viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M16 0C7.163 0 0 7.163 0 16C0 26.5 14.2 39 15.2 39.7C15.6 40.1 16.4 40.1 16.8 39.7C17.8 39 32 26.5 32 16C32 7.163 24.837 0 16 0Z" fill="#EA4335"/>
@@ -386,7 +387,7 @@ export const MapboxCanvas: React.FC = () => {
 
           const wpEl = document.createElement('div');
           wpEl.className =
-            'w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow-[0_0_10px_rgba(245,158,11,0.8)] flex items-center justify-center text-black font-black text-xs font-mono select-none';
+            'w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center text-black font-black text-xs font-mono select-none';
           wpEl.innerText = `${idx + 1}`;
 
           return new mapboxgl.Marker({ element: wpEl })
@@ -600,8 +601,8 @@ export const MapboxCanvas: React.FC = () => {
         });
       }
 
-      // If in preview mode, smoothly fit the whole route overview
-      if (navStatus === 'preview') {
+      // If in preview mode (and not actively inspecting a step), smoothly fit the whole route overview
+      if (navStatus === 'preview' && !inspectedStep) {
         const coordinates = activeRoute.rawGeometry?.coordinates || [];
         if (coordinates.length > 0) {
           const firstCoord = coordinates[0] as [number, number];
@@ -637,6 +638,7 @@ export const MapboxCanvas: React.FC = () => {
     currentLegIndex,
     vehicleCoords,
     coords,
+    inspectedStep,
   ]);
 
   // Continuous ResizeObserver for silky-smooth CSS layout transitions

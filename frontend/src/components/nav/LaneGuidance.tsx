@@ -115,7 +115,7 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
           key={idx}
           className={`flex-1 flex items-center justify-center py-1 rounded-xl transition-all duration-150 ${
             lane.active
-              ? 'opacity-100 bg-white/[0.18] border border-white/30 shadow-[0_0_12px_rgba(255,255,255,0.4)]'
+              ? 'opacity-100 bg-white/[0.18] border border-white/30'
               : lane.valid === false
               ? 'opacity-15 bg-transparent'
               : 'opacity-35 bg-white/[0.04]'

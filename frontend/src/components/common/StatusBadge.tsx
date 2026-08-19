@@ -13,12 +13,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   className,
 }) => {
   const variantStyles = {
-    green: 'border-emerald-500/80 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]',
-    amber: 'border-amber-500/80 text-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.2)]',
-    red: 'border-red-500/80 text-red-400 shadow-[0_0_8px_rgba(239,68,68,0.2)]',
-    blue: 'border-sky-500/80 text-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.2)]',
-    crimson: 'border-rose-600/80 text-rose-400 shadow-[0_0_8px_rgba(225,29,72,0.2)]',
-    muted: 'border-white/20 text-white/50',
+    green: 'border-emerald-500/80 text-emerald-400 bg-emerald-500/10',
+    amber: 'border-amber-500/80 text-amber-400 bg-amber-500/10',
+    red: 'border-red-500/80 text-red-400 bg-red-500/10',
+    blue: 'border-sky-500/80 text-sky-400 bg-sky-500/10',
+    crimson: 'border-rose-600/80 text-rose-400 bg-rose-500/10',
+    muted: 'border-white/20 text-white/50 bg-white/5',
   };
 
   return (
