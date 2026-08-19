@@ -2,28 +2,31 @@ export interface PlaceResult {
   id: string;
   name: string;
   address: string;
-  category?: 'home' | 'uni' | 'history' | 'place' | 'fuel' | 'coffee' | 'parking' | 'grocery' | 'hospital' | 'mall' | 'landmark';
+  category?: 'home' | 'uni' | 'work' | 'favorite' | 'history' | 'place' | 'fuel' | 'coffee' | 'parking' | 'grocery' | 'hospital' | 'mall' | 'landmark';
   coordinates: [number, number]; // [lng, lat]
   subtitle?: string;
   distanceKm?: number;
   isHistory?: boolean;
+  isSaved?: boolean;
+  icon?: string;
+  created_at?: string;
 }
 
 export interface SavedPlace {
-  id: 'home' | 'uni';
-  label: string;
+  id: string;
+  name: string;
   address: string;
   coordinates: [number, number];
+  category?: 'home' | 'uni' | 'work' | 'favorite' | 'gym' | 'coffee' | 'custom';
+  icon?: string;
 }
-
-const GOOGLE_PLACES_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY || '';
 
 // Hard Daily Budget Safety Limit (Maximum 100 remote Google API calls per day to guarantee $0.00 bill)
 const DAILY_MAX_GOOGLE_REQUESTS = 100;
 const CACHE_PREFIX = 'georgie_places_v1_';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days cache
 
-function calculateDistance(c1: [number, number], c2: [number, number]): number {
+export function calculateDistance(c1: [number, number], c2: [number, number]): number {
   const R = 6371; // Earth radius in km
   const rad = Math.PI / 180;
   const dLat = (c2[1] - c1[1]) * rad;
@@ -73,7 +76,7 @@ function setCachedResults(key: string, data: PlaceResult[]) {
 }
 
 // Daily Circuit Breaker: Track daily request count
-function checkAndIncrementDailyQuota(): boolean {
+export function checkAndIncrementDailyQuota(): boolean {
   try {
     const today = new Date().toISOString().split('T')[0];
     const key = `georgie_google_calls_${today}`;
@@ -91,50 +94,210 @@ function checkAndIncrementDailyQuota(): boolean {
   }
 }
 
-export const SAVED_PLACES: SavedPlace[] = [
+// ==============================================================================
+// SQLite Persistent Saved & Recent Places API Methods
+// ==============================================================================
+
+export const DEFAULT_SAVED_PLACES: SavedPlace[] = [
   {
     id: 'home',
-    label: 'Home',
-    address: '25.362693, 55.419909',
+    name: 'Home',
+    address: 'Al Jazzat, Sharjah',
     coordinates: [55.419909, 25.362693],
+    category: 'home',
+    icon: 'home',
   },
   {
     id: 'uni',
-    label: 'Uni',
-    address: '25.301654, 55.485259',
-    coordinates: [55.485259, 25.301654],
+    name: 'Uni',
+    address: 'American University of Sharjah',
+    coordinates: [55.491400, 25.311700],
+    category: 'uni',
+    icon: 'graduation-cap',
   },
 ];
 
-export const INITIAL_RECENTS: PlaceResult[] = [
-  {
-    id: 'rec-1',
-    name: 'Colleges of Medical & Health Sciences E3...',
-    address: 'M25, Medical College - Sharjah',
-    subtitle: 'Open · Closes 4 PM',
-    category: 'history',
-    coordinates: [55.4855, 25.2917],
-    isHistory: true,
-  },
-  {
-    id: 'rec-2',
-    name: 'City Centre Mirdif',
-    address: 'Sheikh Mohammed Bin Zayed Road - Dubai',
-    subtitle: 'Open · Closes 12 AM',
-    category: 'history',
-    coordinates: [55.4077, 25.2155],
-    isHistory: true,
-  },
-  {
-    id: 'rec-3',
-    name: 'Dubai Mall',
-    address: 'Downtown Dubai, Dubai',
-    subtitle: 'Open · Closes 12 AM',
-    category: 'history',
-    coordinates: [55.2785, 25.1972],
-    isHistory: true,
-  },
-];
+export async function fetchSavedPlaces(): Promise<SavedPlace[]> {
+  try {
+    const res = await fetch('/api/nav/places/saved');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        localStorage.setItem('georgie_saved_places', JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch (e) {
+    console.warn('Backend saved places fetch failed, using local cache:', e);
+  }
+
+  try {
+    const local = localStorage.getItem('georgie_saved_places');
+    if (local) return JSON.parse(local);
+  } catch {}
+
+  return DEFAULT_SAVED_PLACES;
+}
+
+export async function savePlaceToDb(place: {
+  id?: string;
+  name: string;
+  address?: string;
+  coordinates: [number, number];
+  category?: string;
+  icon?: string;
+}): Promise<void> {
+  const payload = {
+    id: place.id,
+    name: place.name,
+    address: place.address || '',
+    lat: place.coordinates[1],
+    lng: place.coordinates[0],
+    category: place.category || 'favorite',
+    icon: place.icon || 'star',
+  };
+
+  try {
+    await fetch('/api/nav/places/saved', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.warn('Failed to sync saved place to backend:', e);
+  }
+
+  // Update local cache
+  try {
+    const current = await fetchSavedPlaces();
+    const existingIndex = current.findIndex((p) => p.name.toLowerCase() === place.name.toLowerCase());
+    const newPlace: SavedPlace = {
+      id: place.id || `fav-${Date.now()}`,
+      name: place.name,
+      address: place.address || '',
+      coordinates: place.coordinates,
+      category: (place.category as any) || 'favorite',
+      icon: place.icon || 'star',
+    };
+
+    let updated: SavedPlace[];
+    if (existingIndex >= 0) {
+      updated = [...current];
+      updated[existingIndex] = newPlace;
+    } else {
+      updated = [...current, newPlace];
+    }
+    localStorage.setItem('georgie_saved_places', JSON.stringify(updated));
+  } catch {}
+}
+
+export async function deleteSavedPlaceFromDb(placeId: string): Promise<void> {
+  try {
+    await fetch(`/api/nav/places/saved/${placeId}`, { method: 'DELETE' });
+  } catch (e) {
+    console.warn('Failed to delete saved place from backend:', e);
+  }
+
+  try {
+    const current = await fetchSavedPlaces();
+    const filtered = current.filter((p) => p.id !== placeId);
+    localStorage.setItem('georgie_saved_places', JSON.stringify(filtered));
+  } catch {}
+}
+
+export async function fetchRecentPlaces(): Promise<PlaceResult[]> {
+  try {
+    const res = await fetch('/api/nav/places/recent');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        localStorage.setItem('georgie_recent_places', JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch (e) {
+    console.warn('Backend recent places fetch failed, using local cache:', e);
+  }
+
+  try {
+    const local = localStorage.getItem('georgie_recent_places');
+    if (local) return JSON.parse(local);
+  } catch {}
+
+  return [
+    {
+      id: 'rec-1',
+      name: 'The Dubai Mall',
+      address: 'Financial Center Rd, Downtown Dubai',
+      coordinates: [55.2744, 25.1972],
+      category: 'history',
+      isHistory: true,
+    },
+    {
+      id: 'rec-2',
+      name: 'Sharjah Airport (SHJ)',
+      address: 'Airport Road, Sharjah',
+      coordinates: [55.5172, 25.3286],
+      category: 'history',
+      isHistory: true,
+    },
+  ];
+}
+
+export async function recordRecentPlaceToDb(place: {
+  name: string;
+  address?: string;
+  coordinates: [number, number];
+}): Promise<void> {
+  const payload = {
+    name: place.name,
+    address: place.address || '',
+    lat: place.coordinates[1],
+    lng: place.coordinates[0],
+  };
+
+  try {
+    await fetch('/api/nav/places/recent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.warn('Failed to record recent place to backend:', e);
+  }
+
+  // Update local cache
+  try {
+    const current = await fetchRecentPlaces();
+    const filtered = current.filter((p) => p.name.toLowerCase() !== place.name.toLowerCase());
+    const updated: PlaceResult[] = [
+      {
+        id: `rec-${Date.now()}`,
+        name: place.name,
+        address: place.address || '',
+        coordinates: place.coordinates,
+        category: 'history',
+        isHistory: true,
+      },
+      ...filtered.slice(0, 9),
+    ];
+    localStorage.setItem('georgie_recent_places', JSON.stringify(updated));
+  } catch {}
+}
+
+export async function deleteRecentPlaceFromDb(placeId: string): Promise<void> {
+  try {
+    await fetch(`/api/nav/places/recent/${placeId}`, { method: 'DELETE' });
+  } catch (e) {
+    console.warn('Failed to delete recent place from backend:', e);
+  }
+
+  try {
+    const current = await fetchRecentPlaces();
+    const filtered = current.filter((p) => p.id !== placeId);
+    localStorage.setItem('georgie_recent_places', JSON.stringify(filtered));
+  } catch {}
+}
 
 // Curated UAE Knowledge Base
 const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
@@ -177,124 +340,27 @@ const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
   { id: 'adnoc-wahda', name: 'ADNOC Oasis Service Station', address: 'Al Wahda Street, Sharjah', coordinates: [55.395, 25.334], category: 'fuel' },
   { id: 'adnoc-university', name: 'ADNOC Service Station - University City', address: 'University City Rd, Sharjah', coordinates: [55.4612, 25.3155], category: 'fuel' },
   { id: 'emarat-airport-rd', name: 'Emarat Petrol Station - Airport Rd', address: 'Airport Road (D89), Garhoud, Dubai', coordinates: [55.3588, 25.2492], category: 'fuel' },
-
-  // Cafes & Dining
-  { id: 'starbucks-mcc', name: 'Starbucks Coffee - City Centre Mirdif', address: 'City Centre Mirdif Ground Floor, Dubai', coordinates: [55.4082, 25.216], category: 'coffee' },
-  { id: 'starbucks-zahia', name: 'Starbucks - City Centre Al Zahia', address: 'City Centre Al Zahia, Sharjah', coordinates: [55.4525, 25.3216], category: 'coffee' },
-  { id: 'arabica-dubai-mall', name: '% Arabica - The Dubai Mall', address: 'Fashion Avenue, The Dubai Mall', coordinates: [55.2792, 25.1985], category: 'coffee' },
-  { id: 'tim-hortons-mirdif', name: 'Tim Hortons - Uptown Mirdif', address: 'Uptown Mirdif Mall, Dubai', coordinates: [55.4155, 25.2198], category: 'coffee' },
-  { id: 'costa-airport-rd', name: 'Costa Coffee - Airport Road', address: 'Garhoud, Dubai', coordinates: [55.3611, 25.2512], category: 'coffee' },
-
-  // Landmarks & Airports
-  { id: 'dxb-airport', name: 'Dubai International Airport (DXB)', address: 'Airport Road, Garhoud, Dubai', coordinates: [55.3657, 25.2532], category: 'landmark' },
-  { id: 'shj-airport', name: 'Sharjah International Airport (SHJ)', address: 'Airport Rd, Sharjah', coordinates: [55.5172, 25.3286], category: 'landmark' },
-  { id: 'burj-khalifa', name: 'Burj Khalifa', address: '1 Sheikh Mohammed bin Rashid Blvd, Downtown Dubai', coordinates: [55.2744, 25.1972], category: 'landmark' },
-  { id: 'museum-future', name: 'Museum of the Future', address: 'Sheikh Zayed Rd, Trade Centre 2, Dubai', coordinates: [55.2818, 25.2192], category: 'landmark' },
-  { id: 'dubai-frame', name: 'Dubai Frame', address: 'Zabeel Park Gate 4, Dubai', coordinates: [55.3003, 25.2345], category: 'landmark' },
-  { id: 'sharjah-mosque', name: 'Sharjah Mosque', address: 'Maliha Rd & Emirates Rd (E611), Sharjah', coordinates: [55.5997, 25.2783], category: 'landmark' },
-  { id: 'al-majaz', name: 'Al Majaz Waterfront', address: 'Corniche St, Al Majaz 2, Sharjah', coordinates: [55.3854, 25.3315], category: 'landmark' },
 ];
 
 export async function searchPlaces(
   query: string,
-  userCoords: [number, number],
-  accessToken: string,
+  userCoords: [number, number] = [55.419909, 25.362693],
+  accessToken?: string,
   signal?: AbortSignal
 ): Promise<PlaceResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // Safeguard 1: Instant RAM & LocalStorage Cache (0 requests, $0.00 cost)
+  // 1. Check Cache
   const cached = getCachedResults(trimmed);
   if (cached && cached.length > 0) {
-    console.log(
-      `%c[Places Cache Hit] ⚡ "${trimmed}" served from 7-day storage (0 network requests, $0.00 cost)`,
-      'color: #10b981; font-weight: bold; background: rgba(16,185,129,0.1); padding: 2px 6px; border-radius: 4px;'
-    );
     return cached.map((p) => ({
       ...p,
       distanceKm: calculateDistance(userCoords, p.coordinates),
     }));
   }
 
-  // Safeguard 2: Require at least 3 characters before hitting any remote API
-  if (trimmed.length < 3) {
-    const lower = trimmed.toLowerCase();
-    return UAE_KNOWLEDGE_BASE.filter(
-      (p) => p.name.toLowerCase().includes(lower) || p.address.toLowerCase().includes(lower)
-    ).map((p) => ({
-      ...p,
-      distanceKm: calculateDistance(userCoords, p.coordinates),
-    }));
-  }
-
-  // 1. High-Precision Google Places API (New) with Hard Quota Safety Check
-  if (GOOGLE_PLACES_KEY && checkAndIncrementDailyQuota()) {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const dailyCount = localStorage.getItem(`georgie_google_calls_${today}`) || '1';
-      console.log(
-        `%c[Google Places API] 🌐 Live Request #${dailyCount}/100: "${trimmed}"`,
-        'color: #0ea5e9; font-weight: bold; background: rgba(14,165,233,0.1); padding: 2px 6px; border-radius: 4px;'
-      );
-
-      const url = 'https://places.googleapis.com/v1/places:searchText';
-      const payload = {
-        textQuery: trimmed,
-        locationBias: {
-          circle: {
-            center: { latitude: userCoords[1], longitude: userCoords[0] },
-            radius: 50000.0, // 50km radius bias around car
-          },
-        },
-      };
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location',
-        },
-        body: JSON.stringify(payload),
-        signal,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.places && data.places.length > 0) {
-          const results: PlaceResult[] = data.places.map((p: any) => {
-            const lat = p.location?.latitude || 0;
-            const lng = p.location?.longitude || 0;
-            const coords: [number, number] = [lng, lat];
-            const distKm = calculateDistance(userCoords, coords);
-
-            return {
-              id: p.id || `goog-${lat}-${lng}`,
-              name: p.displayName?.text || 'Location',
-              address: p.formattedAddress || 'United Arab Emirates',
-              category: 'place',
-              coordinates: coords,
-              distanceKm: distKm,
-              isHistory: false,
-            };
-          });
-
-          // Sort by distance ascending so closest places appear first
-          results.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
-
-          // Save to 7-day cache so future identical searches cost $0.00
-          setCachedResults(trimmed, results);
-          return results;
-        }
-      }
-    } catch (err: any) {
-      if (err.name === 'AbortError') throw err;
-      console.warn('Google Places API query failed, falling back to Mapbox/local:', err);
-    }
-  }
-
-  // 2. Fallback: Local curated knowledge base
+  // 2. Local UAE Knowledge Base Fast Search
   const lowerTrimmed = trimmed.toLowerCase();
   const localMatches = UAE_KNOWLEDGE_BASE.filter((p) => {
     const nameMatch = p.name.toLowerCase().includes(lowerTrimmed);
