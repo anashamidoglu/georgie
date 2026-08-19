@@ -117,9 +117,9 @@ class DBusBluetoothListener:
             await self._subscribe_signals()
 
             # Immediately poll existing BlueZ media player state if music is already playing
-            await self._poll_current_media_state()
+            await self.get_live_track()
 
-            # Start background live position sync loop
+            # Start active 1-second live polling loop for real-time play/pause/track/scrub sync
             asyncio.create_task(self._position_sync_loop())
 
         except ImportError:
@@ -314,7 +314,7 @@ class DBusBluetoothListener:
                     logger.info(f"[oFono] New modem connected: {modem_path}, activating...")
                     asyncio.create_task(self._activate_modem(modem_path))
 
-                # 4. oFono VoiceCallManager.CallAdded (Incoming Call)
+                # 5. oFono VoiceCallManager.CallAdded (Incoming Call)
                 elif msg.member == 'CallAdded' and msg.interface == 'org.ofono.VoiceCallManager':
                     call_path, properties_raw = msg.body
                     properties = unwrap_variant(properties_raw)
@@ -333,7 +333,7 @@ class DBusBluetoothListener:
                     asyncio.create_task(audio_ducker.duck(target_volume_percent=15))
                     asyncio.create_task(ws_manager.broadcast("call:incoming", self.active_call_state.model_dump()))
 
-                # 5. oFono VoiceCallManager.CallRemoved (Ended Call)
+                # 6. oFono VoiceCallManager.CallRemoved (Ended Call)
                 elif msg.member == 'CallRemoved' and msg.interface == 'org.ofono.VoiceCallManager':
                     logger.info(f"[oFono] CallRemoved: {self.active_call_path}")
                     self.active_call_path = None
@@ -341,7 +341,7 @@ class DBusBluetoothListener:
                     asyncio.create_task(audio_ducker.restore())
                     asyncio.create_task(ws_manager.broadcast("call:ended", self.active_call_state.model_dump()))
 
-                # 6. oFono VoiceCall.PropertyChanged
+                # 7. oFono VoiceCall.PropertyChanged
                 elif msg.member == 'PropertyChanged' and msg.interface == 'org.ofono.VoiceCall':
                     name, val_raw = msg.body
                     prop_val = str(unwrap_variant(val_raw))
@@ -404,40 +404,90 @@ class DBusBluetoothListener:
         except Exception as e:
             logger.warning(f"[DBusListener] Failed to set up signal matches: {e}")
 
-    async def _poll_current_media_state(self):
+    async def get_live_track(self) -> TrackMetadata:
         """
-        Queries BlueZ for any currently active MediaPlayer1 object on boot.
+        Queries the active BlueZ MediaPlayer1 properties in real time.
         """
-        try:
-            from dbus_next import Message
-
-            reply = await self.bus.call(
-                Message(
-                    destination='org.bluez',
-                    path='/',
-                    interface='org.freedesktop.DBus.ObjectManager',
-                    member='GetManagedObjects'
+        player_path = self.active_player_path or await self._find_player_path()
+        if player_path and self.bus:
+            try:
+                from dbus_next import Message
+                reply = await self.bus.call(
+                    Message(
+                        destination='org.bluez',
+                        path=player_path,
+                        interface='org.freedesktop.DBus.Properties',
+                        member='GetAll',
+                        signature='s',
+                        body=['org.bluez.MediaPlayer1']
+                    )
                 )
-            )
-            objects_raw = reply.body[0] if reply.body else {}
-            objects = unwrap_variant(objects_raw)
-            for path, interfaces in objects.items():
-                if 'org.bluez.MediaPlayer1' in interfaces:
-                    self.active_player_path = path
-                    props = interfaces['org.bluez.MediaPlayer1']
-                    track_val = props.get('Track', {})
+                if reply.body:
+                    props = unwrap_variant(reply.body[0])
+                    pos_ms = props.get('Position')
+                    if pos_ms is not None:
+                        self.current_track.position = int(pos_ms) // 1000
+
                     status = str(props.get('Status', 'stopped'))
+                    self.current_track.status = status
+
+                    track_val = props.get('Track', {})
                     if track_val and isinstance(track_val, dict):
-                        title = str(track_val.get('Title', 'Unknown Track'))
-                        artist = str(track_val.get('Artist', 'Unknown Artist'))
+                        title = str(track_val.get('Title', ''))
+                        artist = str(track_val.get('Artist', ''))
                         album = str(track_val.get('Album', ''))
-                        duration = int(track_val.get('Duration', 0)) // 1000
-                        position = int(props.get('Position', 0)) // 1000
-                        logger.info(f"[BlueZ] Found active media player on boot: '{title}' by {artist} ({status})")
-                        await self._on_track_changed(title, artist, album, duration, position, status)
-                        return
-        except Exception as e:
-            logger.warning(f"[BlueZ] Error polling media state on boot: {e}")
+                        dur_ms = track_val.get('Duration', 0)
+
+                        if title and title != 'Unknown Track':
+                            track_changed = (title != self.current_track.title or artist != self.current_track.artist)
+                            self.current_track.title = title
+                            self.current_track.artist = artist
+                            self.current_track.album = album
+                            self.current_track.duration = int(dur_ms) // 1000
+
+                            if track_changed or not self.current_track.artwork_url:
+                                self.current_track.artwork_url = await ArtworkService.resolve_artwork(artist, title)
+            except Exception as e:
+                logger.debug(f"[BlueZ] Error refreshing live track properties: {e}")
+                self.active_player_path = None
+        else:
+            if self.current_track.title != 'No Track Playing':
+                self.current_track = TrackMetadata(
+                    title="No Track Playing",
+                    artist="Connect Bluetooth to Stream",
+                    album="",
+                    duration=0,
+                    position=0,
+                    status="stopped",
+                    artwork_url=None
+                )
+        return self.current_track
+
+    async def _position_sync_loop(self):
+        """
+        Proactive 1-second polling loop that guarantees 100% sync even if D-Bus signals are delayed.
+        """
+        while self.running:
+            await asyncio.sleep(1)
+            if self.bus:
+                try:
+                    prev_status = self.current_track.status
+                    prev_title = self.current_track.title
+
+                    track = await self.get_live_track()
+
+                    # Proactively push track changes
+                    if track.title != prev_title:
+                        logger.info(f"[Media Sync] Track changed: '{track.title}' by {track.artist} ({track.status})")
+                        await ws_manager.broadcast("media:track_changed", track.model_dump())
+                    elif track.status != prev_status:
+                        logger.info(f"[Media Sync] Status changed: {track.status}")
+                        await ws_manager.broadcast("media:playback_state", track.model_dump())
+                    elif track.status == 'playing':
+                        # Continuously sync exact timeline position
+                        await ws_manager.broadcast("media:playback_state", track.model_dump())
+                except Exception as e:
+                    logger.debug(f"[Media Sync] Error: {e}")
 
     async def _on_track_changed(self, title: str, artist: str, album: str, duration: int, position: int = 0, status: str = "playing"):
         if not title or title in ['Unknown Track', '']:
@@ -529,59 +579,6 @@ class DBusBluetoothListener:
         except Exception:
             pass
         return None
-
-    async def get_live_track(self) -> TrackMetadata:
-        """
-        Queries the active BlueZ MediaPlayer1 properties in real time to get exact Position.
-        """
-        player_path = self.active_player_path or await self._find_player_path()
-        if player_path and self.bus:
-            try:
-                from dbus_next import Message
-                reply = await self.bus.call(
-                    Message(
-                        destination='org.bluez',
-                        path=player_path,
-                        interface='org.freedesktop.DBus.Properties',
-                        member='GetAll',
-                        signature='s',
-                        body=['org.bluez.MediaPlayer1']
-                    )
-                )
-                if reply.body:
-                    props = unwrap_variant(reply.body[0])
-                    pos_ms = props.get('Position')
-                    if pos_ms is not None:
-                        self.current_track.position = int(pos_ms) // 1000
-                    status = props.get('Status')
-                    if status:
-                        self.current_track.status = str(status)
-                    track_val = props.get('Track', {})
-                    if track_val and isinstance(track_val, dict):
-                        title = str(track_val.get('Title', ''))
-                        artist = str(track_val.get('Artist', ''))
-                        album = str(track_val.get('Album', ''))
-                        dur_ms = track_val.get('Duration', 0)
-                        if title and title != 'Unknown Track':
-                            self.current_track.title = title
-                            self.current_track.artist = artist
-                            self.current_track.album = album
-                            self.current_track.duration = int(dur_ms) // 1000
-                            if not self.current_track.artwork_url:
-                                self.current_track.artwork_url = await ArtworkService.resolve_artwork(artist, title)
-            except Exception as e:
-                logger.debug(f"[BlueZ] Error refreshing live track properties: {e}")
-        return self.current_track
-
-    async def _position_sync_loop(self):
-        while self.running:
-            await asyncio.sleep(1)
-            if self.active_player_path and self.bus and self.current_track.status == 'playing':
-                try:
-                    await self.get_live_track()
-                    await ws_manager.broadcast("media:playback_state", self.current_track.model_dump())
-                except Exception:
-                    pass
 
     async def answer_call(self):
         if not self.active_call_path or not self.bus:
