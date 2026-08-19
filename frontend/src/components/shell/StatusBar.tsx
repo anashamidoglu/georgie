@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, Bluetooth, StepForward, StepBack } from 'lucide-react';
+import { Wifi, Bluetooth, StepForward, StepBack, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { useNav } from '../../context/NavContext';
 import { useMedia } from '../../context/MediaContext';
 import type { ConnectivityStatus } from '../../types';
@@ -29,7 +29,14 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     prevSimulationStep,
   } = useNav();
 
-  const { hasActiveMedia, setHasActiveMedia } = useMedia();
+  const {
+    hasActiveMedia,
+    setHasActiveMedia,
+    currentTrack,
+    togglePlayPause,
+    nextTrack,
+    prevTrack,
+  } = useMedia();
 
   const PRESETS: { label: string; coords: [number, number] }[] = [
     { label: 'UOS Medical', coords: [55.4855, 25.2917] },
@@ -56,8 +63,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   }, []);
 
   return (
-    <header className="w-full h-12 px-5 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-30 font-sf">
-      {/* Left: Quick Destination Shortcuts & Simulation Controls */}
+    <header className="w-full h-12 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-30 font-sf">
+      {/* Left: Quick Destination Shortcuts & Step Simulator */}
       <div className="flex items-center space-x-2">
         {/* Preset Shortcuts */}
         <div className="flex items-center space-x-1 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/10">
@@ -104,8 +111,64 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         )}
       </div>
 
-      {/* Right: Dev State Toggles + Connectivity & Clock */}
-      <div className="flex items-center space-x-3">
+      {/* Center/Right: Mini Media Pill (Active when navigating/previewing and media is on) */}
+      <div className="flex items-center space-x-2.5">
+        {hasActiveMedia && (
+          <div className="flex items-center space-x-2 bg-white/[0.06] border border-white/10 px-2 py-0.5 rounded-full backdrop-blur-md shadow-sm">
+            {/* Tiny Album Thumbnail */}
+            {currentTrack.artworkUrl ? (
+              <img
+                src={currentTrack.artworkUrl}
+                alt="Art"
+                className="w-5 h-5 rounded-full object-cover border border-white/10 flex-shrink-0"
+              />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[8px] font-bold text-white/60">
+                ♪
+              </div>
+            )}
+
+            {/* Track Title */}
+            <span className="text-[10px] font-bold text-white max-w-[85px] truncate">
+              {currentTrack.title}
+            </span>
+
+            {/* Mini Playback Controls */}
+            <div className="flex items-center space-x-0.5">
+              <button
+                type="button"
+                onClick={prevTrack}
+                className="p-0.5 text-white/60 hover:text-white transition-colors"
+                title="Previous Track"
+              >
+                <SkipBack className="w-3 h-3" />
+              </button>
+
+              <button
+                type="button"
+                onClick={togglePlayPause}
+                className="p-0.5 text-white hover:text-emerald-400 transition-colors"
+                title={currentTrack.isPlaying ? 'Pause' : 'Play'}
+              >
+                {currentTrack.isPlaying ? (
+                  <Pause className="w-3 h-3" />
+                ) : (
+                  <Play className="w-3 h-3 fill-white" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={nextTrack}
+                className="p-0.5 text-white/60 hover:text-white transition-colors"
+                title="Next Track"
+              >
+                <SkipForward className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Dev Nav Toggle */}
         <button
           type="button"
