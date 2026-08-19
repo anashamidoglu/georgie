@@ -173,12 +173,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
                 {/* Popover matching exact MediaDockedCard visual DNA */}
                 <div
-                  className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 w-72 rounded-3xl p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+                  className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 w-72"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <LiquidGlassCard
                     padding="md"
-                    className="w-full flex flex-col items-center text-center select-none font-sf shadow-2xl border border-white/20"
+                    className="w-full flex flex-col items-center text-center select-none font-sf shadow-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-150"
                   >
                     {/* Album Artwork */}
                     <div className="w-20 h-20 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl mt-0.5">
