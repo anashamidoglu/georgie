@@ -82,16 +82,6 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
               className="text-xs sm:text-sm text-white/60 font-semibold mt-1"
               speed={15}
             />
-
-            {/* Clean Solid Equalizer Visualizer */}
-            {track.isPlaying && (
-              <div className="flex items-end space-x-1 h-4 mt-2" title="Playing">
-                <span className="w-1 bg-white/40 rounded-full h-2.5" />
-                <span className="w-1 bg-white/70 rounded-full h-4" />
-                <span className="w-1 bg-white/50 rounded-full h-3" />
-                <span className="w-1 bg-white/80 rounded-full h-4" />
-              </div>
-            )}
           </div>
         </div>
 
