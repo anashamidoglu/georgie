@@ -4,21 +4,23 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useNav } from '../../context/NavContext';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
-const MAPBOX_STYLE = import.meta.env.VITE_MAPBOX_STYLE_URL || 'mapbox://styles/mapbox/dark-v11';
+const MAPBOX_STYLE =
+  import.meta.env.VITE_MAPBOX_STYLE_URL ||
+  'mapbox://styles/anashamidoglu/cmsyvjr3u008r01qy85q81iyr';
 
 function getComputedLightPreset(): 'day' | 'dusk' | 'night' | 'dawn' {
   const hour = new Date().getHours();
-  if (hour >= 6 && hour < 7) return 'dawn';
-  if (hour >= 7 && hour < 18) return 'day';
-  if (hour >= 18 && hour < 20) return 'dusk';
+  if (hour >= 6 && hour < 8) return 'dawn';
+  if (hour >= 8 && hour < 17) return 'day';
+  if (hour >= 17 && hour < 19) return 'dusk';
   return 'night';
 }
 
 export const MapboxCanvas: React.FC = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const destMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -28,14 +30,20 @@ export const MapboxCanvas: React.FC = () => {
     vehicleHeading,
     setMapInstance,
     activeRoute,
+    availableRoutes,
+    selectedRouteIndex,
+    selectRoute,
     destination,
     previewRouteTo,
     navStatus,
   } = useNav();
 
-  // Keep ref up to date so click handler never has stale closure
+  // Keep refs up to date
   const previewRouteToRef = useRef(previewRouteTo);
   previewRouteToRef.current = previewRouteTo;
+
+  const selectRouteRef = useRef(selectRoute);
+  selectRouteRef.current = selectRoute;
 
   const applyLighting = (map: mapboxgl.Map) => {
     const preset = getComputedLightPreset();
@@ -93,10 +101,30 @@ export const MapboxCanvas: React.FC = () => {
       map.on('click', (e) => {
         const originalTarget = e.originalEvent?.target as HTMLElement | null;
         if (originalTarget && originalTarget.closest('.pointer-events-auto')) {
-          return; // Ignore if user clicked an overlay button or banner
+          return;
         }
+
+        // Check if an alternative route line was clicked
+        if (map.getLayer('alt-routes-layer')) {
+          const features = map.queryRenderedFeatures(e.point, { layers: ['alt-routes-layer'] });
+          if (features && features.length > 0) {
+            const targetRouteId = (features[0] as any).properties?.routeId;
+            if (typeof targetRouteId === 'number') {
+              selectRouteRef.current(targetRouteId);
+              return;
+            }
+          }
+        }
+
         const clickedLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
         previewRouteToRef.current(clickedLngLat, 'Pinned Location');
+      });
+
+      map.on('mouseenter', 'alt-routes-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'alt-routes-layer', () => {
+        map.getCanvas().style.cursor = '';
       });
 
       map.on('style.load', () => {
@@ -178,39 +206,99 @@ export const MapboxCanvas: React.FC = () => {
     }
   }, [destination, navStatus]);
 
-  // Render & update live Route GeoJSON line in Mapbox Standard 'top' slot with emissive glow
+  // Render & update live Route GeoJSON lines (Active Traffic Ribbon + Alternative Routes)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
 
-    const sourceId = 'active-route-source';
+    const altSourceId = 'alt-routes-source';
+    const altLayerId = 'alt-routes-layer';
+    const activeSourceId = 'active-route-source';
     const casingLayerId = 'active-route-casing';
     const coreLayerId = 'active-route-core';
 
-    if (navStatus !== 'idle' && activeRoute?.geoJson) {
-      const geoJsonData = activeRoute.geoJson;
+    if (navStatus !== 'idle' && activeRoute) {
+      // 1. Render Alternative Routes (Unselected candidate paths)
+      const altFeatures: any[] = [];
+      availableRoutes.forEach((route, idx) => {
+        if (idx !== selectedRouteIndex && route.rawGeometry) {
+          altFeatures.push({
+            type: 'Feature',
+            properties: { routeId: idx },
+            geometry: route.rawGeometry,
+          });
+        }
+      });
 
-      const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource;
-      if (existingSource) {
-        existingSource.setData(geoJsonData);
+      const altGeoJson = {
+        type: 'FeatureCollection',
+        features: altFeatures,
+      };
+
+      const existingAltSource = map.getSource(altSourceId) as mapboxgl.GeoJSONSource;
+      if (existingAltSource) {
+        existingAltSource.setData(altGeoJson as any);
       } else {
-        map.addSource(sourceId, {
+        map.addSource(altSourceId, {
           type: 'geojson',
-          data: geoJsonData,
+          data: altGeoJson as any,
         });
 
-        // 1. Crisp contrast outline casing in Mapbox Standard 'middle' slot (zoom-adaptive, zero blur)
         map.addLayer({
-          id: casingLayerId,
+          id: altLayerId,
           type: 'line',
-          source: sourceId,
+          source: altSourceId,
           slot: 'middle',
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#0284c7',
+            'line-color': '#64748b',
+            'line-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              10, 3.5,
+              14, 5.0,
+              17, 7.0,
+            ],
+            'line-opacity': 0.65,
+            'line-emissive-strength': 0.5,
+          },
+        });
+      }
+
+      // 2. Render Active Traffic-Colored Route Line
+      const activeGeoJson = activeRoute.geoJson;
+      const existingActiveSource = map.getSource(activeSourceId) as mapboxgl.GeoJSONSource;
+      if (existingActiveSource) {
+        existingActiveSource.setData(activeGeoJson as any);
+      } else {
+        map.addSource(activeSourceId, {
+          type: 'geojson',
+          data: activeGeoJson as any,
+        });
+
+        // Crisp outline casing with traffic matching
+        map.addLayer({
+          id: casingLayerId,
+          type: 'line',
+          source: activeSourceId,
+          slot: 'middle',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': [
+              'match',
+              ['get', 'congestion'],
+              'moderate', '#b45309',
+              'heavy', '#b91c1c',
+              'severe', '#7f1d1d',
+              '#0284c7',
+            ],
             'line-width': [
               'interpolate',
               ['linear'],
@@ -225,18 +313,25 @@ export const MapboxCanvas: React.FC = () => {
           },
         });
 
-        // 2. Solid bright self-luminous sky-blue core (zoom-adaptive: slim on overview, bolder on 3D zoom)
+        // Solid self-luminous core with live traffic colors
         map.addLayer({
           id: coreLayerId,
           type: 'line',
-          source: sourceId,
+          source: activeSourceId,
           slot: 'middle',
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#0ea5e9',
+            'line-color': [
+              'match',
+              ['get', 'congestion'],
+              'moderate', '#f59e0b',
+              'heavy', '#ef4444',
+              'severe', '#dc2626',
+              '#0ea5e9',
+            ],
             'line-width': [
               'interpolate',
               ['linear'],
@@ -251,51 +346,20 @@ export const MapboxCanvas: React.FC = () => {
         });
       }
 
-      // Dynamically enforce emissive paint properties & zoom-interpolation on active layer
-      if (map.getLayer(coreLayerId)) {
-        try {
-          map.setPaintProperty(coreLayerId, 'line-color', '#0ea5e9');
-          map.setPaintProperty(coreLayerId, 'line-width', [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            10, 3.2,
-            14, 4.8,
-            17, 6.8,
-          ]);
-          map.setPaintProperty(coreLayerId, 'line-opacity', 1.0);
-          map.setPaintProperty(coreLayerId, 'line-emissive-strength', 1.0);
-        } catch {}
-      }
-      if (map.getLayer(casingLayerId)) {
-        try {
-          map.setPaintProperty(casingLayerId, 'line-color', '#0284c7');
-          map.setPaintProperty(casingLayerId, 'line-width', [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            10, 5.0,
-            14, 7.0,
-            17, 9.5,
-          ]);
-          map.setPaintProperty(casingLayerId, 'line-opacity', 0.9);
-          map.setPaintProperty(casingLayerId, 'line-blur', 0);
-          map.setPaintProperty(casingLayerId, 'line-emissive-strength', 0.8);
-        } catch {}
-      }
-
       // If in preview mode, smoothly fit the whole route overview
       if (navStatus === 'preview') {
-        const coordinates = geoJsonData.geometry.coordinates;
+        const coordinates = activeRoute.rawGeometry?.coordinates || [];
         if (coordinates.length > 0) {
           const firstCoord = coordinates[0] as [number, number];
           const bounds = new mapboxgl.LngLatBounds(firstCoord, firstCoord);
-          coordinates.forEach((coord) => {
-            bounds.extend(coord as [number, number]);
+          availableRoutes.forEach((r) => {
+            r.rawGeometry?.coordinates.forEach((coord) => {
+              bounds.extend(coord as [number, number]);
+            });
           });
 
           map.fitBounds(bounds, {
-            padding: { top: 60, bottom: 85, left: 45, right: 45 },
+            padding: { top: 60, bottom: 90, left: 50, right: 50 },
             maxZoom: 15,
             pitch: 15,
             duration: 800,
@@ -306,9 +370,11 @@ export const MapboxCanvas: React.FC = () => {
       // Remove route layers if route is cleared/idle
       if (map.getLayer(coreLayerId)) map.removeLayer(coreLayerId);
       if (map.getLayer(casingLayerId)) map.removeLayer(casingLayerId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
+      if (map.getSource(activeSourceId)) map.removeSource(activeSourceId);
+      if (map.getLayer(altLayerId)) map.removeLayer(altLayerId);
+      if (map.getSource(altSourceId)) map.removeSource(altSourceId);
     }
-  }, [activeRoute, navStatus]);
+  }, [activeRoute, availableRoutes, selectedRouteIndex, navStatus]);
 
   // Trigger smooth resize on view-state changes
   useEffect(() => {

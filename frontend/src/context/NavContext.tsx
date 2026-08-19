@@ -46,6 +46,9 @@ interface NavContextType {
   upcomingSteps: ManeuverInfo[];
   allSteps: ManeuverInfo[];
   activeRoute: RouteResult | null;
+  availableRoutes: RouteResult[];
+  selectedRouteIndex: number;
+  selectRoute: (index: number) => void;
   inspectedStep: ManeuverInfo | null;
   inspectStep: (step: ManeuverInfo) => void;
   clearInspectedStep: () => void;
@@ -67,6 +70,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [destinationName, setDestinationName] = useState<string>('');
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
+  const [availableRoutes, setAvailableRoutes] = useState<RouteResult[]>([]);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
   const [inspectedStep, setInspectedStep] = useState<ManeuverInfo | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const [simulatedCoords, setSimulatedCoords] = useState<[number, number] | null>(null);
@@ -98,7 +103,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [mapInstance, position.isLocated, position.coords[0], position.coords[1]]);
 
-  // Step 2: Route Preview with Confirmation Banner
+  // Step 2: Route Preview with Multi-Route Candidate Calculation
   const previewRouteTo = async (destCoords: [number, number], name?: string) => {
     setDestination(destCoords);
     setDestinationName(name || 'Pinned Location');
@@ -107,6 +112,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveStepIndex(0);
     setSimulatedCoords(null);
     setSimulatedHeading(0);
+    setSelectedRouteIndex(0);
 
     if (!MAPBOX_TOKEN) return;
 
@@ -118,22 +124,68 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const currentCoords = positionRef.current.coords;
-      const result = await fetchDirections(currentCoords, destCoords, MAPBOX_TOKEN, controller.signal);
-      setActiveRoute(result);
+      const res = await fetchDirections(currentCoords, destCoords, MAPBOX_TOKEN, controller.signal);
+      setAvailableRoutes(res.routes);
+      setSelectedRouteIndex(0);
+      setActiveRoute(res.activeRoute);
       setEta({
-        arrival: result.arrivalStr,
-        duration: result.durationStr,
-        distance: result.distanceStr,
+        arrival: res.activeRoute.arrivalStr,
+        duration: res.activeRoute.durationStr,
+        distance: res.activeRoute.distanceStr,
       });
-      setAllSteps(result.allSteps);
-      setPrimaryManeuver(result.primaryManeuver);
-      setUpcomingSteps(result.upcomingSteps);
+      setAllSteps(res.activeRoute.allSteps);
+      setPrimaryManeuver(res.activeRoute.primaryManeuver);
+      setUpcomingSteps(res.activeRoute.upcomingSteps);
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         console.error('Routing calculation error:', e);
       }
     }
   };
+
+  // Switch between alternative routes
+  const selectRoute = (index: number) => {
+    if (!availableRoutes[index]) return;
+    const targetRoute = availableRoutes[index];
+    setSelectedRouteIndex(index);
+    setActiveRoute(targetRoute);
+    setEta({
+      arrival: targetRoute.arrivalStr,
+      duration: targetRoute.durationStr,
+      distance: targetRoute.distanceStr,
+    });
+    setAllSteps(targetRoute.allSteps);
+    setPrimaryManeuver(targetRoute.primaryManeuver);
+    setUpcomingSteps(targetRoute.upcomingSteps);
+    setInspectedStep(null);
+    setActiveStepIndex(0);
+  };
+
+  // 60-second live background ETA & traffic recalculation during active navigation
+  useEffect(() => {
+    if (navStatus !== 'navigating' || !destination || !MAPBOX_TOKEN) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const currentCoords = positionRef.current.coords;
+        const res = await fetchDirections(currentCoords, destination, MAPBOX_TOKEN);
+        if (res.routes.length > 0) {
+          const updatedRoute = res.routes[selectedRouteIndex] || res.activeRoute;
+          setAvailableRoutes(res.routes);
+          setActiveRoute(updatedRoute);
+          setEta({
+            arrival: updatedRoute.arrivalStr,
+            duration: updatedRoute.durationStr,
+            distance: updatedRoute.distanceStr,
+          });
+        }
+      } catch (e) {
+        console.warn('Background traffic recalculation failed:', e);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [navStatus, destination, selectedRouteIndex]);
 
   // Step 3: Start live 3D driver follow navigation (angled behind vehicle in direction of travel)
   const startNavigation = () => {
@@ -183,8 +235,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSimulatedHeading(0);
 
     if (mapInstance) {
-      if (navStatus === 'preview' && activeRoute?.geoJson) {
-        const coordinates = activeRoute.geoJson.geometry.coordinates;
+      if (navStatus === 'preview' && activeRoute?.rawGeometry) {
+        const coordinates = activeRoute.rawGeometry.coordinates;
         if (coordinates.length > 0) {
           const firstCoord = coordinates[0] as [number, number];
           const bounds = new (window as any).mapboxgl.LngLatBounds(firstCoord, firstCoord);
@@ -271,6 +323,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDestinationName('');
     setNavStatus('idle');
     setActiveRoute(null);
+    setAvailableRoutes([]);
+    setSelectedRouteIndex(0);
     setPrimaryManeuver(null);
     setUpcomingSteps([]);
     setAllSteps([]);
@@ -328,6 +382,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         upcomingSteps,
         allSteps,
         activeRoute,
+        availableRoutes,
+        selectedRouteIndex,
+        selectRoute,
         inspectedStep,
         inspectStep,
         clearInspectedStep,

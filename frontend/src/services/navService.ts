@@ -25,13 +25,26 @@ export interface RouteGeometry {
 }
 
 export interface RouteGeoJSON {
-  type: 'Feature';
-  properties: Record<string, any>;
-  geometry: RouteGeometry;
+  type: 'FeatureCollection';
+  features: {
+    type: 'Feature';
+    properties: {
+      congestion: 'low' | 'moderate' | 'heavy' | 'severe' | 'unknown';
+      routeId?: number;
+    };
+    geometry: {
+      type: 'LineString';
+      coordinates: [number, number][];
+    };
+  }[];
 }
 
 export interface RouteResult {
+  id: number;
+  summary: string;
+  diffStr: string;
   geoJson: RouteGeoJSON;
+  rawGeometry: RouteGeometry;
   totalDistanceMeters: number;
   totalDurationSeconds: number;
   distanceStr: string;
@@ -40,6 +53,11 @@ export interface RouteResult {
   primaryManeuver: ManeuverInfo;
   upcomingSteps: ManeuverInfo[];
   allSteps: ManeuverInfo[];
+}
+
+export interface DirectionsResponse {
+  routes: RouteResult[];
+  activeRoute: RouteResult;
 }
 
 function getHaversineDistance(c1: [number, number], c2: [number, number]): number {
@@ -54,160 +72,228 @@ function getHaversineDistance(c1: [number, number], c2: [number, number]): numbe
   return Math.round(R * c);
 }
 
+function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
+  const coords: [number, number][] = route.geometry.coordinates;
+  const congestion: string[] = route.legs?.[0]?.annotation?.congestion || [];
+  const features: any[] = [];
+
+  if (!congestion || congestion.length === 0) {
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { congestion: 'low', routeId },
+          geometry: { type: 'LineString', coordinates: coords },
+        },
+      ],
+    };
+  }
+
+  let currentLevel = (congestion[0] || 'low') as any;
+  let currentCoords: [number, number][] = [coords[0]];
+
+  for (let i = 0; i < congestion.length; i++) {
+    const level = (congestion[i] || 'low') as any;
+    const nextCoord = coords[i + 1];
+
+    if (level === currentLevel) {
+      currentCoords.push(nextCoord);
+    } else {
+      currentCoords.push(nextCoord);
+      features.push({
+        type: 'Feature',
+        properties: { congestion: currentLevel, routeId },
+        geometry: { type: 'LineString', coordinates: currentCoords },
+      });
+      currentLevel = level;
+      currentCoords = [coords[i], nextCoord];
+    }
+  }
+
+  if (currentCoords.length > 1) {
+    features.push({
+      type: 'Feature',
+      properties: { congestion: currentLevel, routeId },
+      geometry: { type: 'LineString', coordinates: currentCoords },
+    });
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
+}
+
+function parseManeuverStep(step: any, nextStep: any, idx: number, originCoords: [number, number]): ManeuverInfo {
+  const stepDist = Math.round(step.distance);
+  const distStr = stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`;
+
+  const banners = step.bannerInstructions || [];
+  const chosenBanner =
+    banners.find((b: any) => b.sub?.components?.some((c: any) => c.type === 'lane')) ||
+    banners[banners.length - 1];
+
+  let lanes: LaneInfo[] | undefined;
+  if (chosenBanner?.sub?.components) {
+    const laneComps = chosenBanner.sub.components.filter((c: any) => c.type === 'lane');
+    if (laneComps.length > 0) {
+      lanes = laneComps.map((c: any) => ({
+        active: Boolean(c.active),
+        valid: c.valid !== false,
+        directions: c.directions || ['straight'],
+        activeDirection: c.active_direction,
+      }));
+    }
+  }
+
+  let shield: string | undefined;
+  if (chosenBanner?.primary?.components) {
+    for (const comp of chosenBanner.primary.components) {
+      if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
+        shield = comp.mapbox_shield.display_ref;
+        break;
+      } else if (comp.type === 'icon' && comp.text && comp.text.length <= 8) {
+        shield = comp.text;
+        break;
+      }
+    }
+  }
+
+  let exitNumber: string | undefined;
+  if (chosenBanner?.primary?.components) {
+    const exitNumComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit-number');
+    if (exitNumComp?.text) {
+      exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
+    } else {
+      const exitComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit');
+      if (exitComp?.text && /\d+/.test(exitComp.text)) {
+        exitNumber = exitComp.text;
+      }
+    }
+  }
+
+  const instruction =
+    nextStep?.maneuver?.instruction ||
+    chosenBanner?.primary?.text ||
+    step.maneuver?.instruction ||
+    'Proceed on route';
+
+  const type = chosenBanner?.primary?.type || nextStep?.maneuver?.type || step.maneuver?.type || 'turn';
+  const modifier =
+    chosenBanner?.primary?.modifier || nextStep?.maneuver?.modifier || step.maneuver?.modifier || 'straight';
+
+  const location: [number, number] = step.maneuver?.location || originCoords;
+
+  return {
+    id: idx,
+    instruction,
+    roadName: step.name || 'Current Road',
+    distanceStr: distStr,
+    distanceMeters: stepDist,
+    type,
+    modifier,
+    lanes,
+    shield,
+    exitNumber,
+    location,
+  };
+}
+
 export async function fetchDirections(
   origin: [number, number],
   destination: [number, number],
   accessToken: string,
   signal?: AbortSignal
-): Promise<RouteResult> {
+): Promise<DirectionsResponse> {
   const coordinates = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`;
 
-  // Try Mapbox Driving Traffic first, fallback to standard Driving
+  // Driving traffic profile with alternatives and segment congestion annotations
   const profiles = ['driving-traffic', 'driving'];
 
   for (const profile of profiles) {
     try {
-      const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordinates}?geometries=geojson&steps=true&banner_instructions=true&overview=full&access_token=${accessToken}`;
+      const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordinates}?alternatives=true&annotations=congestion,distance,duration&geometries=geojson&steps=true&banner_instructions=true&overview=full&access_token=${accessToken}`;
       const response = await fetch(url, { signal });
       if (response.ok) {
         const data = await response.json();
         if (data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
-          const durationSec = Math.round(route.duration);
-          const distanceMeters = Math.round(route.distance);
+          const fastestDuration = data.routes[0].duration;
 
-          const distanceStr =
-            distanceMeters >= 1000
-              ? `${(distanceMeters / 1000).toFixed(1)} km`
-              : `${distanceMeters} m`;
+          const parsedRoutes: RouteResult[] = data.routes.map((route: any, routeIdx: number) => {
+            const durationSec = Math.round(route.duration);
+            const distanceMeters = Math.round(route.distance);
 
-          const durationMin = Math.round(durationSec / 60);
-          const durationStr =
-            durationMin >= 60
-              ? `${Math.floor(durationMin / 60)} hr ${durationMin % 60} min`
-              : `${durationMin} min`;
+            const distanceStr =
+              distanceMeters >= 1000
+                ? `${(distanceMeters / 1000).toFixed(1)} km`
+                : `${distanceMeters} m`;
 
-          const now = new Date();
-          const arrivalDate = new Date(now.getTime() + durationSec * 1000);
-          const arrivalHours = arrivalDate.getHours().toString().padStart(2, '0');
-          const arrivalMinutes = arrivalDate.getMinutes().toString().padStart(2, '0');
-          const arrivalStr = `${arrivalHours}:${arrivalMinutes} arrival`;
+            const durationMin = Math.round(durationSec / 60);
+            const durationStr =
+              durationMin >= 60
+                ? `${Math.floor(durationMin / 60)} hr ${durationMin % 60} min`
+                : `${durationMin} min`;
 
-          const leg = route.legs?.[0];
-          const steps = leg?.steps || [];
+            const now = new Date();
+            const arrivalDate = new Date(now.getTime() + durationSec * 1000);
+            const arrivalHours = arrivalDate.getHours().toString().padStart(2, '0');
+            const arrivalMinutes = arrivalDate.getMinutes().toString().padStart(2, '0');
+            const arrivalStr = `${arrivalHours}:${arrivalMinutes} arrival`;
 
-          // Mapbox alignment: On step[i], the upcoming action to perform at the end of the step
-          // is defined by bannerInstructions on step[i] and leads into step[i+1].
-          const allSteps: ManeuverInfo[] = steps.map((step: any, idx: number) => {
-            const nextStep = steps[idx + 1];
-            const stepDist = Math.round(step.distance);
-            const distStr = stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`;
+            // Route summary label (e.g. "via E11", "via E311")
+            const majorRoads = (route.legs?.[0]?.steps || [])
+              .map((s: any) => s.name)
+              .filter((name: string) => name && name.length > 2)
+              .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i);
 
-            const banners = step.bannerInstructions || [];
-            // Pick the active banner that carries lane guidance, or fallback to the closest approach banner
-            const chosenBanner =
-              banners.find((b: any) => b.sub?.components?.some((c: any) => c.type === 'lane')) ||
-              banners[banners.length - 1];
+            const summary = majorRoads.length > 0 ? `via ${majorRoads.slice(0, 2).join(' / ')}` : `Route ${routeIdx + 1}`;
 
-            // 1. Strict Lane Extraction (Filter strictly by type === 'lane', NO stacking/concatenation)
-            let lanes: LaneInfo[] | undefined;
-            if (chosenBanner?.sub?.components) {
-              const laneComps = chosenBanner.sub.components.filter((c: any) => c.type === 'lane');
-              if (laneComps.length > 0) {
-                lanes = laneComps.map((c: any) => ({
-                  active: Boolean(c.active),
-                  valid: c.valid !== false,
-                  directions: c.directions || ['straight'],
-                  activeDirection: c.active_direction,
-                }));
-              }
-            }
+            // Relative diff string
+            const diffMin = Math.round((route.duration - fastestDuration) / 60);
+            const diffStr = routeIdx === 0 || diffMin <= 0 ? 'Fastest' : `+${diffMin} min`;
 
-            // 2. Road Shield Extraction
-            let shield: string | undefined;
-            if (chosenBanner?.primary?.components) {
-              for (const comp of chosenBanner.primary.components) {
-                if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
-                  shield = comp.mapbox_shield.display_ref;
-                  break;
-                } else if (comp.type === 'icon' && comp.text && comp.text.length <= 8) {
-                  shield = comp.text;
-                  break;
-                }
-              }
-            }
+            const leg = route.legs?.[0];
+            const steps = leg?.steps || [];
 
-            // 3. Exit Number Extraction
-            let exitNumber: string | undefined;
-            if (chosenBanner?.primary?.components) {
-              const exitNumComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit-number');
-              if (exitNumComp?.text) {
-                exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
-              } else {
-                const exitComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit');
-                if (exitComp?.text && /\d+/.test(exitComp.text)) {
-                  exitNumber = exitComp.text;
-                }
-              }
-            }
+            const allSteps: ManeuverInfo[] = steps.map((step: any, idx: number) =>
+              parseManeuverStep(step, steps[idx + 1], idx, origin)
+            );
 
-            // 4. Actionable Instruction Text & Maneuver Type
-            const instruction =
-              nextStep?.maneuver?.instruction ||
-              chosenBanner?.primary?.text ||
-              step.maneuver?.instruction ||
-              'Proceed on route';
+            const primaryManeuver = allSteps[0] || {
+              id: 0,
+              instruction: 'Proceed on route',
+              roadName: 'Current Road',
+              distanceStr: '500 m',
+              distanceMeters: 500,
+              type: 'straight',
+              modifier: 'straight',
+              location: origin,
+            };
 
-            const type = chosenBanner?.primary?.type || nextStep?.maneuver?.type || step.maneuver?.type || 'turn';
-            const modifier =
-              chosenBanner?.primary?.modifier || nextStep?.maneuver?.modifier || step.maneuver?.modifier || 'straight';
-
-            const location: [number, number] = step.maneuver?.location || origin;
+            const upcomingSteps = allSteps.slice(1);
+            const geoJson = buildCongestionGeoJSON(route, routeIdx);
 
             return {
-              id: idx,
-              instruction,
-              roadName: step.name || 'Current Road',
-              distanceStr: distStr,
-              distanceMeters: stepDist,
-              type,
-              modifier,
-              lanes,
-              shield,
-              exitNumber,
-              location,
+              id: routeIdx,
+              summary,
+              diffStr,
+              geoJson,
+              rawGeometry: route.geometry,
+              totalDistanceMeters: distanceMeters,
+              totalDurationSeconds: durationSec,
+              distanceStr,
+              durationStr,
+              arrivalStr,
+              primaryManeuver,
+              upcomingSteps,
+              allSteps,
             };
           });
 
-          const primaryManeuver = allSteps[0] || {
-            id: 0,
-            instruction: 'Proceed on route',
-            roadName: 'Current Road',
-            distanceStr: '500 m',
-            distanceMeters: 500,
-            type: 'straight',
-            modifier: 'straight',
-            location: origin,
-          };
-
-          const upcomingSteps = allSteps.slice(1);
-
-          const geoJson: RouteGeoJSON = {
-            type: 'Feature',
-            properties: {},
-            geometry: route.geometry,
-          };
-
           return {
-            geoJson,
-            totalDistanceMeters: distanceMeters,
-            totalDurationSeconds: durationSec,
-            distanceStr,
-            durationStr,
-            arrivalStr,
-            primaryManeuver,
-            upcomingSteps,
-            allSteps,
+            routes: parsedRoutes,
+            activeRoute: parsedRoutes[0],
           };
         }
       }
@@ -239,14 +325,26 @@ export async function fetchDirections(
     location: origin,
   };
 
-  return {
+  const fallbackRoute: RouteResult = {
+    id: 0,
+    summary: 'Main Route',
+    diffStr: 'Fastest',
     geoJson: {
-      type: 'Feature',
-      properties: {},
-      geometry: {
-        type: 'LineString',
-        coordinates: [origin, destination],
-      },
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { congestion: 'low', routeId: 0 },
+          geometry: {
+            type: 'LineString',
+            coordinates: [origin, destination],
+          },
+        },
+      ],
+    },
+    rawGeometry: {
+      type: 'LineString',
+      coordinates: [origin, destination],
     },
     totalDistanceMeters: distMeters,
     totalDurationSeconds: estDurationSec,
@@ -256,5 +354,10 @@ export async function fetchDirections(
     primaryManeuver: fallbackStep,
     upcomingSteps: [],
     allSteps: [fallbackStep],
+  };
+
+  return {
+    routes: [fallbackRoute],
+    activeRoute: fallbackRoute,
   };
 }
