@@ -13,7 +13,7 @@ async def get_current_media():
     if settings.MOCK_MODE:
         return mock_bt_listener.current_track
     else:
-        return dbus_listener.current_track
+        return await dbus_listener.get_live_track()
 
 @router.get("/artwork")
 async def get_artwork(artist: str = Query(...), title: str = Query(...)):

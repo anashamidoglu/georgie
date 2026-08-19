@@ -119,6 +119,9 @@ class DBusBluetoothListener:
             # Immediately poll existing BlueZ media player state if music is already playing
             await self._poll_current_media_state()
 
+            # Start background live position sync loop
+            asyncio.create_task(self._position_sync_loop())
+
         except ImportError:
             logger.warning("[DBusListener] dbus-next not installed. D-Bus listener disabled.")
         except Exception as e:
@@ -522,6 +525,59 @@ class DBusBluetoothListener:
         except Exception:
             pass
         return None
+
+    async def get_live_track(self) -> TrackMetadata:
+        """
+        Queries the active BlueZ MediaPlayer1 properties in real time to get exact Position.
+        """
+        player_path = self.active_player_path or await self._find_player_path()
+        if player_path and self.bus:
+            try:
+                from dbus_next import Message
+                reply = await self.bus.call(
+                    Message(
+                        destination='org.bluez',
+                        path=player_path,
+                        interface='org.freedesktop.DBus.Properties',
+                        member='GetAll',
+                        signature='s',
+                        body=['org.bluez.MediaPlayer1']
+                    )
+                )
+                if reply.body:
+                    props = unwrap_variant(reply.body[0])
+                    pos_ms = props.get('Position')
+                    if pos_ms is not None:
+                        self.current_track.position = int(pos_ms) // 1000
+                    status = props.get('Status')
+                    if status:
+                        self.current_track.status = str(status)
+                    track_val = props.get('Track', {})
+                    if track_val and isinstance(track_val, dict):
+                        title = str(track_val.get('Title', ''))
+                        artist = str(track_val.get('Artist', ''))
+                        album = str(track_val.get('Album', ''))
+                        dur_ms = track_val.get('Duration', 0)
+                        if title and title != 'Unknown Track':
+                            self.current_track.title = title
+                            self.current_track.artist = artist
+                            self.current_track.album = album
+                            self.current_track.duration = int(dur_ms) // 1000
+                            if not self.current_track.artwork_url:
+                                self.current_track.artwork_url = await ArtworkService.resolve_artwork(artist, title)
+            except Exception as e:
+                logger.debug(f"[BlueZ] Error refreshing live track properties: {e}")
+        return self.current_track
+
+    async def _position_sync_loop(self):
+        while self.running:
+            await asyncio.sleep(4)
+            if self.active_player_path and self.bus and self.current_track.status == 'playing':
+                try:
+                    await self.get_live_track()
+                    await ws_manager.broadcast("media:playback_state", self.current_track.model_dump())
+                except Exception:
+                    pass
 
     async def answer_call(self):
         if not self.active_call_path or not self.bus:
