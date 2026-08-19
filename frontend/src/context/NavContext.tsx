@@ -345,14 +345,30 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     wasExpandedBeforePreviewRef.current = false;
 
-    if (mapInstance && positionRef.current.coords) {
-      mapInstance.easeTo({
-        center: positionRef.current.coords,
+    const startPos = positionRef.current.coords;
+    if (mapInstance && startPos) {
+      mapInstance.flyTo({
+        center: startPos,
         zoom: 15.5,
         pitch: 50,
         bearing: 0,
-        duration: 600,
+        duration: 800,
+        essential: true,
       });
+
+      setTimeout(() => {
+        if (mapInstance) {
+          mapInstance.resize();
+          mapInstance.flyTo({
+            center: startPos,
+            zoom: 15.5,
+            pitch: 50,
+            bearing: 0,
+            duration: 400,
+            essential: true,
+          });
+        }
+      }, 350);
     }
   };
 
@@ -362,12 +378,13 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSimulatedCoords(null);
     setSimulatedHeading(0);
     if (mapInstance && positionRef.current.coords) {
-      mapInstance.easeTo({
+      mapInstance.flyTo({
         center: positionRef.current.coords,
         zoom: navStatus === 'navigating' ? 16.5 : 15.5,
         pitch: navStatus === 'navigating' ? 58 : 50,
         bearing: positionRef.current.heading || 0,
-        duration: 500,
+        duration: 800,
+        essential: true,
       });
     }
   };
