@@ -36,6 +36,8 @@ interface NavContextType {
   vehicleCoords: [number, number];
   vehicleHeading: number;
   isLocated: boolean;
+  isSearchOpen: boolean;
+  setIsSearchOpen: (open: boolean) => void;
   destination: [number, number] | null;
   destinationName: string;
   speed: number | null;
@@ -65,6 +67,7 @@ const NavContext = createContext<NavContextType | undefined>(undefined);
 
 export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [navStatus, setNavStatus] = useState<NavStatus>('idle');
   const [destination, setDestination] = useState<[number, number] | null>(null);
   const [destinationName, setDestinationName] = useState<string>('');
@@ -417,6 +420,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         vehicleCoords,
         vehicleHeading,
         isLocated: position.isLocated,
+        isSearchOpen,
+        setIsSearchOpen,
         destination,
         destinationName,
         speed: position.speed,

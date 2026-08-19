@@ -1,14 +1,17 @@
 import React from 'react';
-import { Maximize2, Minimize2, Navigation, Play, X } from 'lucide-react';
+import { Maximize2, Minimize2, Navigation, Play, X, Search } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
+import { SearchPlacesModal } from './SearchPlacesModal';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
   const {
     isNavExpanded,
     setIsNavExpanded,
+    isSearchOpen,
+    setIsSearchOpen,
     navStatus,
     destinationName,
     eta,
@@ -82,12 +85,26 @@ export const NavDockedViewport: React.FC = () => {
           <div />
         )}
 
-        {/* Action Controls: Recenter Button & Expand/Collapse Toggle */}
+        {/* Action Controls: Search Button, Recenter Button & Expand/Collapse Toggle */}
         <div 
           className="flex items-center space-x-2 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* Search Destinations & POIs Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSearchOpen(true);
+            }}
+            className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
+            aria-label="Search Destinations"
+            title="Search Destinations & POIs"
+          >
+            <Search className="w-5 h-5 text-sky-400" />
+          </button>
+
           {/* Recenter Location Button */}
           <button
             type="button"
@@ -214,6 +231,12 @@ export const NavDockedViewport: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 5. In-Car POI & Destination Search Modal */}
+      <SearchPlacesModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
     </div>
   );
 };

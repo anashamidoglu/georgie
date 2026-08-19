@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Wifi, Bluetooth, StepForward, StepBack, Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
+import { Wifi, Bluetooth, StepForward, StepBack, Play, Pause, SkipBack, SkipForward, Volume2, Search } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
 import { useMedia } from '../../context/MediaContext';
@@ -30,6 +30,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     activeStepIndex,
     nextSimulationStep,
     prevSimulationStep,
+    setIsSearchOpen,
   } = useNav();
 
   const {
@@ -98,6 +99,17 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             </button>
           ))}
         </div>
+
+        {/* Quick Search POI Button */}
+        <button
+          type="button"
+          onClick={() => setIsSearchOpen(true)}
+          className="text-[9px] font-sf font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 flex items-center space-x-1 transition-colors"
+          title="Search Destinations & POIs"
+        >
+          <Search className="w-2.5 h-2.5" />
+          <span>Search</span>
+        </button>
 
         {/* Driving Step Simulator (Active during Navigation) */}
         {navStatus === 'navigating' && allSteps.length > 0 && (
