@@ -11,6 +11,7 @@ import {
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
+import { RoadShield, ExitShield } from './RoadShield';
 import { GoogleMapsSearchCard } from './GoogleMapsSearchCard';
 import { useNav } from '../../context/NavContext';
 
@@ -65,14 +66,10 @@ export const NavDockedViewport: React.FC = () => {
                     {primaryManeuver.distanceStr}
                   </span>
                   {primaryManeuver.shield && (
-                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-300 uppercase">
-                      {primaryManeuver.shield}
-                    </span>
+                    <RoadShield code={primaryManeuver.shield} size="md" />
                   )}
                   {primaryManeuver.exitNumber && (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 uppercase">
-                      {primaryManeuver.exitNumber}
-                    </span>
+                    <ExitShield exitNumber={primaryManeuver.exitNumber} size="sm" />
                   )}
                 </div>
                 <span className="text-sm font-semibold text-white/95 mt-1 leading-snug line-clamp-2">

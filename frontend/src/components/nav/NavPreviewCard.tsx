@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
+import { RoadShield, ExitShield } from './RoadShield';
 import { useNav } from '../../context/NavContext';
 
 export const NavPreviewCard: React.FC = () => {
@@ -60,16 +61,12 @@ export const NavPreviewCard: React.FC = () => {
 
             {/* Road Shield Badge (e.g. E11, D71, E311) */}
             {shield && (
-              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-300 tracking-wider uppercase">
-                {shield}
-              </span>
+              <RoadShield code={shield} size="md" />
             )}
 
             {/* Highway Exit Badge (e.g. Exit 50, Exit 29) */}
             {exitNumber && (
-              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 tracking-wider uppercase">
-                {exitNumber}
-              </span>
+              <ExitShield exitNumber={exitNumber} size="sm" />
             )}
           </div>
 

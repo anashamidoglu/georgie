@@ -2,6 +2,7 @@ import React from 'react';
 import { Flag } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { ManeuverIcon } from './ManeuverIcon';
+import { RoadShield, ExitShield } from './RoadShield';
 import { useNav } from '../../context/NavContext';
 
 export const UpcomingManeuversCard: React.FC = () => {
@@ -82,14 +83,10 @@ export const UpcomingManeuversCard: React.FC = () => {
                       </span>
                     )}
                     {step.shield && (
-                      <span className="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-[9px] font-bold text-amber-300 uppercase">
-                        {step.shield}
-                      </span>
+                      <RoadShield code={step.shield} size="sm" />
                     )}
                     {step.exitNumber && (
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-bold text-emerald-300 uppercase">
-                        {step.exitNumber}
-                      </span>
+                      <ExitShield exitNumber={step.exitNumber} size="sm" />
                     )}
                   </div>
                   <span

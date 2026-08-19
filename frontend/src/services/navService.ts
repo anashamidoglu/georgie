@@ -297,13 +297,29 @@ function parseManeuverStep(
     nextStep?.name ||
     '';
 
-  const shield =
+  const explicitShield =
     bannerPrimary?.components?.find((c: any) => c.type === 'icon')?.mapbox_shield?.display_ref ||
-    step.bannerInstructions?.[0]?.primary?.components?.find((c: any) => c.mapbox_shield)?.mapbox_shield?.display_ref;
+    step.bannerInstructions?.[0]?.primary?.components?.find((c: any) => c.mapbox_shield)?.mapbox_shield?.display_ref ||
+    (step as any).ref;
 
-  const exitNumber =
+  // Fallback regex match for UAE E/D/S road numbers in roadName or instruction (e.g. "E11", "D71", "S116", "E 311")
+  const matchedShield =
+    explicitShield ||
+    roadName.match(/\b([EDS]\s?\d{1,4})\b/i)?.[1] ||
+    instruction.match(/\b([EDS]\s?\d{1,4})\b/i)?.[1];
+
+  const shield = matchedShield ? matchedShield.toUpperCase().replace(/\s+/, '') : undefined;
+
+  const explicitExit =
     bannerPrimary?.components?.find((c: any) => c.type === 'exit-number')?.text ||
     step.maneuver?.exit;
+
+  const matchedExit =
+    explicitExit ||
+    instruction.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] ||
+    roadName.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0];
+
+  const exitNumber = matchedExit ? matchedExit : undefined;
 
   let lanes: LaneInfo[] | undefined;
   if (bannerSub?.components) {
