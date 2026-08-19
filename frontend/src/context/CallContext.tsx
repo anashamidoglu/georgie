@@ -36,6 +36,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { pauseMedia } = useMedia();
   const timerRef = useRef<number | null>(null);
 
+  const backendHost = import.meta.env.VITE_BACKEND_HOST || window.location.hostname;
+  const backendPort = import.meta.env.VITE_BACKEND_PORT || '8000';
+  const apiBase = import.meta.env.VITE_BACKEND_HOST
+    ? `http://${import.meta.env.VITE_BACKEND_HOST}:${backendPort}`
+    : '';
+
   // Auto-pause media whenever an incoming or active call begins
   useEffect(() => {
     if (callStatus === 'incoming' || callStatus === 'active') {
@@ -74,7 +80,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const connect = () => {
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.hostname}:8000/ws`;
+        const wsUrl = `${protocol}//${backendHost}:${backendPort}/ws`;
         ws = new WebSocket(wsUrl);
 
         ws.onmessage = (event) => {
@@ -121,13 +127,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ws.close();
       }
     };
-  }, []);
+  }, [backendHost, backendPort]);
 
   const answerCall = async () => {
     setCallStatus('active');
     pauseMedia();
     try {
-      await fetch('/api/calls/answer', { method: 'POST' });
+      await fetch(`${apiBase}/api/calls/answer`, { method: 'POST' });
     } catch {
       // Local development fallback
     }
@@ -136,7 +142,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const declineCall = async () => {
     setCallStatus('idle');
     try {
-      await fetch('/api/calls/reject', { method: 'POST' });
+      await fetch(`${apiBase}/api/calls/reject`, { method: 'POST' });
     } catch {
       // Local development fallback
     }
@@ -145,7 +151,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hangupCall = async () => {
     setCallStatus('idle');
     try {
-      await fetch('/api/calls/hangup', { method: 'POST' });
+      await fetch(`${apiBase}/api/calls/hangup`, { method: 'POST' });
     } catch {
       // Local development fallback
     }

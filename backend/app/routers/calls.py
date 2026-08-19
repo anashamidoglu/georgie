@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from ..services.bluetooth.mock_listener import mock_bt_listener
+from ..services.bluetooth.dbus_listener import dbus_listener
 from ..config import settings
 
 router = APIRouter(prefix="/api/calls", tags=["calls"])
@@ -8,18 +9,24 @@ router = APIRouter(prefix="/api/calls", tags=["calls"])
 async def answer_call():
     if settings.MOCK_MODE:
         await mock_bt_listener.answer_call()
+    else:
+        await dbus_listener.answer_call()
     return {"status": "answered"}
 
 @router.post("/reject")
 async def reject_call():
     if settings.MOCK_MODE:
         await mock_bt_listener.end_call()
+    else:
+        await dbus_listener.reject_call()
     return {"status": "rejected"}
 
 @router.post("/hangup")
 async def hangup_call():
     if settings.MOCK_MODE:
         await mock_bt_listener.end_call()
+    else:
+        await dbus_listener.hangup_call()
     return {"status": "ended"}
 
 @router.post("/simulate_incoming")
