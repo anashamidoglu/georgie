@@ -116,11 +116,8 @@ class DBusBluetoothListener:
             # Subscribe to all system D-Bus signals for BlueZ and oFono
             await self._subscribe_signals()
 
-            # Immediately poll existing BlueZ media player state if music is already playing
-            await self.get_live_track()
-
-            # Start active 1-second live polling loop for real-time play/pause/track/scrub sync
-            asyncio.create_task(self._position_sync_loop())
+            # Poll once on boot in case music was already playing before backend started
+            await self._poll_current_media_state()
 
         except ImportError:
             logger.warning("[DBusListener] dbus-next not installed. D-Bus listener disabled.")
@@ -233,7 +230,7 @@ class DBusBluetoothListener:
 
     async def _subscribe_signals(self):
         """
-        Subscribes to all relevant D-Bus signals for BlueZ media and oFono telephony.
+        Subscribes to pure D-Bus signals for instant, low-latency event-driven updates.
         """
         try:
             from dbus_next import Message, MessageType
@@ -404,90 +401,40 @@ class DBusBluetoothListener:
         except Exception as e:
             logger.warning(f"[DBusListener] Failed to set up signal matches: {e}")
 
-    async def get_live_track(self) -> TrackMetadata:
+    async def _poll_current_media_state(self):
         """
-        Queries the active BlueZ MediaPlayer1 properties in real time.
+        Queries BlueZ once on startup to read current track if already playing.
         """
-        player_path = self.active_player_path or await self._find_player_path()
-        if player_path and self.bus:
-            try:
-                from dbus_next import Message
-                reply = await self.bus.call(
-                    Message(
-                        destination='org.bluez',
-                        path=player_path,
-                        interface='org.freedesktop.DBus.Properties',
-                        member='GetAll',
-                        signature='s',
-                        body=['org.bluez.MediaPlayer1']
-                    )
+        try:
+            from dbus_next import Message
+
+            reply = await self.bus.call(
+                Message(
+                    destination='org.bluez',
+                    path='/',
+                    interface='org.freedesktop.DBus.ObjectManager',
+                    member='GetManagedObjects'
                 )
-                if reply.body:
-                    props = unwrap_variant(reply.body[0])
-                    pos_ms = props.get('Position')
-                    if pos_ms is not None:
-                        self.current_track.position = int(pos_ms) // 1000
-
-                    status = str(props.get('Status', 'stopped'))
-                    self.current_track.status = status
-
+            )
+            objects_raw = reply.body[0] if reply.body else {}
+            objects = unwrap_variant(objects_raw)
+            for path, interfaces in objects.items():
+                if 'org.bluez.MediaPlayer1' in interfaces:
+                    self.active_player_path = path
+                    props = interfaces['org.bluez.MediaPlayer1']
                     track_val = props.get('Track', {})
+                    status = str(props.get('Status', 'stopped'))
                     if track_val and isinstance(track_val, dict):
-                        title = str(track_val.get('Title', ''))
-                        artist = str(track_val.get('Artist', ''))
+                        title = str(track_val.get('Title', 'Unknown Track'))
+                        artist = str(track_val.get('Artist', 'Unknown Artist'))
                         album = str(track_val.get('Album', ''))
-                        dur_ms = track_val.get('Duration', 0)
-
-                        if title and title != 'Unknown Track':
-                            track_changed = (title != self.current_track.title or artist != self.current_track.artist)
-                            self.current_track.title = title
-                            self.current_track.artist = artist
-                            self.current_track.album = album
-                            self.current_track.duration = int(dur_ms) // 1000
-
-                            if track_changed or not self.current_track.artwork_url:
-                                self.current_track.artwork_url = await ArtworkService.resolve_artwork(artist, title)
-            except Exception as e:
-                logger.debug(f"[BlueZ] Error refreshing live track properties: {e}")
-                self.active_player_path = None
-        else:
-            if self.current_track.title != 'No Track Playing':
-                self.current_track = TrackMetadata(
-                    title="No Track Playing",
-                    artist="Connect Bluetooth to Stream",
-                    album="",
-                    duration=0,
-                    position=0,
-                    status="stopped",
-                    artwork_url=None
-                )
-        return self.current_track
-
-    async def _position_sync_loop(self):
-        """
-        Proactive 1-second polling loop that guarantees 100% sync even if D-Bus signals are delayed.
-        """
-        while self.running:
-            await asyncio.sleep(1)
-            if self.bus:
-                try:
-                    prev_status = self.current_track.status
-                    prev_title = self.current_track.title
-
-                    track = await self.get_live_track()
-
-                    # Proactively push track changes
-                    if track.title != prev_title:
-                        logger.info(f"[Media Sync] Track changed: '{track.title}' by {track.artist} ({track.status})")
-                        await ws_manager.broadcast("media:track_changed", track.model_dump())
-                    elif track.status != prev_status:
-                        logger.info(f"[Media Sync] Status changed: {track.status}")
-                        await ws_manager.broadcast("media:playback_state", track.model_dump())
-                    elif track.status == 'playing':
-                        # Continuously sync exact timeline position
-                        await ws_manager.broadcast("media:playback_state", track.model_dump())
-                except Exception as e:
-                    logger.debug(f"[Media Sync] Error: {e}")
+                        duration = int(track_val.get('Duration', 0)) // 1000
+                        position = int(props.get('Position', 0)) // 1000
+                        logger.info(f"[BlueZ] Found active media player on boot: '{title}' by {artist} ({status})")
+                        await self._on_track_changed(title, artist, album, duration, position, status)
+                        return
+        except Exception as e:
+            logger.warning(f"[BlueZ] Error polling media state on boot: {e}")
 
     async def _on_track_changed(self, title: str, artist: str, album: str, duration: int, position: int = 0, status: str = "playing"):
         if not title or title in ['Unknown Track', '']:
