@@ -81,18 +81,22 @@ export const DashboardView: React.FC = () => {
     </LiquidGlassCard>
   );
 
-  // Stackable Widgets for Navigation Mode (Upcoming Steps + Media)
+  // Stackable Widgets for Navigation Mode (Upcoming Steps + Media only if media is active)
   const navWidgets: WidgetItem[] = [
     {
       id: 'upcoming_steps',
       label: 'Upcoming Steps',
       content: <UpcomingManeuversCard />,
     },
-    {
-      id: 'media_player',
-      label: 'Media Player',
-      content: mediaCardContent,
-    },
+    ...(hasActiveMedia
+      ? [
+          {
+            id: 'media_player',
+            label: 'Media Player',
+            content: mediaCardContent,
+          },
+        ]
+      : []),
   ];
 
   return (

@@ -58,6 +58,13 @@ export const WidgetStackCard: React.FC<WidgetStackCardProps> = ({
     }
   }, [defaultIndex, widgets.length, triggerActivity]);
 
+  // Clamp index if widgets array shrinks (e.g. media stopped)
+  useEffect(() => {
+    if (activeIndex >= widgets.length) {
+      setActiveIndex(Math.max(0, widgets.length - 1));
+    }
+  }, [widgets.length, activeIndex]);
+
   if (widgets.length === 0) return null;
 
   // 1. Laptop Trackpad 2-Finger Horizontal Swipe
