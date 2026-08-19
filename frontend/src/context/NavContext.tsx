@@ -370,14 +370,18 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     if (mapInstance) {
       const currentLoc = vehicleCoords;
+      const firstStep = allSteps[0];
       const nextLoc = allSteps[1]?.location || destination || currentLoc;
-      const bearing = calculateBearing(currentLoc, nextLoc);
+      const bearing =
+        typeof firstStep?.bearingAfter === 'number'
+          ? firstStep.bearingAfter
+          : calculateBearing(currentLoc, nextLoc);
       setSimulatedHeading(bearing);
 
       mapInstance.easeTo({
         center: currentLoc,
-        zoom: 16.5,
-        pitch: 58,
+        zoom: 18.0,
+        pitch: 62,
         bearing: bearing,
         duration: 800,
       });
@@ -392,13 +396,18 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (mapInstance && step.location) {
       const stepIdx = allSteps.findIndex((s) => s.id === step.id);
       const nextStep = allSteps[stepIdx + 1] || allSteps[stepIdx];
-      const bearing = nextStep && nextStep.location ? calculateBearing(step.location, nextStep.location) : 0;
+      const bearing =
+        typeof step.bearingAfter === 'number'
+          ? step.bearingAfter
+          : nextStep && nextStep.location
+          ? calculateBearing(step.location, nextStep.location)
+          : 0;
       setSimulatedHeading(bearing);
 
       mapInstance.easeTo({
         center: step.location,
-        zoom: 16.5,
-        pitch: 55,
+        zoom: 18.0,
+        pitch: 62,
         bearing: bearing,
         duration: 700,
       });
@@ -441,20 +450,26 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         );
       } else if (positionRef.current.coords) {
-        const bearing = positionRef.current.heading || 0;
-        mapInstance.flyTo({
-          center: positionRef.current.coords,
-          zoom: navStatus === 'navigating' ? 16.5 : 15.5,
-          pitch: navStatus === 'navigating' ? 58 : 50,
+        const currentLoc = vehicleCoords;
+        const currentStep = allSteps[activeStepIndex];
+        const nextLoc = allSteps[activeStepIndex + 1]?.location || destination || currentLoc;
+        const bearing =
+          typeof currentStep?.bearingAfter === 'number'
+            ? currentStep.bearingAfter
+            : calculateBearing(currentLoc, nextLoc);
+
+        mapInstance.easeTo({
+          center: currentLoc,
+          zoom: navStatus === 'navigating' ? 18.0 : 15.5,
+          pitch: navStatus === 'navigating' ? 62 : 50,
           bearing: bearing,
           duration: 800,
-          essential: true,
         });
       }
     }
   };
 
-  // Simulation controls: Move vehicle puck along the route and angle camera behind vehicle looking ahead
+  // Simulation controls: Move vehicle puck along the route and angle camera directly behind vehicle looking ahead
   const nextSimulationStep = () => {
     if (allSteps.length === 0) return;
     const nextIdx = Math.min(allSteps.length - 1, activeStepIndex + 1);
@@ -462,18 +477,24 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPrimaryManeuver(allSteps[nextIdx]);
     setUpcomingSteps(allSteps.slice(nextIdx + 1));
 
-    const stepLoc = allSteps[nextIdx]?.location;
+    const step = allSteps[nextIdx];
+    const stepLoc = step?.location;
     if (stepLoc) {
       setSimulatedCoords(stepLoc);
-      const nextStepLoc = allSteps[nextIdx + 1]?.location || destination || stepLoc;
-      const bearing = calculateBearing(stepLoc, nextStepLoc);
+      const nextStepLoc = allSteps[nextIdx + 1]?.location || destination;
+      const bearing =
+        typeof step?.bearingAfter === 'number'
+          ? step.bearingAfter
+          : nextStepLoc
+          ? calculateBearing(stepLoc, nextStepLoc)
+          : vehicleHeading;
       setSimulatedHeading(bearing);
 
       if (mapInstance) {
         mapInstance.easeTo({
           center: stepLoc,
-          zoom: 16.5,
-          pitch: 58,
+          zoom: 18.0,
+          pitch: 62,
           bearing: bearing,
           duration: 600,
         });
@@ -488,18 +509,24 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPrimaryManeuver(allSteps[prevIdx]);
     setUpcomingSteps(allSteps.slice(prevIdx + 1));
 
-    const stepLoc = allSteps[prevIdx]?.location;
+    const step = allSteps[prevIdx];
+    const stepLoc = step?.location;
     if (stepLoc) {
       setSimulatedCoords(stepLoc);
-      const nextStepLoc = allSteps[prevIdx + 1]?.location || destination || stepLoc;
-      const bearing = calculateBearing(stepLoc, nextStepLoc);
+      const nextStepLoc = allSteps[prevIdx + 1]?.location || destination;
+      const bearing =
+        typeof step?.bearingAfter === 'number'
+          ? step.bearingAfter
+          : nextStepLoc
+          ? calculateBearing(stepLoc, nextStepLoc)
+          : vehicleHeading;
       setSimulatedHeading(bearing);
 
       if (mapInstance) {
         mapInstance.easeTo({
           center: stepLoc,
-          zoom: 16.5,
-          pitch: 58,
+          zoom: 18.0,
+          pitch: 62,
           bearing: bearing,
           duration: 600,
         });

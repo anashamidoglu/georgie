@@ -81,13 +81,10 @@ export const NavDockedViewport: React.FC = () => {
               </div>
             </div>
 
-            {/* Embedded Lane Strip in Expanded Mode */}
+            {/* Embedded Full-Width Lane Strip in Expanded Mode */}
             {primaryManeuver.lanes && primaryManeuver.lanes.length > 0 && (
-              <div className="pt-1.5 border-t border-white/10 flex items-center justify-between">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-white/40">
-                  Lanes
-                </span>
-                <LaneGuidance lanes={primaryManeuver.lanes} size="sm" />
+              <div className="pt-2 border-t border-white/10 w-full">
+                <LaneGuidance lanes={primaryManeuver.lanes} size="md" />
               </div>
             )}
           </div>

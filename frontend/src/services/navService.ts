@@ -20,6 +20,7 @@ export interface ManeuverInfo {
   legIndex?: number;
   isWaypointStop?: boolean;
   stopName?: string;
+  bearingAfter?: number;
 }
 
 export interface RouteGeometry {
@@ -319,6 +320,8 @@ function parseManeuverStep(
   }
 
   const location: [number, number] = step.maneuver?.location || originCoords;
+  const bearingAfter =
+    typeof step.maneuver?.bearing_after === 'number' ? step.maneuver.bearing_after : undefined;
 
   return {
     id: idx,
@@ -335,6 +338,7 @@ function parseManeuverStep(
     legIndex,
     isWaypointStop,
     stopName,
+    bearingAfter,
   };
 }
 

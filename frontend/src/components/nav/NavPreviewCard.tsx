@@ -80,13 +80,10 @@ export const NavPreviewCard: React.FC = () => {
         </div>
       </div>
 
-      {/* Embedded Lane Guidance Strip if available on current step */}
+      {/* Embedded Full-Width Lane Guidance Strip if available on current step */}
       {lanes && lanes.length > 0 && (
-        <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 font-sf">
-            Lane Guidance
-          </span>
-          <LaneGuidance lanes={lanes} size="sm" />
+        <div className="mt-2.5 pt-2 border-t border-white/10 w-full">
+          <LaneGuidance lanes={lanes} size="md" />
         </div>
       )}
     </LiquidGlassCard>

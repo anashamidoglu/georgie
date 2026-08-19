@@ -29,8 +29,8 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
     const isRight = dList.some((d) => d.includes('right')) && !isSlightRight;
     const isUturn = dList.some((d) => d.includes('uturn') || d.includes('u-turn'));
 
-    const strokeColor = active ? '#ffffff' : 'rgba(255, 255, 255, 0.3)';
-    const strokeWidth = active ? '2.5' : '2.0';
+    const strokeColor = active ? '#ffffff' : 'rgba(255, 255, 255, 0.28)';
+    const strokeWidth = active ? '2.8' : '2.0';
 
     // 1. Dual Indication: Straight + Right
     if (isStraight && (isRight || isSlightRight)) {
@@ -107,18 +107,18 @@ export const LaneGuidance: React.FC<LaneGuidanceProps> = ({
 
   return (
     <div
-      className={`inline-flex items-center space-x-1 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10 shadow-lg ${className}`}
-      title="Physical Lane Guidance"
+      className={`w-full flex items-center justify-between gap-1.5 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10 shadow-lg ${className}`}
+      title="Lane Guidance"
     >
       {lanes.map((lane, idx) => (
         <div
           key={idx}
-          className={`flex items-center justify-center p-0.5 rounded transition-all duration-150 ${
+          className={`flex-1 flex items-center justify-center py-1 rounded-xl transition-all duration-150 ${
             lane.active
-              ? 'opacity-100 drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] bg-white/[0.12]'
+              ? 'opacity-100 bg-white/[0.18] border border-white/30 shadow-[0_0_12px_rgba(255,255,255,0.4)]'
               : lane.valid === false
-              ? 'opacity-20'
-              : 'opacity-40 hover:opacity-60'
+              ? 'opacity-15 bg-transparent'
+              : 'opacity-35 bg-white/[0.04]'
           }`}
         >
           {renderLaneGlyph(lane.directions, lane.active)}
