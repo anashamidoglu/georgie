@@ -575,7 +575,7 @@ class DBusBluetoothListener:
 
     async def _position_sync_loop(self):
         while self.running:
-            await asyncio.sleep(4)
+            await asyncio.sleep(1)
             if self.active_player_path and self.bus and self.current_track.status == 'playing':
                 try:
                     await self.get_live_track()
