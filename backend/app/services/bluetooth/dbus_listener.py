@@ -311,6 +311,7 @@ class DBusBluetoothListener:
                 if msg.member == 'PropertiesChanged' and msg.interface == 'org.freedesktop.DBus.Properties':
                     iface, changed, _ = msg.body
                     if iface == 'org.bluez.MediaPlayer1':
+                        self.active_player_path = msg.path
                         track = changed.get('Track', {})
                         track_val = track.value if hasattr(track, 'value') else track
                         if track_val:
@@ -353,6 +354,88 @@ class DBusBluetoothListener:
             artwork_url=art_url
         )
         await ws_manager.broadcast("media:track_changed", self.current_track.model_dump())
+
+    async def media_play(self):
+        if not self.bus:
+            return
+        player_path = self.active_player_path or await self._find_player_path()
+        if player_path:
+            try:
+                from dbus_next import Message
+                await self.bus.call(Message(
+                    destination='org.bluez',
+                    path=player_path,
+                    interface='org.bluez.MediaPlayer1',
+                    member='Play'
+                ))
+            except Exception as e:
+                logger.error(f"[DBusListener] Error playing media: {e}")
+
+    async def media_pause(self):
+        if not self.bus:
+            return
+        player_path = self.active_player_path or await self._find_player_path()
+        if player_path:
+            try:
+                from dbus_next import Message
+                await self.bus.call(Message(
+                    destination='org.bluez',
+                    path=player_path,
+                    interface='org.bluez.MediaPlayer1',
+                    member='Pause'
+                ))
+            except Exception as e:
+                logger.error(f"[DBusListener] Error pausing media: {e}")
+
+    async def media_next(self):
+        if not self.bus:
+            return
+        player_path = self.active_player_path or await self._find_player_path()
+        if player_path:
+            try:
+                from dbus_next import Message
+                await self.bus.call(Message(
+                    destination='org.bluez',
+                    path=player_path,
+                    interface='org.bluez.MediaPlayer1',
+                    member='Next'
+                ))
+            except Exception as e:
+                logger.error(f"[DBusListener] Error skipping next track: {e}")
+
+    async def media_previous(self):
+        if not self.bus:
+            return
+        player_path = self.active_player_path or await self._find_player_path()
+        if player_path:
+            try:
+                from dbus_next import Message
+                await self.bus.call(Message(
+                    destination='org.bluez',
+                    path=player_path,
+                    interface='org.bluez.MediaPlayer1',
+                    member='Previous'
+                ))
+            except Exception as e:
+                logger.error(f"[DBusListener] Error skipping previous track: {e}")
+
+    async def _find_player_path(self) -> Optional[str]:
+        try:
+            from dbus_next import Message
+            reply = await self.bus.call(Message(
+                destination='org.bluez',
+                path='/',
+                interface='org.freedesktop.DBus.ObjectManager',
+                member='GetManagedObjects'
+            ))
+            objects = reply.body[0] if reply.body else {}
+            for path, interfaces in objects.items():
+                if 'org.bluez.MediaPlayer1' in interfaces:
+                    self.active_player_path = path
+                    return path
+        except Exception:
+            pass
+        return None
 
     async def answer_call(self):
         """
