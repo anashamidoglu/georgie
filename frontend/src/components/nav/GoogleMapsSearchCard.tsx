@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Clock, MapPin, Home, Briefcase, CornerUpRight, Loader2 } from 'lucide-react';
+import { Search, X, Clock, MapPin, Home, GraduationCap, CornerUpRight, ArrowLeft, Loader2 } from 'lucide-react';
 import {
   searchPlaces,
   SAVED_PLACES,
@@ -68,7 +68,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
       } finally {
         setIsLoading(false);
       }
-    }, 120);
+    }, 100);
 
     return () => {
       clearTimeout(timer);
@@ -141,14 +141,25 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
     >
       <div className="w-full rounded-2xl bg-[#13141a]/95 backdrop-blur-xl border border-white/20 shadow-[0_12px_40px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden">
         {/* Google Maps Style Search Bar Header */}
-        <div className="flex items-center px-3.5 py-2.5 border-b border-white/10 flex-shrink-0 bg-white/[0.04]">
+        <div className="flex items-center px-3 py-2.5 border-b border-white/10 flex-shrink-0 bg-white/[0.04]">
+          {/* Functional Back Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors mr-1 flex-shrink-0"
+            aria-label="Back"
+            title="Back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Google Maps"
-            className="flex-1 bg-transparent text-white placeholder-white/45 text-sm font-medium focus:outline-none"
+            placeholder="Search"
+            className="flex-1 bg-transparent text-white placeholder-white/45 text-sm font-medium focus:outline-none px-1"
           />
 
           <div className="flex items-center space-x-1.5 ml-2 flex-shrink-0">
@@ -231,9 +242,9 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
               </div>
             )
           ) : (
-            /* Default State with Home, Work & Recents (Screenshot 1 style) */
+            /* Default State with Home, Uni & Recents (Screenshot 1 style) */
             <div className="py-1">
-              {/* Home & Work Shortcuts */}
+              {/* Home & Uni Shortcuts */}
               {SAVED_PLACES.map((saved) => (
                 <div
                   key={saved.id}
@@ -251,7 +262,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                       {saved.id === 'home' ? (
                         <Home className="w-4 h-4" />
                       ) : (
-                        <Briefcase className="w-4 h-4" />
+                        <GraduationCap className="w-4 h-4" />
                       )}
                     </div>
                     <div className="flex flex-col min-w-0">
@@ -263,9 +274,6 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                       </span>
                     </div>
                   </div>
-                  <span className="text-xs text-sky-400 font-semibold px-2 py-1 rounded hover:underline flex-shrink-0">
-                    Edit
-                  </span>
                 </div>
               ))}
 

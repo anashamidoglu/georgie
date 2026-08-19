@@ -2,7 +2,7 @@ export interface PlaceResult {
   id: string;
   name: string;
   address: string;
-  category?: 'home' | 'work' | 'history' | 'place' | 'fuel' | 'coffee' | 'parking' | 'grocery' | 'hospital';
+  category?: 'home' | 'uni' | 'history' | 'place' | 'fuel' | 'coffee' | 'parking' | 'grocery' | 'hospital' | 'mall' | 'landmark';
   coordinates: [number, number]; // [lng, lat]
   subtitle?: string;
   distanceKm?: number;
@@ -10,7 +10,7 @@ export interface PlaceResult {
 }
 
 export interface SavedPlace {
-  id: 'home' | 'work';
+  id: 'home' | 'uni';
   label: string;
   address: string;
   coordinates: [number, number];
@@ -36,8 +36,8 @@ export const SAVED_PLACES: SavedPlace[] = [
     coordinates: [55.419909, 25.362693],
   },
   {
-    id: 'work',
-    label: 'Work',
+    id: 'uni',
+    label: 'Uni',
     address: '25.301654, 55.485259',
     coordinates: [55.485259, 25.301654],
   },
@@ -73,85 +73,63 @@ export const INITIAL_RECENTS: PlaceResult[] = [
   },
 ];
 
-// Rich Curated UAE Autocomplete Knowledge Base
+// Comprehensive Curated UAE POI & Knowledge Base
 const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
-  {
-    id: 'mirdif-cc',
-    name: 'Mirdif City Centre',
-    address: 'Sheikh Mohammed Bin Zayed Rd, Mirdif, Dubai',
-    coordinates: [55.4077, 25.2155],
-    category: 'place',
-  },
-  {
-    id: 'carrefour-mirdif',
-    name: 'Carrefour | City Center Mirdif',
-    address: 'City Center - Mirdif, Dubai',
-    coordinates: [55.4085, 25.216],
-    category: 'grocery',
-  },
-  {
-    id: 'como-lounge',
-    name: 'Como Lounge Dubai',
-    address: '78th Street - Mirdif - Dubai',
-    coordinates: [55.421, 25.223],
-    category: 'coffee',
-  },
-  {
-    id: 'mirdif-dubai',
-    name: 'Mirdif',
-    address: 'Dubai, United Arab Emirates',
-    coordinates: [55.418, 25.221],
-    category: 'place',
-  },
-  {
-    id: 'mirdif-physio',
-    name: 'Mirdif Center for Physiotherapy & Rehabilitation',
-    address: 'Uptown Mirdif, Dubai',
-    coordinates: [55.415, 25.219],
-    category: 'hospital',
-  },
-  {
-    id: 'burj-khalifa',
-    name: 'Burj Khalifa',
-    address: '1 Sheikh Mohammed bin Rashid Blvd, Downtown Dubai',
-    coordinates: [55.2744, 25.1972],
-    category: 'place',
-  },
-  {
-    id: 'dxb-intl',
-    name: 'Dubai International Airport (DXB)',
-    address: 'Airport Road, Garhoud, Dubai',
-    coordinates: [55.3657, 25.2532],
-    category: 'place',
-  },
-  {
-    id: 'mall-emirates',
-    name: 'Mall of the Emirates',
-    address: 'Sheikh Zayed Rd, Al Barsha 1, Dubai',
-    coordinates: [55.2007, 25.1181],
-    category: 'place',
-  },
-  {
-    id: 'sharjah-airport',
-    name: 'Sharjah International Airport (SHJ)',
-    address: 'Airport Rd, Sharjah',
-    coordinates: [55.5172, 25.3286],
-    category: 'place',
-  },
-  {
-    id: 'enoc-ittihad',
-    name: 'ENOC Service Station 1018',
-    address: 'Al Ittihad Road (E11), Sharjah',
-    coordinates: [55.378, 25.312],
-    category: 'fuel',
-  },
-  {
-    id: 'adnoc-wahda',
-    name: 'ADNOC Oasis Service Station',
-    address: 'Al Wahda Street, Sharjah',
-    coordinates: [55.395, 25.334],
-    category: 'fuel',
-  },
+  // Malls & Shopping
+  { id: 'mcc', name: 'Mirdif City Centre', address: 'Sheikh Mohammed Bin Zayed Rd, Mirdif, Dubai', coordinates: [55.4077, 25.2155], category: 'mall' },
+  { id: 'city-centre-mirdif', name: 'City Centre Mirdif', address: 'Sheikh Mohammed Bin Zayed Rd - Mirdif - Dubai', coordinates: [55.4077, 25.2155], category: 'mall' },
+  { id: 'carrefour-mirdif', name: 'Carrefour | City Center Mirdif', address: 'City Center - Mirdif, Dubai', coordinates: [55.4085, 25.216], category: 'grocery' },
+  { id: 'como-lounge', name: 'Como Lounge Dubai', address: '78th Street - Mirdif - Dubai', coordinates: [55.421, 25.223], category: 'coffee' },
+  { id: 'mirdif-area', name: 'Mirdif', address: 'Dubai, United Arab Emirates', coordinates: [55.418, 25.221], category: 'place' },
+  { id: 'mirdif-physio', name: 'Mirdif Center for Physiotherapy & Rehabilitation', address: 'Uptown Mirdif, Dubai', coordinates: [55.415, 25.219], category: 'hospital' },
+  { id: 'dubai-mall', name: 'The Dubai Mall', address: 'Financial Center Rd, Downtown Dubai', coordinates: [55.2785, 25.1972], category: 'mall' },
+  { id: 'moe', name: 'Mall of the Emirates', address: 'Sheikh Zayed Rd, Al Barsha 1, Dubai', coordinates: [55.2007, 25.1181], category: 'mall' },
+  { id: 'city-centre-al-zahia', name: 'City Centre Al Zahia', address: 'University City Rd, Industrial Area, Sharjah', coordinates: [55.4522, 25.3214], category: 'mall' },
+  { id: 'sahara-centre', name: 'Sahara Centre', address: 'Al Nahda, Sharjah', coordinates: [55.3725, 25.2977], category: 'mall' },
+  { id: 'mega-mall', name: 'Mega Mall Sharjah', address: 'Near Cultural Square, Bu Daniq, Sharjah', coordinates: [55.4001, 25.3438], category: 'mall' },
+  { id: 'city-centre-sharjah', name: 'City Centre Sharjah', address: 'Al Wahda St, Industrial Area 1, Sharjah', coordinates: [55.3912, 25.3275], category: 'mall' },
+  { id: 'city-centre-deira', name: 'City Centre Deira', address: '8th St, Port Saeed, Dubai', coordinates: [55.3331, 25.2514], category: 'mall' },
+  { id: 'dubai-hills-mall', name: 'Dubai Hills Mall', address: 'Dubai Hills Estate, Dubai', coordinates: [55.2427, 25.1018], category: 'mall' },
+  { id: 'dubai-festival-city', name: 'Dubai Festival City Mall', address: 'Crescent Rd, Dubai Festival City', coordinates: [55.3526, 25.2224], category: 'mall' },
+  { id: 'ibn-battuta', name: 'Ibn Battuta Mall', address: 'Sheikh Zayed Rd, Jebel Ali Village, Dubai', coordinates: [55.1206, 25.0442], category: 'mall' },
+
+  // Universities & Education
+  { id: 'uos-med', name: 'University of Sharjah - Medical Campus', address: 'University City, Sharjah', coordinates: [55.4855, 25.2917], category: 'uni' },
+  { id: 'uos-main', name: 'University of Sharjah (Main Campus)', address: 'University City, Sharjah', coordinates: [55.4744, 25.2862], category: 'uni' },
+  { id: 'aus', name: 'American University of Sharjah (AUS)', address: 'University City, Sharjah', coordinates: [55.4912, 25.3111], category: 'uni' },
+  { id: 'hct-sharjah-men', name: 'Higher Colleges of Technology (Sharjah Men)', address: 'University City, Sharjah', coordinates: [55.4678, 25.3056], category: 'uni' },
+  { id: 'hct-sharjah-women', name: 'Higher Colleges of Technology (Sharjah Women)', address: 'University City, Sharjah', coordinates: [55.4712, 25.3012], category: 'uni' },
+  { id: 'skyline-uni', name: 'Skyline University College', address: 'University City, Sharjah', coordinates: [55.4801, 25.2954], category: 'uni' },
+
+  // Hospitals & Healthcare
+  { id: 'uhs', name: 'University Hospital Sharjah', address: 'University City Rd, Sharjah', coordinates: [55.4822, 25.2891], category: 'hospital' },
+  { id: 'zulekha-shj', name: 'Zulekha Hospital Sharjah', address: 'Al Nasserya, Sharjah', coordinates: [55.4089, 25.3612], category: 'hospital' },
+  { id: 'qassimi-hosp', name: 'Al Qassimi Hospital', address: 'Wasit St, Al Khezamia, Sharjah', coordinates: [55.4215, 25.3488], category: 'hospital' },
+  { id: 'medcare-mirdif', name: 'Medcare Medical Centre Mirdif', address: 'Uptown Mirdif, Dubai', coordinates: [55.4162, 25.2205], category: 'hospital' },
+  { id: 'aster-al-nahda', name: 'Aster Hospital Al Nahda', address: 'Al Nahda 1, Dubai', coordinates: [55.3678, 25.2891], category: 'hospital' },
+
+  // Fuel Stations
+  { id: 'enoc-ittihad-1018', name: 'ENOC Service Station 1018', address: 'Al Ittihad Road (E11), Sharjah', coordinates: [55.378, 25.312], category: 'fuel' },
+  { id: 'enoc-mirdif-311', name: 'ENOC Service Station - E311 Mirdif', address: 'Sheikh Mohammed Bin Zayed Rd, Mirdif', coordinates: [55.4095, 25.218], category: 'fuel' },
+  { id: 'adnoc-wahda', name: 'ADNOC Oasis Service Station', address: 'Al Wahda Street, Sharjah', coordinates: [55.395, 25.334], category: 'fuel' },
+  { id: 'adnoc-university', name: 'ADNOC Service Station - University City', address: 'University City Rd, Sharjah', coordinates: [55.4612, 25.3155], category: 'fuel' },
+  { id: 'emarat-airport-rd', name: 'Emarat Petrol Station - Airport Rd', address: 'Airport Road (D89), Garhoud, Dubai', coordinates: [55.3588, 25.2492], category: 'fuel' },
+
+  // Cafes & Dining
+  { id: 'starbucks-mcc', name: 'Starbucks Coffee - City Centre Mirdif', address: 'City Centre Mirdif Ground Floor, Dubai', coordinates: [55.4082, 25.216], category: 'coffee' },
+  { id: 'starbucks-zahia', name: 'Starbucks - City Centre Al Zahia', address: 'City Centre Al Zahia, Sharjah', coordinates: [55.4525, 25.3216], category: 'coffee' },
+  { id: 'arabica-dubai-mall', name: '% Arabica - The Dubai Mall', address: 'Fashion Avenue, The Dubai Mall', coordinates: [55.2792, 25.1985], category: 'coffee' },
+  { id: 'tim-hortons-mirdif', name: 'Tim Hortons - Uptown Mirdif', address: 'Uptown Mirdif Mall, Dubai', coordinates: [55.4155, 25.2198], category: 'coffee' },
+  { id: 'costa-airport-rd', name: 'Costa Coffee - Airport Road', address: 'Garhoud, Dubai', coordinates: [55.3611, 25.2512], category: 'coffee' },
+
+  // Landmarks & Airports
+  { id: 'dxb-airport', name: 'Dubai International Airport (DXB)', address: 'Airport Road, Garhoud, Dubai', coordinates: [55.3657, 25.2532], category: 'landmark' },
+  { id: 'shj-airport', name: 'Sharjah International Airport (SHJ)', address: 'Airport Rd, Sharjah', coordinates: [55.5172, 25.3286], category: 'landmark' },
+  { id: 'burj-khalifa', name: 'Burj Khalifa', address: '1 Sheikh Mohammed bin Rashid Blvd, Downtown Dubai', coordinates: [55.2744, 25.1972], category: 'landmark' },
+  { id: 'museum-future', name: 'Museum of the Future', address: 'Sheikh Zayed Rd, Trade Centre 2, Dubai', coordinates: [55.2818, 25.2192], category: 'landmark' },
+  { id: 'dubai-frame', name: 'Dubai Frame', address: 'Zabeel Park Gate 4, Dubai', coordinates: [55.3003, 25.2345], category: 'landmark' },
+  { id: 'sharjah-mosque', name: 'Sharjah Mosque', address: 'Maliha Rd & Emirates Rd (E611), Sharjah', coordinates: [55.5997, 25.2783], category: 'landmark' },
+  { id: 'al-majaz', name: 'Al Majaz Waterfront', address: 'Corniche St, Al Majaz 2, Sharjah', coordinates: [55.3854, 25.3315], category: 'landmark' },
 ];
 
 export async function searchPlaces(
@@ -163,12 +141,12 @@ export async function searchPlaces(
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return [];
 
-  // Local knowledge matching (instant prefix / substring match)
-  const localMatches = UAE_KNOWLEDGE_BASE.filter(
-    (p) =>
-      p.name.toLowerCase().includes(trimmed) ||
-      p.address.toLowerCase().includes(trimmed)
-  ).map((p) => ({
+  // Local comprehensive match (instant prefix / substring match)
+  const localMatches = UAE_KNOWLEDGE_BASE.filter((p) => {
+    const nameMatch = p.name.toLowerCase().includes(trimmed);
+    const addrMatch = p.address.toLowerCase().includes(trimmed);
+    return nameMatch || addrMatch;
+  }).map((p) => ({
     ...p,
     distanceKm: calculateDistance(userCoords, p.coordinates),
   }));
@@ -199,6 +177,7 @@ export async function searchPlaces(
           else if (types.includes('parking')) cat = 'parking';
           else if (types.includes('grocery') || types.includes('supermarket')) cat = 'grocery';
           else if (types.includes('hospital') || types.includes('medical')) cat = 'hospital';
+          else if (types.includes('mall') || types.includes('shop')) cat = 'mall';
 
           return {
             id: f.id,
@@ -211,7 +190,7 @@ export async function searchPlaces(
           };
         });
 
-        // Merge local matches with remote results (removing duplicate IDs or names)
+        // Combine local results (highest relevance) with remote results
         const combined: PlaceResult[] = [...localMatches];
         remoteResults.forEach((remote) => {
           if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
@@ -224,7 +203,7 @@ export async function searchPlaces(
     }
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
-    console.warn('Geocoding error, falling back to local matches:', err);
+    console.warn('Geocoding error, using local UAE knowledge base:', err);
   }
 
   return localMatches;
