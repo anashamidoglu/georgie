@@ -6,26 +6,73 @@ import re
 import tempfile
 import time
 import subprocess
-from typing import Optional
+from typing import Optional, Dict
 from .audio_ducking import audio_ducker
 
 logger = logging.getLogger(__name__)
 
+# Common Arabic navigation terms transliterated to clean English phonetics
+ARABIC_ROAD_TERMS = {
+    'شارع': 'Street',
+    'طريق': 'Road',
+    'مخرج': 'Exit',
+    'دوار': 'Roundabout',
+    'جسر': 'Bridge',
+    'نفق': 'Tunnel',
+    'مدينة': 'City',
+    'منطقة': 'Area',
+    'شاطئ': 'Beach',
+    'برج': 'Burj',
+    'ميدان': 'Meydan',
+    'المركز المالي': 'Financial Centre',
+    'الشيخ زايد': 'Sheikh Zayed',
+    'الخيل': 'Al Khail',
+    'جميرا': 'Jumeirah',
+    'دبي': 'Dubai',
+    'أبوظبي': 'Abu Dhabi',
+    'الشارقة': 'Sharjah',
+    'العين': 'Al Ain',
+    'عجمان': 'Ajman',
+}
+
+def is_predominantly_arabic(text: str) -> bool:
+    """Checks if a string contains mostly Arabic unicode characters."""
+    arabic_chars = len(re.findall(r'[\u0600-\u06FF]', text))
+    latin_chars = len(re.findall(r'[a-zA-Z]', text))
+    return arabic_chars > latin_chars and arabic_chars > 0
+
 def normalize_road_text(text: str) -> str:
     """
-    Normalizes street names, distance abbreviations, and highway codes
-    for human-like phonetic pronunciation.
+    Normalizes bilingual street names, slashes, distance abbreviations,
+    and highway codes for natural, fluent pronunciation.
     """
     if not text:
         return ""
 
     s = text.strip()
 
-    # 1. Expand metric distance units (e.g. "500 m" -> "500 meters", "1.5 km" -> "1.5 kilometers")
+    # 1. Handle bilingual names with slashes (e.g. "Al Khail Road / شارع الخيل" -> "Al Khail Road")
+    if '/' in s:
+        parts = [p.strip() for p in s.split('/')]
+        # Prefer the English/Latin part if present
+        english_part = next((p for p in parts if re.search(r'[a-zA-Z]', p)), None)
+        if english_part:
+            s = english_part
+        else:
+            s = parts[0]
+
+    # Remove any stray slashes
+    s = s.replace('/', ' ')
+
+    # 2. Transliterate common Arabic prefixes in mixed strings
+    for ar, en in ARABIC_ROAD_TERMS.items():
+        s = s.replace(ar, en)
+
+    # 3. Expand metric distance units (e.g. "500 m" -> "500 meters", "1.5 km" -> "1.5 kilometers")
     s = re.sub(r'(\d+(?:\.\d+)?)\s*m\b', r'\1 meters', s, flags=re.IGNORECASE)
     s = re.sub(r'(\d+(?:\.\d+)?)\s*km\b', r'\1 kilometers', s, flags=re.IGNORECASE)
 
-    # 2. Expand common road abbreviations
+    # 4. Expand common road abbreviations
     s = re.sub(r'\bRd\b\.?', 'Road', s)
     s = re.sub(r'\bSt\b\.?', 'Street', s)
     s = re.sub(r'\bAve\b\.?', 'Avenue', s)
@@ -35,11 +82,14 @@ def normalize_road_text(text: str) -> str:
     s = re.sub(r'\bShk\b\.?', 'Sheikh', s)
     s = re.sub(r'\bSh\b\.?', 'Sheikh', s)
 
-    # 3. Format highway route codes (e.g. "E11" -> "E 11", "D71" -> "D 71", "E311" -> "E 311")
+    # 5. Format highway route codes (e.g. "E11" -> "E 11", "D71" -> "D 71", "E311" -> "E 311")
     s = re.sub(r'\b([ED])(\d+)\b', r'\1 \2', s)
 
-    # 4. Format Exit numbers
+    # 6. Format Exit numbers
     s = re.sub(r'\bExit\s*(\d+)', r'Exit \1', s, flags=re.IGNORECASE)
+
+    # Clean up double whitespace
+    s = re.sub(r'\s+', ' ', s).strip()
 
     return s
 
@@ -48,7 +98,9 @@ class VoiceGuidanceService:
         self.is_speaking = False
         self.last_spoken_text: str = ""
         self.last_spoken_time: float = 0.0
-        self.voice: str = "en-US-JennyNeural"
+        self.english_voice: str = "en-US-JennyNeural"
+        self.arabic_voice: str = "ar-AE-FatimaNeural"
+        self._audio_cache: Dict[str, bytes] = {}
         self._lock = asyncio.Lock()
 
     async def generate_speech_bytes(self, text: str) -> Optional[bytes]:
@@ -56,14 +108,27 @@ class VoiceGuidanceService:
         if not clean_text:
             return None
 
+        # Check in-memory audio cache for 0ms latency
+        if clean_text in self._audio_cache:
+            return self._audio_cache[clean_text]
+
+        # Dynamically choose voice: native Emirati Arabic for Arabic text, English Neural for English
+        selected_voice = self.arabic_voice if is_predominantly_arabic(clean_text) else self.english_voice
+
         try:
             import edge_tts
-            communicate = edge_tts.Communicate(clean_text, self.voice, rate="+4%")
+            communicate = edge_tts.Communicate(clean_text, selected_voice, rate="+4%")
             audio_buffer = io.BytesIO()
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     audio_buffer.write(chunk["data"])
-            return audio_buffer.getvalue()
+            
+            data = audio_buffer.getvalue()
+            # Cache up to 25 recent phrases
+            if len(self._audio_cache) > 25:
+                self._audio_cache.clear()
+            self._audio_cache[clean_text] = data
+            return data
         except ImportError:
             logger.warning("[Voice] edge-tts package not installed. Falling back to system TTS.")
             return None

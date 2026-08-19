@@ -202,7 +202,15 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!maneuver) return '';
     let instr = maneuver.instruction || maneuver.roadName || 'Continue on route';
 
-    // 1. Expand metric distance abbreviations (e.g. "500 m" -> "500 meters")
+    // 1. Strip slashes and bilingual Arabic duplicate if English is present (e.g. "Al Khail Rd / شارع الخيل" -> "Al Khail Rd")
+    if (instr.includes('/')) {
+      const parts = instr.split('/').map((p) => p.trim());
+      const englishPart = parts.find((p) => /[a-zA-Z]/.test(p));
+      instr = englishPart || parts[0];
+    }
+    instr = instr.replace(/\//g, ' ');
+
+    // 2. Expand metric distance abbreviations (e.g. "500 m" -> "500 meters")
     let cleanDist = prefixDistance;
     if (cleanDist) {
       cleanDist = cleanDist
@@ -210,7 +218,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .replace(/(\d+(?:\.\d+)?)\s*km\b/gi, '$1 kilometers');
     }
 
-    // 2. Clean up road abbreviations for natural human speech
+    // 3. Clean up road abbreviations for natural human speech
     instr = instr
       .replace(/\bRd\b\.?/g, 'Road')
       .replace(/\bSt\b\.?/g, 'Street')
