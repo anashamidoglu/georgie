@@ -41,35 +41,41 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
     return (
       <LiquidGlassCard
         padding="none"
-        className="w-full h-full p-4 flex flex-col justify-between select-none font-sf animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+        className="w-full h-full p-4 sm:p-5 flex flex-col justify-between select-none font-sf animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
       >
-        {/* Top Row: Contact Avatar on Left + Caller Details on Right */}
-        <div className="flex items-center space-x-3.5 w-full flex-shrink-0">
-          <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-lg">
+        {/* Top Section: Large Contact Avatar on Left + Caller Details on Right */}
+        <div className="flex items-center space-x-4 w-full flex-shrink-0">
+          <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl">
             <div className="w-full h-full bg-[#16171f] flex items-center justify-center">
-              <User className="w-7 h-7 text-white/50" />
+              <User className="w-9 h-9 text-white/50" />
             </div>
           </div>
 
-          <div className="flex flex-col min-w-0 flex-1 text-left">
-            <span className="text-base font-bold text-white tracking-tight leading-snug truncate">
+          <div className="flex flex-col justify-center min-w-0 flex-1 text-left">
+            <span className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug truncate">
               {callerName}
             </span>
-            <span className="text-xs text-white/50 font-medium truncate mt-0.5">
+            <span className="text-xs sm:text-sm text-white/60 font-semibold truncate mt-1">
               {callerNumber}
             </span>
-          </div>
 
-          {/* Active Call Duration Pill */}
-          {callStatus === 'active' && (
-            <div className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold font-sf tabular-nums flex-shrink-0">
-              {formatTime(durationSeconds)}
+            {/* Status / Active Timer Badge */}
+            <div className="mt-2 flex items-center">
+              {callStatus === 'active' ? (
+                <div className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold font-sf tabular-nums">
+                  {formatTime(durationSeconds)}
+                </div>
+              ) : (
+                <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 text-xs font-bold uppercase tracking-wider animate-pulse">
+                  Incoming Call
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Bottom Row: Centered Tactile Call Actions (Cleanly above pagination dots) */}
-        <div className="w-full flex items-center justify-center space-x-7 flex-shrink-0 pb-1">
+        {/* Bottom Section: Centered Tactile Call Actions (Cleanly above pagination dots) */}
+        <div className="w-full flex items-center justify-center space-x-8 flex-shrink-0 pt-2 pb-1 mt-auto">
           {callStatus === 'incoming' ? (
             <>
               {/* Decline Button (Red) */}
@@ -77,10 +83,10 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
                 type="button"
                 onClick={declineCall}
                 aria-label="Decline Call"
-                className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl transition-transform active:scale-90"
+                className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-2xl transition-transform active:scale-90"
                 title="Decline"
               >
-                <PhoneOff className="w-5 h-5 text-white" />
+                <PhoneOff className="w-6 h-6 text-white" />
               </button>
 
               {/* Answer Button (Green) */}
@@ -88,10 +94,10 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
                 type="button"
                 onClick={answerCall}
                 aria-label="Answer Call"
-                className="w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-xl transition-transform active:scale-90"
+                className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-2xl transition-transform active:scale-90"
                 title="Answer"
               >
-                <Phone className="w-5 h-5 fill-white text-white" />
+                <Phone className="w-6 h-6 fill-white text-white" />
               </button>
             </>
           ) : (
@@ -101,14 +107,14 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
                 type="button"
                 onClick={toggleMute}
                 aria-label={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform active:scale-90 border shadow-lg ${
+                className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-transform active:scale-90 border shadow-2xl ${
                   isMuted
                     ? 'bg-white text-black border-white'
                     : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
                 }`}
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
-                {isMuted ? <MicOff className="w-5 h-5 text-black" /> : <Mic className="w-5 h-5 text-white" />}
+                {isMuted ? <MicOff className="w-6 h-6 text-black" /> : <Mic className="w-6 h-6 text-white" />}
               </button>
 
               {/* Hang Up Button (Red) */}
@@ -116,10 +122,10 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
                 type="button"
                 onClick={hangupCall}
                 aria-label="End Call"
-                className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl transition-transform active:scale-90"
+                className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-2xl transition-transform active:scale-90"
                 title="End Call"
               >
-                <PhoneOff className="w-5 h-5 text-white" />
+                <PhoneOff className="w-6 h-6 text-white" />
               </button>
             </>
           )}
