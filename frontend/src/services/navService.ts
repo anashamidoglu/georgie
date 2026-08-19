@@ -54,65 +54,6 @@ function getHaversineDistance(c1: [number, number], c2: [number, number]): numbe
   return Math.round(R * c);
 }
 
-function parseManeuverDetails(step: any): { lanes?: LaneInfo[]; shield?: string; exitNumber?: string } {
-  if (!step) return {};
-  const banners = step.bannerInstructions || [];
-
-  // 1. Extract physical lanes strictly from Mapbox banner_instructions.sub.components (spec Section 5.2)
-  let lanes: LaneInfo[] | undefined;
-  for (const banner of banners) {
-    const subComponents = banner?.sub?.components || [];
-    const laneComps = subComponents.filter((c: any) => c.type === 'lane');
-    if (laneComps.length > 0) {
-      lanes = laneComps.map((comp: any) => ({
-        active: Boolean(comp.active),
-        valid: comp.valid !== false,
-        directions: comp.directions || ['straight'],
-        activeDirection: comp.active_direction,
-      }));
-      break;
-    }
-  }
-
-  // 2. Extract Shield (e.g. E11, D71, S113, E311)
-  let shield: string | undefined;
-  for (const banner of banners) {
-    const primaryComponents = banner?.primary?.components || [];
-    for (const comp of primaryComponents) {
-      if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
-        shield = comp.mapbox_shield.display_ref;
-        break;
-      } else if (comp.type === 'icon' && comp.text && comp.text.length <= 8) {
-        shield = comp.text;
-        break;
-      }
-    }
-    if (shield) break;
-  }
-
-  // 3. Extract Exit Number (e.g. Exit 50, Exit 58B, Exit 29)
-  let exitNumber: string | undefined;
-  for (const banner of banners) {
-    const primaryComponents = banner?.primary?.components || [];
-    const exitNumComp = primaryComponents.find((c: any) => c.type === 'exit-number');
-    if (exitNumComp?.text) {
-      exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
-      break;
-    }
-    const exitComp = primaryComponents.find((c: any) => c.type === 'exit');
-    if (exitComp?.text && /\d+/.test(exitComp.text)) {
-      exitNumber = exitComp.text;
-      break;
-    }
-  }
-
-  return {
-    lanes,
-    shield,
-    exitNumber,
-  };
-}
-
 export async function fetchDirections(
   origin: [number, number],
   destination: [number, number],
@@ -155,23 +96,86 @@ export async function fetchDirections(
           const leg = route.legs?.[0];
           const steps = leg?.steps || [];
 
+          // Mapbox alignment: On step[i], the upcoming action to perform at the end of the step
+          // is defined by bannerInstructions on step[i] and leads into step[i+1].
           const allSteps: ManeuverInfo[] = steps.map((step: any, idx: number) => {
+            const nextStep = steps[idx + 1];
             const stepDist = Math.round(step.distance);
-            const stepDetails = parseManeuverDetails(step);
-            const stepLoc: [number, number] = step.maneuver?.location || [origin[0], origin[1]];
+            const distStr = stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`;
+
+            const banners = step.bannerInstructions || [];
+            // Pick the active banner that carries lane guidance, or fallback to the closest approach banner
+            const chosenBanner =
+              banners.find((b: any) => b.sub?.components?.some((c: any) => c.type === 'lane')) ||
+              banners[banners.length - 1];
+
+            // 1. Strict Lane Extraction (Filter strictly by type === 'lane', NO stacking/concatenation)
+            let lanes: LaneInfo[] | undefined;
+            if (chosenBanner?.sub?.components) {
+              const laneComps = chosenBanner.sub.components.filter((c: any) => c.type === 'lane');
+              if (laneComps.length > 0) {
+                lanes = laneComps.map((c: any) => ({
+                  active: Boolean(c.active),
+                  valid: c.valid !== false,
+                  directions: c.directions || ['straight'],
+                  activeDirection: c.active_direction,
+                }));
+              }
+            }
+
+            // 2. Road Shield Extraction
+            let shield: string | undefined;
+            if (chosenBanner?.primary?.components) {
+              for (const comp of chosenBanner.primary.components) {
+                if (comp.type === 'icon' && comp.mapbox_shield?.display_ref) {
+                  shield = comp.mapbox_shield.display_ref;
+                  break;
+                } else if (comp.type === 'icon' && comp.text && comp.text.length <= 8) {
+                  shield = comp.text;
+                  break;
+                }
+              }
+            }
+
+            // 3. Exit Number Extraction
+            let exitNumber: string | undefined;
+            if (chosenBanner?.primary?.components) {
+              const exitNumComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit-number');
+              if (exitNumComp?.text) {
+                exitNumber = `Exit ${exitNumComp.text.replace(/exit\s*/i, '')}`;
+              } else {
+                const exitComp = chosenBanner.primary.components.find((c: any) => c.type === 'exit');
+                if (exitComp?.text && /\d+/.test(exitComp.text)) {
+                  exitNumber = exitComp.text;
+                }
+              }
+            }
+
+            // 4. Actionable Instruction Text & Maneuver Type
+            const instruction =
+              nextStep?.maneuver?.instruction ||
+              chosenBanner?.primary?.text ||
+              step.maneuver?.instruction ||
+              'Proceed on route';
+
+            const type = chosenBanner?.primary?.type || nextStep?.maneuver?.type || step.maneuver?.type || 'turn';
+            const modifier =
+              chosenBanner?.primary?.modifier || nextStep?.maneuver?.modifier || step.maneuver?.modifier || 'straight';
+
+            const location: [number, number] = step.maneuver?.location || origin;
 
             return {
               id: idx,
-              instruction: step.maneuver?.instruction || step.bannerInstructions?.[0]?.primary?.text || 'Proceed on route',
-              roadName: step.name || 'Road',
-              distanceStr: stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`,
+              instruction,
+              roadName: step.name || 'Current Road',
+              distanceStr: distStr,
               distanceMeters: stepDist,
-              type: step.maneuver?.type || 'turn',
-              modifier: step.maneuver?.modifier || 'straight',
-              lanes: stepDetails.lanes,
-              shield: stepDetails.shield,
-              exitNumber: stepDetails.exitNumber,
-              location: stepLoc,
+              type,
+              modifier,
+              lanes,
+              shield,
+              exitNumber,
+              location,
             };
           });
 
