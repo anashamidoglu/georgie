@@ -246,12 +246,16 @@ class DBusBluetoothListener:
                     if iface == 'org.bluez.MediaPlayer1':
                         self.active_player_path = msg.path
                         track_val = changed.get('Track', {})
+                        pos_ms = changed.get('Position')
+                        if pos_ms is not None:
+                            self.current_track.position = int(pos_ms) // 1000
+
                         if track_val and isinstance(track_val, dict):
                             title = str(track_val.get('Title', 'Unknown Track'))
                             artist = str(track_val.get('Artist', 'Unknown Artist'))
                             album = str(track_val.get('Album', ''))
                             duration = int(track_val.get('Duration', 0)) // 1000
-                            position = int(track_val.get('Position', 0)) // 1000 if 'Position' in track_val else 0
+                            position = self.current_track.position
 
                             asyncio.create_task(self._on_track_changed(title, artist, album, duration, position))
 
@@ -269,12 +273,14 @@ class DBusBluetoothListener:
                         props = interfaces['org.bluez.MediaPlayer1']
                         track_val = props.get('Track', {})
                         status_val = str(props.get('Status', 'playing'))
+                        pos_ms = props.get('Position', 0)
+                        position = int(pos_ms) // 1000
                         if track_val and isinstance(track_val, dict):
                             title = str(track_val.get('Title', 'Unknown Track'))
                             artist = str(track_val.get('Artist', 'Unknown Artist'))
                             album = str(track_val.get('Album', ''))
                             duration = int(track_val.get('Duration', 0)) // 1000
-                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, 0, status_val))
+                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, status_val))
 
                 # 3. oFono Manager.ModemAdded
                 elif msg.member == 'ModemAdded' and msg.interface == 'org.ofono.Manager':

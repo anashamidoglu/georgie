@@ -37,6 +37,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const pillRef = useRef<HTMLDivElement | null>(null);
 
   const {
+    isNavExpanded,
     navStatus,
     allSteps,
     activeStepIndex,
@@ -48,7 +49,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   const {
     hasActiveMedia,
-    setHasActiveMedia,
     currentTrack,
     togglePlayPause,
     nextTrack,
@@ -95,16 +95,21 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   // Format track duration seconds to mm:ss
   const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds) || seconds <= 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = Math.min(
-    100,
-    Math.max(0, (currentTrack.currentTime / (currentTrack.duration || 1)) * 100)
-  );
+  const progressPercent = currentTrack.duration > 0
+    ? Math.min(100, Math.max(0, (currentTrack.currentTime / currentTrack.duration) * 100))
+    : 0;
   const remainingSeconds = Math.max(0, currentTrack.duration - currentTrack.currentTime);
+
+  const shouldShowMediaPill =
+    hasActiveMedia &&
+    (isNavExpanded || navStatus !== 'idle') &&
+    Boolean(currentTrack.title && currentTrack.title !== 'No Track Playing');
 
   return (
     <header className="w-full h-12 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-40 font-sf relative">
@@ -177,7 +182,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       {/* Center/Right: Touch-Friendly Media Pill + Connectivity & Clock */}
       <div className="flex items-center space-x-2.5">
         {/* Media Pill Container with Anchor for Popover */}
-        {hasActiveMedia && navStatus !== 'idle' && (
+        {shouldShowMediaPill && (
           <div ref={pillRef} className="relative flex items-center">
             {/* Clickable Media Pill */}
             <button
@@ -214,7 +219,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               </div>
             </button>
 
-            {/* Media Popover Styled Identically to MediaDockedCard (Large Art, Exact Fonts & Tactile Filled Controls) */}
+            {/* Media Popover Styled Identically to MediaDockedCard */}
             {isMediaPopoverOpen && (
               <div
                 className="absolute top-11 right-0 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
@@ -240,7 +245,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                     )}
                   </div>
 
-                  {/* Middle: Title & Artist (Exact same typography as Big Media Component) */}
+                  {/* Middle: Title & Artist */}
                   <div className="flex flex-col items-center justify-center w-full px-2">
                     <span className="text-base font-bold text-white tracking-tight leading-tight truncate max-w-full">
                       {currentTrack.title || 'Not Playing'}
@@ -260,11 +265,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                     </div>
                     <div className="flex justify-between items-center text-xs font-sf tabular-nums text-white/40">
                       <span>{formatTime(currentTrack.currentTime)}</span>
-                      <span>-{formatTime(remainingSeconds)}</span>
+                      <span>{currentTrack.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
                     </div>
                   </div>
 
-                  {/* Bottom: Tactile Transport Controls (Filled white icons matching Big Media Component) */}
+                  {/* Bottom: Tactile Transport Controls */}
                   <div className="w-full flex items-center justify-center space-x-6 pt-0.5 pb-0.5">
                     <button
                       type="button"
@@ -302,21 +307,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             )}
           </div>
         )}
-
-        {/* Dev Media Toggle */}
-        <button
-          type="button"
-          onClick={() => setHasActiveMedia(!hasActiveMedia)}
-          className={`text-[9px] font-sf font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-            hasActiveMedia
-              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-              : 'bg-white/5 text-white/60 border-white/10'
-          }`}
-        >
-          [DEV] Media ({hasActiveMedia ? 'On' : 'Off'})
-        </button>
-
-        <div className="h-3.5 w-[1px] bg-white/10" />
 
         {/* Connectivity Status */}
         <div className="flex items-center space-x-2 text-white/50">
