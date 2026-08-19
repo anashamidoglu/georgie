@@ -61,18 +61,20 @@ export const NavDockedViewport: React.FC = () => {
                 />
               </div>
               <div className="flex flex-col min-w-0 flex-1">
-                <div className="flex items-center space-x-2">
-                  <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none">
+                <div className="flex items-center justify-between w-full space-x-4">
+                  <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
                     {primaryManeuver.distanceStr}
                   </span>
-                  {primaryManeuver.shield && (
-                    <RoadShield code={primaryManeuver.shield} size="md" />
-                  )}
-                  {primaryManeuver.exitNumber && (
-                    <ExitShield exitNumber={primaryManeuver.exitNumber} size="sm" />
-                  )}
+                  <div className="flex items-center space-x-2.5 ml-auto flex-shrink-0">
+                    {primaryManeuver.shield && (
+                      <RoadShield code={primaryManeuver.shield} size="md" />
+                    )}
+                    {primaryManeuver.exitNumber && (
+                      <ExitShield exitNumber={primaryManeuver.exitNumber} size="md" />
+                    )}
+                  </div>
                 </div>
-                <span className="text-sm font-semibold text-white/95 mt-1 leading-snug line-clamp-2">
+                <span className="text-sm font-semibold text-white/95 mt-1.5 leading-snug line-clamp-2">
                   {primaryManeuver.instruction}
                 </span>
               </div>
@@ -180,7 +182,7 @@ export const NavDockedViewport: React.FC = () => {
                 <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums whitespace-nowrap">
                   {eta.distance}
                 </span>
-                <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums whitespace-nowrap">
+                <span className="text-xl font-bold font-sf-display text-white/80 tabular-nums whitespace-nowrap">
                   {eta.arrival}
                 </span>
               </div>
@@ -232,7 +234,7 @@ export const NavDockedViewport: React.FC = () => {
               <span className="text-xl font-bold font-sf-display text-white/90 tabular-nums tracking-tight whitespace-nowrap">
                 {eta.distance}
               </span>
-              <span className="text-sm font-semibold font-sf-display text-white/50 tabular-nums tracking-tight whitespace-nowrap">
+              <span className="text-xl font-bold font-sf-display text-white/80 tabular-nums tracking-tight whitespace-nowrap">
                 {eta.arrival}
               </span>
             </div>

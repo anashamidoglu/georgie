@@ -51,9 +51,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
+      let hours = now.getHours();
       const minutes = now.getMinutes().toString().padStart(2, '0');
-      setTimeStr(`${hours}:${minutes}`);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      setTimeStr(`${hours}:${minutes} ${period}`);
 
       const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
       const day = days[now.getDay()];

@@ -58,8 +58,8 @@ export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 's
   const numStr = String(number ?? '');
   const dimensions = {
     sm: { width: 24, height: 35 },
-    md: { width: 30, height: 44 },
-    lg: { width: 38, height: 56 },
+    md: { width: 32, height: 46 },
+    lg: { width: 42, height: 60 },
   }[size];
 
   return (
@@ -119,8 +119,8 @@ export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 
   const numStr = String(number ?? '');
   const dimensions = {
     sm: { width: 26, height: 35 },
-    md: { width: 32, height: 43 },
-    lg: { width: 42, height: 56 },
+    md: { width: 34, height: 45 },
+    lg: { width: 44, height: 58 },
   }[size];
 
   return (
@@ -180,8 +180,8 @@ export const SharjahRouteShield: React.FC<{ number: string | number; size?: 'sm'
   const numStr = String(number ?? '');
   const dimensions = {
     sm: { width: 24, height: 35 },
-    md: { width: 30, height: 44 },
-    lg: { width: 38, height: 56 },
+    md: { width: 32, height: 46 },
+    lg: { width: 42, height: 60 },
   }[size];
 
   return (
@@ -260,14 +260,32 @@ export const ExitShield: React.FC<ExitShieldProps> = ({
   if (!numOnly) return null;
 
   const sizeStyles = {
-    sm: 'px-1.5 py-0.5 text-[10px] gap-1',
-    md: 'px-2 py-0.5 text-xs gap-1.5',
-    lg: 'px-3 py-1 text-sm gap-2',
+    sm: 'px-2 py-0.5 text-xs gap-1.5 rounded-md',
+    md: 'px-3 py-1 text-sm gap-2 rounded-lg',
+    lg: 'px-4 py-1.5 text-base gap-2.5 rounded-lg',
+  }[size];
+
+  const iconSizes = {
+    sm: 'w-3.5 h-3.5',
+    md: 'w-4 h-4',
+    lg: 'w-5 h-5',
+  }[size];
+
+  const exitLabelSizes = {
+    sm: 'text-[10px]',
+    md: 'text-xs',
+    lg: 'text-sm',
+  }[size];
+
+  const numSizes = {
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-base',
   }[size];
 
   return (
     <div
-      className={`inline-flex items-center rounded-md bg-[#006633] border border-white text-white font-black tracking-tight select-none shadow-sm font-mono ${sizeStyles} ${className}`}
+      className={`inline-flex items-center bg-[#006633] border border-white text-white font-black tracking-tight select-none shadow-sm font-mono ${sizeStyles} ${className}`}
       title={`Freeway Exit ${numOnly}`}
     >
       <svg
@@ -277,14 +295,14 @@ export const ExitShield: React.FC<ExitShieldProps> = ({
         strokeWidth="3.2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'}
+        className={iconSizes}
       >
         <path d="M7 17L17 7M17 7H9M17 7V15" />
       </svg>
-      <span className="text-[9px] font-bold uppercase tracking-wider text-white/90 font-sans">
+      <span className={`${exitLabelSizes} font-bold uppercase tracking-wider text-white/95 font-sans`}>
         EXIT
       </span>
-      <span className="tabular-nums font-sf-display tracking-tight text-white">
+      <span className={`${numSizes} tabular-nums font-sf-display font-black tracking-tight text-white`}>
         {numOnly}
       </span>
     </div>
@@ -314,7 +332,7 @@ export const RoadShield: React.FC<RoadShieldProps> = ({
     default:
       return (
         <div
-          className={`inline-flex items-center px-2 py-0.5 rounded-md bg-blue-900/90 border border-blue-400/60 text-white font-bold text-xs tracking-wider select-none shadow-sm ${className}`}
+          className={`inline-flex items-center px-2.5 py-1 rounded-md bg-blue-900/90 border border-blue-400/60 text-white font-bold text-xs tracking-wider select-none shadow-sm ${className}`}
         >
           {parsed.number}
         </div>

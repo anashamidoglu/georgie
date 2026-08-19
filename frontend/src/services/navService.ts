@@ -410,9 +410,11 @@ export async function fetchDirections(
 
             const now = new Date();
             const arrivalDate = new Date(now.getTime() + durationSec * 1000);
-            const arrivalHours = arrivalDate.getHours().toString().padStart(2, '0');
-            const arrivalMinutes = arrivalDate.getMinutes().toString().padStart(2, '0');
-            const arrivalStr = `${arrivalHours}:${arrivalMinutes} arrival`;
+            let arrH = arrivalDate.getHours();
+            const arrM = arrivalDate.getMinutes().toString().padStart(2, '0');
+            const arrPeriod = arrH >= 12 ? 'PM' : 'AM';
+            arrH = arrH % 12 || 12;
+            const arrivalStr = `${arrH}:${arrM} ${arrPeriod}`;
 
             // Process individual legs for per-stop dropdowns & next stop banners
             const legsInfo: RouteLegInfo[] = [];
@@ -537,8 +539,11 @@ export async function fetchDirections(
 
   const now = new Date();
   const arrivalDate = new Date(now.getTime() + estDurationSec * 1000);
-  const arrHours = arrivalDate.getHours().toString().padStart(2, '0');
+  let arrH = arrivalDate.getHours();
   const arrMin = arrivalDate.getMinutes().toString().padStart(2, '0');
+  const arrPeriod = arrH >= 12 ? 'PM' : 'AM';
+  arrH = arrH % 12 || 12;
+  const arrHours = `${arrH}:${arrMin} ${arrPeriod}`;
 
   const fallbackStep: ManeuverInfo = {
     id: 0,

@@ -54,24 +54,26 @@ export const NavPreviewCard: React.FC = () => {
         {/* Turn Distance & Natural Google-Style Instruction Text */}
         <div className="flex flex-col justify-center min-w-0 flex-1">
           {/* Distance with Highway Shield / Exit Badges */}
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none">
+          <div className="flex items-center justify-between w-full space-x-4">
+            <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
               {distance}
             </span>
 
-            {/* Road Shield Badge (e.g. E11, D71, E311) */}
-            {shield && (
-              <RoadShield code={shield} size="md" />
-            )}
+            <div className="flex items-center space-x-2.5 ml-auto flex-shrink-0">
+              {/* Road Shield Badge (e.g. E11, D71, E311) */}
+              {shield && (
+                <RoadShield code={shield} size="md" />
+              )}
 
-            {/* Highway Exit Badge (e.g. Exit 50, Exit 29) */}
-            {exitNumber && (
-              <ExitShield exitNumber={exitNumber} size="sm" />
-            )}
+              {/* Highway Exit Badge (e.g. Exit 50, Exit 29) */}
+              {exitNumber && (
+                <ExitShield exitNumber={exitNumber} size="md" />
+              )}
+            </div>
           </div>
 
           {/* Full Natural Actionable Instruction Text */}
-          <span className="text-sm font-semibold text-white/90 tracking-normal mt-1 leading-snug line-clamp-2">
+          <span className="text-sm font-semibold text-white/90 tracking-normal mt-1.5 leading-snug line-clamp-2">
             {instruction}
           </span>
         </div>

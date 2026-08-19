@@ -69,9 +69,9 @@ export const UpcomingManeuversCard: React.FC = () => {
 
                 {/* Step Instruction & Distance */}
                 <div className="flex flex-col min-w-0 flex-1">
-                  <div className="flex items-center space-x-1.5">
+                  <div className="flex items-center justify-between w-full space-x-2">
                     <span
-                      className={`text-xs font-bold font-sf-display tabular-nums tracking-tight leading-snug ${
+                      className={`text-xs font-bold font-sf-display tabular-nums tracking-tight leading-snug flex-shrink-0 ${
                         step.isWaypointStop ? 'text-amber-400' : 'text-white'
                       }`}
                     >
@@ -82,12 +82,14 @@ export const UpcomingManeuversCard: React.FC = () => {
                         Stop Reached
                       </span>
                     )}
-                    {step.shield && (
-                      <RoadShield code={step.shield} size="sm" />
-                    )}
-                    {step.exitNumber && (
-                      <ExitShield exitNumber={step.exitNumber} size="sm" />
-                    )}
+                    <div className="flex items-center space-x-1.5 ml-auto flex-shrink-0">
+                      {step.shield && (
+                        <RoadShield code={step.shield} size="sm" />
+                      )}
+                      {step.exitNumber && (
+                        <ExitShield exitNumber={step.exitNumber} size="sm" />
+                      )}
+                    </div>
                   </div>
                   <span
                     className={`text-xs font-medium leading-snug mt-0.5 line-clamp-2 ${
