@@ -16,6 +16,8 @@ export interface SavedPlace {
   coordinates: [number, number];
 }
 
+const GOOGLE_PLACES_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY || '';
+
 function calculateDistance(c1: [number, number], c2: [number, number]): number {
   const R = 6371; // Earth radius in km
   const rad = Math.PI / 180;
@@ -138,13 +140,66 @@ export async function searchPlaces(
   accessToken: string,
   signal?: AbortSignal
 ): Promise<PlaceResult[]> {
-  const trimmed = query.trim().toLowerCase();
+  const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // Local comprehensive match (instant prefix / substring match)
+  // 1. High-Precision Google Places API (New) if key is configured
+  if (GOOGLE_PLACES_KEY) {
+    try {
+      const url = 'https://places.googleapis.com/v1/places:searchText';
+      const payload = {
+        textQuery: trimmed,
+        locationBias: {
+          circle: {
+            center: { latitude: userCoords[1], longitude: userCoords[0] },
+            radius: 50000.0, // 50km radius bias
+          },
+        },
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location',
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.places && data.places.length > 0) {
+          return data.places.map((p: any) => {
+            const lat = p.location?.latitude || 0;
+            const lng = p.location?.longitude || 0;
+            const coords: [number, number] = [lng, lat];
+            const distKm = calculateDistance(userCoords, coords);
+
+            return {
+              id: p.id || `goog-${lat}-${lng}`,
+              name: p.displayName?.text || 'Location',
+              address: p.formattedAddress || 'United Arab Emirates',
+              category: 'place',
+              coordinates: coords,
+              distanceKm: distKm,
+              isHistory: false,
+            };
+          });
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+      console.warn('Google Places API query failed, falling back to Mapbox/local:', err);
+    }
+  }
+
+  // 2. Local comprehensive match (instant prefix / substring match)
+  const lowerTrimmed = trimmed.toLowerCase();
   const localMatches = UAE_KNOWLEDGE_BASE.filter((p) => {
-    const nameMatch = p.name.toLowerCase().includes(trimmed);
-    const addrMatch = p.address.toLowerCase().includes(trimmed);
+    const nameMatch = p.name.toLowerCase().includes(lowerTrimmed);
+    const addrMatch = p.address.toLowerCase().includes(lowerTrimmed);
     return nameMatch || addrMatch;
   }).map((p) => ({
     ...p,
@@ -155,10 +210,10 @@ export async function searchPlaces(
     return localMatches;
   }
 
+  // 3. Fallback: Mapbox Forward Geocoding with UAE Bounding Box
   try {
-    const encoded = encodeURIComponent(query.trim());
+    const encoded = encodeURIComponent(trimmed);
     const proximity = `${userCoords[0]},${userCoords[1]}`;
-    // UAE bounding box [minX, minY, maxX, maxY]
     const uaeBbox = '51.5,22.5,56.5,26.2';
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?proximity=${proximity}&bbox=${uaeBbox}&country=ae&types=poi,address,neighborhood,locality,place&limit=8&fuzzyMatch=true&autocomplete=true&access_token=${accessToken}`;
 
