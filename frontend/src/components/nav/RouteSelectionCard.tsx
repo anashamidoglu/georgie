@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, ChevronDown, Check, GitFork } from 'lucide-react';
+import { ChevronDown, Check, GitFork } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
 
@@ -21,20 +21,12 @@ export const RouteSelectionCard: React.FC = () => {
       padding="lg"
       className="w-full flex flex-col justify-center select-none font-sf relative transition-all duration-200"
     >
-      {/* Top Header: Destination Name & Route Switcher Button */}
+      {/* Top Header: Prominent Destination Name & Route Switcher Button */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
-            <MapPin className="w-5 h-5" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
-              Destination
-            </span>
-            <span className="text-base font-bold font-sf-display text-white truncate max-w-[190px]">
-              {destinationName || 'Pinned Location'}
-            </span>
-          </div>
+        <div className="flex items-center min-w-0 flex-1 mr-3">
+          <span className="text-xl font-bold font-sf-display text-white truncate max-w-full tracking-tight">
+            {destinationName || 'Pinned Location'}
+          </span>
         </div>
 
         {/* Multi-Route Toggle Button (if more than 1 route) */}
@@ -42,7 +34,7 @@ export const RouteSelectionCard: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold"
+            className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold flex-shrink-0"
           >
             <GitFork className="w-3.5 h-3.5 text-sky-400" />
             <span>{availableRoutes.length} Routes</span>
