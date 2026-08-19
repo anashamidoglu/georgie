@@ -88,29 +88,12 @@ export const NavDockedViewport: React.FC = () => {
           <div />
         )}
 
-        {/* Action Controls: End Route Button, Recenter Button, & Expand/Collapse Toggle */}
+        {/* Action Controls: Recenter Button & Expand/Collapse Toggle */}
         <div 
           className="flex items-center space-x-2 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {/* End Navigation Button */}
-          {navStatus !== 'idle' && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                endNavigation();
-              }}
-              className="glass-btn h-11 px-3.5 text-red-400 hover:text-red-300 flex items-center space-x-1.5 transition-all text-xs font-semibold"
-              aria-label="End Route"
-              title="End Route"
-            >
-              <X className="w-4 h-4" />
-              <span>End</span>
-            </button>
-          )}
-
           {/* Recenter Location Button */}
           <button
             type="button"
@@ -170,7 +153,7 @@ export const NavDockedViewport: React.FC = () => {
               </div>
             </div>
 
-            {/* Clean Start Button & Cancel */}
+            {/* Clean Start Button & Cancel [X] Button */}
             <div className="flex items-center space-x-2.5 flex-shrink-0">
               <button
                 type="button"
@@ -204,12 +187,12 @@ export const NavDockedViewport: React.FC = () => {
       {navStatus === 'navigating' && (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[460px]"
+            className="pointer-events-auto rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[480px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Live ETA Stats (Traffic Colored, Larger & Spaced) */}
-            <div className="flex items-baseline space-x-5">
+            <div className="flex items-baseline space-x-5 mr-3">
               <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
                 {eta.duration}
               </span>
@@ -221,17 +204,18 @@ export const NavDockedViewport: React.FC = () => {
               </span>
             </div>
 
-            {/* End Route Button */}
+            {/* Exit Navigation Button */}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 endNavigation();
               }}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-300 flex items-center justify-center transition-colors"
-              aria-label="End Navigation"
+              className="h-9 px-3.5 rounded-full bg-white/10 hover:bg-red-500/20 text-white/80 hover:text-red-300 flex items-center space-x-1.5 transition-colors text-xs font-semibold flex-shrink-0"
+              aria-label="Exit Navigation"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
+              <span>Exit</span>
             </button>
           </div>
         </div>
