@@ -52,10 +52,10 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
         padding="none"
         className="w-full h-full p-4 sm:p-5 flex flex-col justify-between select-none font-sf overflow-hidden"
       >
-        {/* Top Row: Prominent Album Art + Title/Artist + Animated Equalizer */}
+        {/* Top Row: Prominent Album Art + Large Track Info */}
         <div className="flex items-center space-x-4 w-full flex-shrink-0">
           {/* Album Art */}
-          <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl">
+          <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl">
             {track.artworkUrl ? (
               <img
                 src={track.artworkUrl}
@@ -71,7 +71,7 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
 
           {/* Track Details */}
           <div className="flex flex-col justify-center min-w-0 flex-1 text-left">
-            <span className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug truncate">
+            <span className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug truncate">
               {track.title}
             </span>
             <span className="text-xs sm:text-sm text-white/60 font-semibold truncate mt-1">
@@ -90,52 +90,55 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
           </div>
         </div>
 
-        {/* Middle Row: Scrubber & Timestamps */}
-        <div className="w-full my-auto py-1 flex-shrink-0">
-          <div className="w-full h-2 bg-white/15 rounded-full overflow-hidden mb-1.5">
-            <div
-              className="h-full bg-white rounded-full transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
+        {/* Bottom Cluster: Playback Scrubber directly connected to Media Controls */}
+        <div className="w-full flex flex-col space-y-2 mt-auto pt-2 flex-shrink-0">
+          {/* Scrubber & Timestamps */}
+          <div className="w-full px-1">
+            <div className="w-full h-2 bg-white/15 rounded-full overflow-hidden mb-1">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
+              <span>{formatTime(track.currentTime)}</span>
+              <span>{track.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
+            </div>
           </div>
-          <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
-            <span>{formatTime(track.currentTime)}</span>
-            <span>{track.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
+
+          {/* Transport Controls */}
+          <div className="w-full flex items-center justify-center space-x-8 pt-1 pb-1">
+            <button
+              type="button"
+              onClick={onPrev}
+              aria-label="Previous Track"
+              className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
+            >
+              <SkipBack className="w-7 h-7 sm:w-8 sm:h-8 fill-white/80" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onPlayPause}
+              aria-label={track.isPlaying ? 'Pause' : 'Play'}
+              className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-2xl hover:bg-white/95 active:scale-90 transition-transform flex-shrink-0"
+            >
+              {track.isPlaying ? (
+                <Pause className="w-7 h-7 fill-black" />
+              ) : (
+                <Play className="w-7 h-7 fill-black translate-x-0.5" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={onNext}
+              aria-label="Next Track"
+              className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
+            >
+              <SkipForward className="w-7 h-7 sm:w-8 sm:h-8 fill-white/80" />
+            </button>
           </div>
-        </div>
-
-        {/* Bottom Row: Big Tactile In-Car Transport Controls */}
-        <div className="w-full flex items-center justify-center space-x-8 flex-shrink-0 pt-1 pb-1">
-          <button
-            type="button"
-            onClick={onPrev}
-            aria-label="Previous Track"
-            className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
-          >
-            <SkipBack className="w-7 h-7 sm:w-8 sm:h-8 fill-white/80" />
-          </button>
-
-          <button
-            type="button"
-            onClick={onPlayPause}
-            aria-label={track.isPlaying ? 'Pause' : 'Play'}
-            className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-white text-black flex items-center justify-center shadow-2xl hover:bg-white/95 active:scale-90 transition-transform flex-shrink-0"
-          >
-            {track.isPlaying ? (
-              <Pause className="w-6 h-6 sm:w-7 sm:h-7 fill-black" />
-            ) : (
-              <Play className="w-6 h-6 sm:w-7 sm:h-7 fill-black translate-x-0.5" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={onNext}
-            aria-label="Next Track"
-            className="text-white/70 hover:text-white transition-transform active:scale-90 p-2"
-          >
-            <SkipForward className="w-7 h-7 sm:w-8 sm:h-8 fill-white/80" />
-          </button>
         </div>
       </LiquidGlassCard>
     );
