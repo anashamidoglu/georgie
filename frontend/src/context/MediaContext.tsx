@@ -75,7 +75,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetchCurrentMedia();
   }, [apiBase]);
 
-  // Listen to live backend WebSocket for BlueZ AVRCP track updates
+  // Listen to live backend WebSocket for BlueZ AVRCP track updates (Stable single connection)
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimeout: number | null = null;
@@ -125,16 +125,22 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   setHasActiveMedia(false);
                 } else {
                   const isPlaying = status === 'playing';
-                  setCurrentTrack((prev) => ({
-                    ...prev,
-                    isPlaying: isPlaying,
-                    currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
-                    duration: typeof trackData.duration === 'number' && trackData.duration > 0 ? trackData.duration : prev.duration,
-                  }));
-                  // When paused or playing, session is still active
-                  if (currentTrack.title && currentTrack.title !== 'No Track Playing') {
-                    setHasActiveMedia(true);
-                  }
+                  setCurrentTrack((prev) => {
+                    const hasValidTrack = Boolean(
+                      prev.title &&
+                      prev.title !== 'No Track Playing' &&
+                      prev.title !== 'Unknown Track'
+                    );
+                    if (hasValidTrack) {
+                      setHasActiveMedia(true);
+                    }
+                    return {
+                      ...prev,
+                      isPlaying: isPlaying,
+                      currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
+                      duration: typeof trackData.duration === 'number' && trackData.duration > 0 ? trackData.duration : prev.duration,
+                    };
+                  });
                 }
               }
             }
@@ -164,7 +170,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ws.close();
       }
     };
-  }, [backendHost, backendPort, currentTrack.title]);
+  }, [backendHost, backendPort]);
 
   // Track position timer
   useEffect(() => {
