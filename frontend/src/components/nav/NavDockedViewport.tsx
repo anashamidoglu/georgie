@@ -8,6 +8,8 @@ import {
   Search,
   Plus,
   RotateCcw,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
@@ -33,6 +35,8 @@ export const NavDockedViewport: React.FC = () => {
     endNavigation,
     recenterMap,
     isRerouting,
+    isVoiceMuted,
+    toggleVoiceMute,
   } = useNav();
 
   const trafficColorClass = activeRoute?.traffic?.colorClass || 'text-emerald-400';
@@ -120,37 +124,61 @@ export const NavDockedViewport: React.FC = () => {
           )}
         </div>
 
-        {/* Action Controls: Recenter Button & Expand/Collapse Toggle */}
+        {/* Action Controls: Recenter Button, Expand Toggle, and Active Mute Button */}
         <div 
-          className="flex items-center space-x-2 pointer-events-auto flex-shrink-0"
+          className="flex flex-col items-end space-y-3 pointer-events-auto flex-shrink-0"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {/* Recenter Location Button */}
-          <button
-            type="button"
-            onClick={recenterMap}
-            className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
-            aria-label="Recenter Location"
-            title="Recenter Location"
-          >
-            <Navigation className="w-5 h-5" />
-          </button>
+          {/* Top Button Group: Recenter & Expand Toggle */}
+          <div className="flex items-center space-x-2.5">
+            {/* Recenter Location Button */}
+            <button
+              type="button"
+              onClick={recenterMap}
+              className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
+              aria-label="Recenter Location"
+              title="Recenter Location"
+            >
+              <Navigation className="w-5 h-5" />
+            </button>
 
-          {/* Expand / Collapse Full Screen Nav */}
-          <button
-            type="button"
-            onClick={() => setIsNavExpanded(!isNavExpanded)}
-            className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
-            aria-label={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
-            title={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
-          >
-            {isNavExpanded ? (
-              <Minimize2 className="w-5 h-5" />
-            ) : (
-              <Maximize2 className="w-5 h-5" />
-            )}
-          </button>
+            {/* Expand / Collapse Full Screen Nav */}
+            <button
+              type="button"
+              onClick={() => setIsNavExpanded(!isNavExpanded)}
+              className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
+              aria-label={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
+              title={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
+            >
+              {isNavExpanded ? (
+                <Minimize2 className="w-5 h-5" />
+              ) : (
+                <Maximize2 className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+
+          {/* Voice Guidance Mute / Unmute Button (Placed below Expand with decent space, only during active navigation) */}
+          {navStatus === 'navigating' && (
+            <button
+              type="button"
+              onClick={toggleVoiceMute}
+              className={`glass-btn w-11 h-11 flex items-center justify-center transition-all shadow-xl ${
+                isVoiceMuted
+                  ? 'text-white/40 border-white/10 hover:text-white hover:bg-white/10'
+                  : 'text-sky-300 border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25'
+              }`}
+              aria-label={isVoiceMuted ? 'Unmute Voice Guidance' : 'Mute Voice Guidance'}
+              title={isVoiceMuted ? 'Voice Guidance Muted (Click to Unmute)' : 'Voice Guidance Active (Click to Mute)'}
+            >
+              {isVoiceMuted ? (
+                <VolumeX className="w-5 h-5 text-white/50" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-sky-300" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 

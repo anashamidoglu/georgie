@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
@@ -11,8 +11,6 @@ export const NavPreviewCard: React.FC = () => {
     primaryManeuver,
     inspectedStep,
     clearInspectedStep,
-    isVoiceMuted,
-    toggleVoiceMute,
   } = useNav();
 
   // If a specific step is being inspected from the list, display that step
@@ -29,18 +27,18 @@ export const NavPreviewCard: React.FC = () => {
       padding="lg"
       className="w-full flex flex-col justify-center select-none font-sf relative overflow-hidden transition-all duration-200"
     >
-      {/* Inspected Step Header with Back Button */}
+      {/* Inspected Step Header with Bigger Text and Overview Button */}
       {inspectedStep && (
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 font-sf">
+        <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+          <span className="text-xs font-bold uppercase tracking-wider text-sky-400 font-sf">
             Step {inspectedStep.id + 1} Preview
           </span>
           <button
             type="button"
             onClick={clearInspectedStep}
-            className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition-colors"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all active:scale-95 shadow-md border border-white/15"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
+            <ArrowLeft className="w-4 h-4" />
             <span>Overview</span>
           </button>
         </div>
@@ -60,9 +58,9 @@ export const NavPreviewCard: React.FC = () => {
 
         {/* Turn Distance & Natural Google-Style Instruction Text */}
         <div className="flex flex-col justify-center min-w-0 flex-1">
-          {/* Distance with Highway Shield / Exit Badges & Voice Mute Button */}
+          {/* Distance with Highway Shield / Exit Badges */}
           <div className="flex items-center justify-between w-full space-x-3">
-            <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
+            <span className="text-3xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
               {distance}
             </span>
 
@@ -76,30 +74,11 @@ export const NavPreviewCard: React.FC = () => {
               {exitNumber && (
                 <ExitShield exitNumber={exitNumber} size="md" />
               )}
-
-              {/* 1-Tap Voice Guidance Mute / Unmute Toggle */}
-              <button
-                type="button"
-                onClick={toggleVoiceMute}
-                aria-label={isVoiceMuted ? 'Unmute Voice Guidance' : 'Mute Voice Guidance'}
-                className={`p-1.5 rounded-full transition-all duration-200 ${
-                  isVoiceMuted
-                    ? 'bg-white/10 text-white/40 hover:text-white hover:bg-white/20'
-                    : 'bg-sky-500/20 text-sky-300 border border-sky-500/40 hover:bg-sky-500/30'
-                }`}
-                title={isVoiceMuted ? 'Voice Guidance Muted (Click to Unmute)' : 'Voice Guidance Active (Click to Mute)'}
-              >
-                {isVoiceMuted ? (
-                  <VolumeX className="w-3.5 h-3.5" />
-                ) : (
-                  <Volume2 className="w-3.5 h-3.5" />
-                )}
-              </button>
             </div>
           </div>
 
           {/* Full Natural Actionable Instruction Text */}
-          <span className="text-sm font-semibold text-white/90 tracking-normal mt-1.5 leading-snug line-clamp-2">
+          <span className="text-base font-semibold text-white/95 tracking-normal mt-1.5 leading-snug line-clamp-2">
             {instruction}
           </span>
         </div>

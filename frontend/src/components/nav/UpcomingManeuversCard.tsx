@@ -14,7 +14,7 @@ export const UpcomingManeuversCard: React.FC = () => {
       className="w-full h-full min-h-0 max-h-full flex flex-col overflow-hidden select-none font-sf"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5 px-1 flex-shrink-0">
+      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5 px-2 flex-shrink-0">
         <span className="text-xs font-bold text-white/60 uppercase tracking-wider font-sf">
           Upcoming Steps
         </span>
@@ -24,7 +24,7 @@ export const UpcomingManeuversCard: React.FC = () => {
       </div>
 
       {/* Scrollable list of interactive steps */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-1 py-2 space-y-2 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
+      <div className="flex-1 min-h-0 overflow-y-auto px-1.5 py-2 space-y-2.5 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
         {upcomingSteps.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-4 text-white/40">
             <span className="text-sm font-semibold text-white/70">
@@ -43,9 +43,9 @@ export const UpcomingManeuversCard: React.FC = () => {
                 key={step.id ?? idx}
                 type="button"
                 onClick={() => inspectStep(step)}
-                className={`w-full text-left flex items-start space-x-4 p-2.5 rounded-2xl transition-all duration-150 group ${
+                className={`w-full text-left flex items-start space-x-4 p-3 rounded-2xl transition-all duration-150 group ${
                   isSelected
-                    ? 'bg-sky-500/20 border border-sky-500/50 shadow-xl scale-[1.01]'
+                    ? 'bg-sky-500/20 border border-sky-500/60 shadow-xl'
                     : step.isWaypointStop
                     ? 'bg-amber-500/15 border border-amber-500/40 hover:bg-amber-500/25'
                     : 'bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08]'
