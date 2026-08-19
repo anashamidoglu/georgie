@@ -244,18 +244,18 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (mapInstance) {
       if (navStatus === 'preview' && activeRoute?.rawGeometry) {
-        const coordinates = activeRoute.rawGeometry.coordinates;
-        if (coordinates.length > 0) {
-          const firstCoord = coordinates[0] as [number, number];
-          const bounds = new (window as any).mapboxgl.LngLatBounds(firstCoord, firstCoord);
-          coordinates.forEach((coord: any) => bounds.extend(coord));
-          mapInstance.fitBounds(bounds, {
-            padding: { top: 60, bottom: 85, left: 45, right: 45 },
-            maxZoom: 15,
-            pitch: 15,
-            duration: 700,
-          });
-        }
+        const startCoord = positionRef.current.coords;
+        const bounds = new (window as any).mapboxgl.LngLatBounds(startCoord, startCoord);
+        availableRoutes.forEach((r) => {
+          r.rawGeometry?.coordinates.forEach((coord: any) => bounds.extend(coord));
+        });
+        mapInstance.fitBounds(bounds, {
+          padding: { top: 60, bottom: 90, left: 50, right: 50 },
+          maxZoom: 15,
+          pitch: 15,
+          bearing: 0,
+          duration: 800,
+        });
       } else if (positionRef.current.coords) {
         const bearing = positionRef.current.heading || 0;
         mapInstance.easeTo({
@@ -263,7 +263,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           zoom: navStatus === 'navigating' ? 16.5 : 15.5,
           pitch: navStatus === 'navigating' ? 58 : 50,
           bearing: bearing,
-          duration: 600,
+          duration: 800,
         });
       }
     }
