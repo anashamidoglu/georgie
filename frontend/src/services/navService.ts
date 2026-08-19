@@ -276,22 +276,46 @@ function parseManeuverStep(
   const prevBannerPrimary = prevStep?.bannerInstructions?.[0]?.primary;
   const bannerSub = step.bannerInstructions?.[0]?.sub;
 
-  const rawType = bannerPrimary?.type || step.maneuver?.type || 'turn';
-  const rawModifier = bannerPrimary?.modifier || step.maneuver?.modifier || 'straight';
-
-  let type = rawType;
-  let modifier = rawModifier;
-
-  if (isWaypointStop && stopName) {
-    type = 'destination';
-    modifier = 'destination';
-  }
+  const rawType = step.maneuver?.type || bannerPrimary?.type || 'turn';
+  const rawModifier = step.maneuver?.modifier || bannerPrimary?.modifier || 'straight';
 
   const instruction = isWaypointStop && stopName
     ? `${stopName} reached`
     : step.maneuver?.instruction ||
       bannerPrimary?.text ||
       (step.name ? `Continue onto ${step.name}` : 'Continue on route');
+
+  let type = rawType;
+  let modifier = rawModifier;
+
+  // Strict synchronization: guarantee that arrow matches the actual turn direction in instruction
+  const instrLower = (instruction || '').toLowerCase();
+  if (instrLower.includes('roundabout') || instrLower.includes('rotary')) {
+    type = 'roundabout';
+  } else if (type === 'roundabout' && !instrLower.includes('roundabout') && !instrLower.includes('rotary')) {
+    type = 'turn';
+  }
+
+  if (instrLower.includes('u-turn') || instrLower.includes('uturn')) {
+    modifier = 'uturn';
+  } else if (instrLower.includes('sharp right')) {
+    modifier = 'sharp right';
+  } else if (instrLower.includes('sharp left')) {
+    modifier = 'sharp left';
+  } else if (instrLower.includes('slight right') || instrLower.includes('keep right') || instrLower.includes('bear right')) {
+    modifier = 'slight right';
+  } else if (instrLower.includes('slight left') || instrLower.includes('keep left') || instrLower.includes('bear left')) {
+    modifier = 'slight left';
+  } else if (instrLower.includes('turn right') || instrLower.includes('right onto') || instrLower.includes('take the right') || instrLower.startsWith('turn right')) {
+    modifier = 'right';
+  } else if (instrLower.includes('turn left') || instrLower.includes('left onto') || instrLower.includes('take the left') || instrLower.startsWith('turn left')) {
+    modifier = 'left';
+  }
+
+  if (isWaypointStop && stopName) {
+    type = 'destination';
+    modifier = 'destination';
+  }
 
   const roadName =
     step.name ||
