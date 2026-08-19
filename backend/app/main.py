@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import os
 
@@ -41,13 +42,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Mount cached artwork static folder
 os.makedirs(settings.ARTWORK_CACHE_DIR, exist_ok=True)
 app.mount("/static/art", StaticFiles(directory=settings.ARTWORK_CACHE_DIR), name="artwork")
 
-# Include Routers
+# Include API & WebSocket Routers
 app.include_router(ws.router)
 app.include_router(nav.router)
 app.include_router(media.router)
@@ -62,3 +64,8 @@ async def health_check():
         "mock_mode": settings.MOCK_MODE,
         "env": settings.ENV
     }
+
+# Mount compiled production frontend dist if present (Single unified service for Pi kiosk)
+dist_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "dist")
+if os.path.exists(dist_dir):
+    app.mount("/", StaticFiles(directory=dist_dir, html=True), name="frontend")

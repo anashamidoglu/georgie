@@ -1,21 +1,22 @@
 #!/bin/bash
 # Chromium Kiosk Launcher for Georgie Carputer on Raspberry Pi 4
+# Runs upon X11 desktop session start
 
-# Hide mouse cursor when inactive
+# 1. Hide mouse cursor after 0.1s of inactivity
 unclutter -idle 0.1 -root &
 
-# Disable screen blanking / DPMS
+# 2. Disable screen blanking, sleep, and DPMS
 xset s off
 xset -dpms
 xset s noblank
 
-# Wait for local FastAPI server to become healthy
+# 3. Wait for Georgie FastAPI service to become healthy
 until curl -s http://localhost:8000/health > /dev/null; do
-    echo "Waiting for Georgie backend..."
+    echo "Waiting for Georgie backend service on port 8000..."
     sleep 0.5
 done
 
-# Launch Chromium in dedicated GPU hardware-accelerated kiosk mode
+# 4. Launch Chromium in hardware-accelerated GPU Kiosk mode
 chromium-browser \
   --kiosk \
   --enable-gpu-rasterization \
@@ -29,4 +30,5 @@ chromium-browser \
   --disable-pinch \
   --overscroll-history-navigation=0 \
   --check-for-update-interval=31536000 \
-  http://localhost:5173
+  --touch-events=enabled \
+  http://localhost:8000

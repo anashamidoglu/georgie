@@ -1,0 +1,20 @@
+[Unit]
+Description=Georgie Carputer FastAPI Backend Service
+After=network.target sound.target bluetooth.target ofono.service pipewire.service
+Wants=bluetooth.target ofono.service pipewire.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Georgie
+Environment="PYTHONUNBUFFERED=1"
+Environment="MOCK_MODE=false"
+Environment="PATH=/home/pi/Georgie/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/pi/Georgie/backend/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
