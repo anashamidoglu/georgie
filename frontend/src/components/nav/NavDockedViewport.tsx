@@ -33,7 +33,7 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 2. Top Floating Overlays */}
       <div className="absolute top-0 left-0 right-0 p-3.5 flex items-start justify-between pointer-events-none z-20">
-        {/* Floating Turn Instruction Banner when Map is Expanded & Navigating */}
+        {/* Left Section: Turn Banner (Navigating) or Google Maps Search Bar (Expanded Idle) or Search Button (Docked) */}
         {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
           <div 
             className="pointer-events-auto px-6 py-3.5 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex flex-col space-y-2 font-sf select-none max-w-[420px]"
@@ -81,30 +81,44 @@ export const NavDockedViewport: React.FC = () => {
               </div>
             )}
           </div>
-        ) : (
-          <div />
-        )}
-
-        {/* Action Controls: Search Button, Recenter Button & Expand/Collapse Toggle */}
-        <div 
-          className="flex items-center space-x-2 pointer-events-auto"
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {/* Search Destinations & POIs Button */}
+        ) : isNavExpanded && navStatus === 'idle' && !isSearchOpen ? (
+          /* Actual Google Maps Floating Search Bar in Expanded Idle View */
+          <div
+            className="pointer-events-auto w-[340px] h-11 px-4 rounded-2xl bg-[#13141a]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-3 cursor-pointer hover:bg-[#1a1b22] hover:border-white/30 transition-all font-sf select-none group"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSearchOpen(true);
+            }}
+          >
+            <Search className="w-4 h-4 text-white group-hover:scale-105 transition-transform" />
+            <span className="text-sm font-medium text-white/50 group-hover:text-white/80 transition-colors">
+              Search
+            </span>
+          </div>
+        ) : !isSearchOpen && navStatus !== 'navigating' ? (
+          /* Compact Left Search Button in Docked View */
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               setIsSearchOpen(true);
             }}
-            className="glass-btn w-11 h-11 text-white/80 hover:text-white flex items-center justify-center transition-all"
+            className="pointer-events-auto glass-btn w-11 h-11 text-white hover:text-white flex items-center justify-center transition-all"
             aria-label="Search Destinations"
-            title="Search Destinations & POIs"
+            title="Search Destinations"
           >
-            <Search className="w-5 h-5 text-sky-400" />
+            <Search className="w-5 h-5 text-white" />
           </button>
+        ) : (
+          <div />
+        )}
 
+        {/* Action Controls: Recenter Button & Expand/Collapse Toggle */}
+        <div 
+          className="flex items-center space-x-2 pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {/* Recenter Location Button */}
           <button
             type="button"

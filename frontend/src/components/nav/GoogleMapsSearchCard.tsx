@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Clock, MapPin, Home, GraduationCap, CornerUpRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { Search, X, Clock, MapPin, Home, GraduationCap, ArrowLeft, Loader2 } from 'lucide-react';
 import {
   searchPlaces,
   SAVED_PLACES,
@@ -176,27 +176,12 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
               <button
                 type="button"
                 onClick={() => inputRef.current?.focus()}
-                className="w-8 h-8 rounded-full text-white/50 hover:text-white flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-full text-white/70 hover:text-white flex items-center justify-center transition-colors"
                 aria-label="Search"
               >
-                <Search className="w-4 h-4" />
+                <Search className="w-4 h-4 text-white" />
               </button>
             )}
-
-            <div className="w-[1px] h-4 bg-white/20 mx-0.5" />
-
-            <button
-              type="button"
-              onClick={() => {
-                if (results[0]) {
-                  handleSelectPlace(results[0]);
-                }
-              }}
-              className="w-8 h-8 rounded-full text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 flex items-center justify-center transition-colors"
-              title="Directions"
-            >
-              <CornerUpRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
