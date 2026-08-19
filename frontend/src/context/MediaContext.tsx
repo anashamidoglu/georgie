@@ -47,18 +47,19 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             trackData &&
             trackData.title &&
             trackData.title !== 'No Track Playing' &&
-            trackData.title !== 'Unknown Track'
+            trackData.title !== 'Unknown Track' &&
+            trackData.title.trim() !== ''
           );
-          const isPlaying = trackData?.status === 'playing';
+          const isSessionActive = isRealTrack && trackData?.status !== 'stopped';
 
-          if (isRealTrack && isPlaying) {
+          if (isSessionActive) {
             setCurrentTrack({
               title: trackData.title,
               artist: trackData.artist || 'Unknown Artist',
               album: trackData.album || '',
               duration: trackData.duration || 0,
               currentTime: trackData.position || 0,
-              isPlaying: true,
+              isPlaying: trackData.status === 'playing',
               artworkUrl: trackData.artwork_url,
             });
             setHasActiveMedia(true);
@@ -91,21 +92,22 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (data.event === 'media:track_changed') {
               const trackData = data.data;
               if (trackData) {
-                const isPlaying = trackData.status === 'playing';
                 const isRealTrack = Boolean(
                   trackData.title &&
                   trackData.title !== 'No Track Playing' &&
-                  trackData.title !== 'Unknown Track'
+                  trackData.title !== 'Unknown Track' &&
+                  trackData.title.trim() !== ''
                 );
+                const isSessionActive = isRealTrack && trackData.status !== 'stopped';
 
-                if (isRealTrack && isPlaying) {
+                if (isSessionActive) {
                   setCurrentTrack({
                     title: trackData.title,
                     artist: trackData.artist || 'Unknown Artist',
                     album: trackData.album || '',
                     duration: trackData.duration || 0,
                     currentTime: trackData.position || 0,
-                    isPlaying: true,
+                    isPlaying: trackData.status === 'playing',
                     artworkUrl: trackData.artwork_url,
                   });
                   setHasActiveMedia(true);
@@ -117,13 +119,21 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             } else if (data.event === 'media:playback_state') {
               const trackData = data.data;
               if (trackData) {
-                const isPlaying = trackData.status === 'playing';
-                setCurrentTrack((prev) => ({
-                  ...prev,
-                  isPlaying: isPlaying,
-                }));
-                // Auto-collapse / auto-expand based on active playback
-                setHasActiveMedia(isPlaying);
+                const status = trackData.status || 'stopped';
+                if (status === 'stopped') {
+                  setCurrentTrack(DEFAULT_TRACK);
+                  setHasActiveMedia(false);
+                } else {
+                  const isPlaying = status === 'playing';
+                  setCurrentTrack((prev) => ({
+                    ...prev,
+                    isPlaying: isPlaying,
+                  }));
+                  // When paused or playing, session is still active
+                  if (currentTrack.title && currentTrack.title !== 'No Track Playing') {
+                    setHasActiveMedia(true);
+                  }
+                }
               }
             }
           } catch (e) {
@@ -152,7 +162,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ws.close();
       }
     };
-  }, [backendHost, backendPort]);
+  }, [backendHost, backendPort, currentTrack.title]);
 
   // Track position timer
   useEffect(() => {
@@ -183,7 +193,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const togglePlayPause = async () => {
     const willPlay = !currentTrack.isPlaying;
     setCurrentTrack((prev) => ({ ...prev, isPlaying: willPlay }));
-    setHasActiveMedia(willPlay);
     try {
       await fetch(`${apiBase}/api/media/${willPlay ? 'play' : 'pause'}`, { method: 'POST' });
     } catch {
@@ -193,7 +202,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const pauseMedia = async () => {
     setCurrentTrack((prev) => ({ ...prev, isPlaying: false }));
-    setHasActiveMedia(false);
     try {
       await fetch(`${apiBase}/api/media/pause`, { method: 'POST' });
     } catch {
@@ -203,7 +211,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const resumeMedia = async () => {
     setCurrentTrack((prev) => ({ ...prev, isPlaying: true }));
-    setHasActiveMedia(true);
     try {
       await fetch(`${apiBase}/api/media/play`, { method: 'POST' });
     } catch {
