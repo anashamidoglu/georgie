@@ -11,10 +11,12 @@ import {
   Volume2,
   RotateCcw,
   MapPin,
+  Phone,
 } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
 import { useMedia } from '../../context/MediaContext';
+import { useCall } from '../../context/CallContext';
 import type { ConnectivityStatus } from '../../types';
 
 interface StatusBarProps {
@@ -52,6 +54,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     nextTrack,
     prevTrack,
   } = useMedia();
+
+  const { simulateIncomingCall } = useCall();
 
   useEffect(() => {
     const updateTime = () => {
@@ -104,7 +108,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   return (
     <header className="w-full h-12 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-40 font-sf relative">
-      {/* Left: Navigation Simulator & Miss Turn Dev Tool */}
+      {/* Left: Navigation Simulator, Miss Turn, and Phone Call Dev Tools */}
       <div className="flex items-center space-x-2">
         {/* Driving Step Simulator (Active when a route is active) */}
         {allSteps.length > 0 && (
@@ -133,10 +137,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           </div>
         )}
 
-        {/* Miss Turn / Off-Route Simulation Dev Buttons */}
+        {/* Miss Turn & Reset Position (Active during navigation) */}
         {navStatus !== 'idle' && (
           <div className="flex items-center space-x-1.5 animate-in fade-in duration-150">
-            {/* Simulate Missing Turn (Drives 90m down straight/wrong road) */}
             <button
               type="button"
               onClick={simulateOffRoute}
@@ -147,7 +150,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               <span>Miss Turn</span>
             </button>
 
-            {/* Reset Vehicle Puck to current turn */}
             <button
               type="button"
               onClick={resetSimulatedPosition}
@@ -159,6 +161,17 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             </button>
           </div>
         )}
+
+        {/* Simulate Incoming Call Dev Trigger */}
+        <button
+          type="button"
+          onClick={() => simulateIncomingCall('Sarah', '+971 50 123 4567')}
+          className="text-[9px] font-sf font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1 transition-colors active:scale-95"
+          title="Simulate incoming call from Sarah"
+        >
+          <Phone className="w-2.5 h-2.5 fill-current" />
+          <span>Test Call</span>
+        </button>
       </div>
 
       {/* Center/Right: Touch-Friendly Media Pill + Connectivity & Clock */}

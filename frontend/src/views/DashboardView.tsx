@@ -4,11 +4,13 @@ import { NavPreviewCard } from '../components/nav/NavPreviewCard';
 import { RouteSelectionCard } from '../components/nav/RouteSelectionCard';
 import { DateTimeCard } from '../components/common/DateTimeCard';
 import { MediaDockedCard } from '../components/media/MediaDockedCard';
+import { CallDockedCard } from '../components/calls/CallDockedCard';
 import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
 import { Music, PlusCircle } from 'lucide-react';
 import { useNav } from '../context/NavContext';
 import { useMedia } from '../context/MediaContext';
+import { useCall } from '../context/CallContext';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -27,18 +29,23 @@ export const DashboardView: React.FC = () => {
     prevTrack,
   } = useMedia();
 
+  const { callStatus } = useCall();
+
   // Dynamic Layout Rule:
-  // - When Nav is idle and media is OFF -> Expanded full-bleed navigation map is default.
-  // - When Nav is idle and media is ON -> Automatically resizes to split view (Date + Media).
+  // - When a call is incoming/active and Nav is idle -> Expand to split view so Call card is prominent.
+  // - When Nav is idle, no call, and media is OFF -> Expanded full-bleed navigation map is default.
+  // - When Nav is idle and media is ON -> Resizes to split view (Date + Media).
   useEffect(() => {
     if (navStatus === 'idle') {
-      if (!hasActiveMedia) {
+      if (callStatus !== 'idle') {
+        setIsNavExpanded(false);
+      } else if (!hasActiveMedia) {
         setIsNavExpanded(true);
       } else {
         setIsNavExpanded(false);
       }
     }
-  }, [hasActiveMedia, navStatus, setIsNavExpanded]);
+  }, [hasActiveMedia, navStatus, callStatus, setIsNavExpanded]);
 
   return (
     <div className="w-full h-full p-3.5 relative overflow-hidden flex flex-col justify-between max-h-full">
@@ -53,7 +60,7 @@ export const DashboardView: React.FC = () => {
           <NavDockedViewport />
         </div>
 
-        {/* Right Column: Stacked Turn/Route/Date Card & Media/Turns/Placeholder */}
+        {/* Right Column: Stacked Turn/Route/Date Card & Call/Media/Turns/Placeholder */}
         <div
           className={`h-full min-h-0 max-h-full flex flex-col space-y-3.5 overflow-hidden transition-[width,opacity,transform,padding,margin] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
             isNavExpanded
@@ -72,11 +79,14 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom Right: Upcoming Steps (if Nav active/preview) OR Media Card */}
+          {/* Bottom Right: Upcoming Steps (if Nav active/preview) OR Call Card OR Media Card */}
           <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden">
             {navStatus !== 'idle' ? (
               /* Nav preview or active navigation -> Full upcoming steps */
               <UpcomingManeuversCard />
+            ) : callStatus !== 'idle' ? (
+              /* Phone Call in progress or incoming -> Takes place of Media Card */
+              <CallDockedCard />
             ) : hasActiveMedia ? (
               /* When Nav is idle & media is playing -> Full Media Card */
               <MediaDockedCard

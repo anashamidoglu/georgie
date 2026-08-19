@@ -7,6 +7,8 @@ interface MediaContextType {
   currentTrack: MediaTrack;
   setCurrentTrack: React.Dispatch<React.SetStateAction<MediaTrack>>;
   togglePlayPause: () => void;
+  pauseMedia: () => void;
+  resumeMedia: () => void;
   nextTrack: () => void;
   prevTrack: () => void;
 }
@@ -44,6 +46,20 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
   };
 
+  const pauseMedia = () => {
+    setCurrentTrack((prev) => ({
+      ...prev,
+      isPlaying: false,
+    }));
+  };
+
+  const resumeMedia = () => {
+    setCurrentTrack((prev) => ({
+      ...prev,
+      isPlaying: true,
+    }));
+  };
+
   const nextTrack = () => {
     setCurrentTrack(NEXT_TRACK);
   };
@@ -60,6 +76,8 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentTrack,
         setCurrentTrack,
         togglePlayPause,
+        pauseMedia,
+        resumeMedia,
         nextTrack,
         prevTrack,
       }}

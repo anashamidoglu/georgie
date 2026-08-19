@@ -5,10 +5,16 @@ import { DashboardView } from './views/DashboardView';
 import { SettingsView } from './views/SettingsView';
 import { NavProvider, useNav } from './context/NavContext';
 import { MediaProvider } from './context/MediaContext';
+import { CallProvider, useCall } from './context/CallContext';
+import { CallInterruptBanner } from './components/calls/CallInterruptBanner';
 
 const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'nav' | 'media' | 'settings'>('dashboard');
-  const { isNavExpanded, setIsNavExpanded } = useNav();
+  const { isNavExpanded, setIsNavExpanded, navStatus } = useNav();
+  const { callStatus } = useCall();
+
+  // Show floating call interrupt banner when nav is expanded or active, and a call is ongoing/incoming
+  const showExpandedCallBanner = (isNavExpanded || navStatus !== 'idle') && callStatus !== 'idle';
 
   return (
     <main className="w-screen h-screen bg-black flex items-center justify-center overflow-hidden font-sf">
@@ -19,6 +25,13 @@ const AppShell: React.FC = () => {
       >
         {/* Top Status Bar */}
         <StatusBar />
+
+        {/* Global Floating Call Interrupt Banner (Over Expanded Navigation / Active Map) */}
+        {showExpandedCallBanner && (
+          <div className="absolute top-14 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+            <CallInterruptBanner />
+          </div>
+        )}
 
         {/* Main Content Area */}
         <section className="flex-1 w-full relative overflow-hidden">
@@ -48,11 +61,13 @@ const AppShell: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <NavProvider>
-      <MediaProvider>
-        <AppShell />
-      </MediaProvider>
-    </NavProvider>
+    <MediaProvider>
+      <CallProvider>
+        <NavProvider>
+          <AppShell />
+        </NavProvider>
+      </CallProvider>
+    </MediaProvider>
   );
 };
 
