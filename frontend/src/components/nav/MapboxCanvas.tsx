@@ -377,17 +377,19 @@ export const MapboxCanvas: React.FC = () => {
     const coreLayerId = 'active-route-core';
 
     if (navStatus !== 'idle' && activeRoute) {
-      // 1. Render Alternative Routes (Unselected candidate paths)
+      // 1. Render Alternative Routes (ONLY in preview mode for candidate selection)
       const altFeatures: any[] = [];
-      availableRoutes.forEach((route, idx) => {
-        if (idx !== selectedRouteIndex && route.rawGeometry) {
-          altFeatures.push({
-            type: 'Feature',
-            properties: { routeId: idx },
-            geometry: route.rawGeometry,
-          });
-        }
-      });
+      if (navStatus === 'preview') {
+        availableRoutes.forEach((route, idx) => {
+          if (idx !== selectedRouteIndex && route.rawGeometry) {
+            altFeatures.push({
+              type: 'Feature',
+              properties: { routeId: idx },
+              geometry: route.rawGeometry,
+            });
+          }
+        });
+      }
 
       const altGeoJson = {
         type: 'FeatureCollection',
