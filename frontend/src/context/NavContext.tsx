@@ -202,13 +202,27 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!maneuver) return '';
     let instr = maneuver.instruction || maneuver.roadName || 'Continue on route';
 
-    // 1. Strip slashes and bilingual Arabic duplicate if English is present (e.g. "Al Khail Rd / شارع الخيل" -> "Al Khail Rd")
+    // 1. Handle multi-part slashes preserving route codes (e.g. "Al Asayel St / شارع الأصايل / S128" -> "Al Asayel St, S 128")
     if (instr.includes('/')) {
-      const parts = instr.split('/').map((p) => p.trim());
-      const englishPart = parts.find((p) => /[a-zA-Z]/.test(p));
-      instr = englishPart || parts[0];
+      const rawParts = instr.split('/').map((p) => p.trim()).filter(Boolean);
+      const processed: string[] = [];
+      const seen = new Set<string>();
+
+      rawParts.forEach((p) => {
+        const isRouteCode = /^[A-Za-z]\d+$/.test(p);
+        const hasEnglish = /[a-zA-Z]/.test(p);
+        if (isRouteCode || hasEnglish) {
+          const key = p.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (!seen.has(key)) {
+            seen.add(key);
+            processed.push(p);
+          }
+        } else if (processed.length === 0) {
+          processed.push(p);
+        }
+      });
+      instr = processed.length > 0 ? processed.join(', ') : rawParts[0];
     }
-    instr = instr.replace(/\//g, ' ');
 
     // 2. Expand metric distance abbreviations (e.g. "500 m" -> "500 meters")
     let cleanDist = prefixDistance;

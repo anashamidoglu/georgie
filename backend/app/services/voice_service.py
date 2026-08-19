@@ -6,12 +6,12 @@ import re
 import tempfile
 import time
 import subprocess
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from .audio_ducking import audio_ducker
 
 logger = logging.getLogger(__name__)
 
-# Common Arabic navigation terms transliterated to clean English phonetics
+# Known UAE Arabic navigation and landmark terms transliterated to clean English phonetics
 ARABIC_ROAD_TERMS = {
     'شارع': 'Street',
     'طريق': 'Road',
@@ -24,55 +24,134 @@ ARABIC_ROAD_TERMS = {
     'شاطئ': 'Beach',
     'برج': 'Burj',
     'ميدان': 'Meydan',
+    'الأصايل': 'Al Asayel',
+    'الاصايل': 'Al Asayel',
     'المركز المالي': 'Financial Centre',
     'الشيخ زايد': 'Sheikh Zayed',
+    'الشيخ محمد بن راشد': 'Sheikh Mohammed bin Rashid',
+    'الشيخ خليفة': 'Sheikh Khalifa',
+    'الشيخ راشد': 'Sheikh Rashid',
     'الخيل': 'Al Khail',
     'جميرا': 'Jumeirah',
+    'الصفا': 'Al Safa',
+    'الوصل': 'Al Wasl',
+    'السطوة': 'Al Satwa',
+    'القوز': 'Al Quoz',
+    'البرشاء': 'Al Barsha',
+    'النهدة': 'Al Nahda',
+    'القصيص': 'Al Qusais',
+    'الممزر': 'Al Mamzar',
+    'الكرامة': 'Al Karama',
+    'ديرة': 'Deira',
+    'بر دبي': 'Bur Dubai',
+    'حصة': 'Hessa',
+    'أم سقيم': 'Umm Suqeim',
+    'ام سقيم': 'Umm Suqeim',
+    'القدرة': 'Al Qudra',
+    'الرباط': 'Al Rebat',
+    'مطار': 'Airport',
+    'الشارقة': 'Sharjah',
+    'عجمان': 'Ajman',
+    'رأس الخور': 'Ras Al Khor',
+    'راس الخور': 'Ras Al Khor',
+    'المرابع العربية': 'Arabian Ranches',
+    'المدينة الأكاديمية': 'Academic City',
+    'واحة السيليكون': 'Silicon Oasis',
+    'الورقاء': 'Al Warqa',
+    'مردف': 'Mirdif',
+    'ند الحمر': 'Nad Al Hamar',
+    'عود ميثاء': 'Oud Metha',
+    'زعبيل': 'Za\'abeel',
+    'المستقبل': 'Al Mustaqbal',
+    'المركاض': 'Al Markadh',
+    'الخليج التجاري': 'Business Bay',
+    'مرسى دبي': 'Dubai Marina',
+    'نخلة جميرا': 'Palm Jumeirah',
+    'قرية جميرا': 'JVC',
     'دبي': 'Dubai',
     'أبوظبي': 'Abu Dhabi',
-    'الشارقة': 'Sharjah',
+    'ابوظبي': 'Abu Dhabi',
     'العين': 'Al Ain',
-    'عجمان': 'Ajman',
 }
 
-def is_predominantly_arabic(text: str) -> bool:
-    """Checks if a string contains mostly Arabic unicode characters."""
-    arabic_chars = len(re.findall(r'[\u0600-\u06FF]', text))
-    latin_chars = len(re.findall(r'[a-zA-Z]', text))
-    return arabic_chars > latin_chars and arabic_chars > 0
+# Phonetic character mapping for unlisted Arabic words
+ARABIC_CHAR_MAP = {
+    'ا': 'a', 'أ': 'a', 'إ': 'i', 'آ': 'aa', 'ء': "'",
+    'ب': 'b', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h',
+    'خ': 'kh', 'د': 'd', 'ذ': 'dh', 'ر': 'r', 'ز': 'z',
+    'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd', 'ط': 't',
+    'ظ': 'z', 'ع': "'a", 'غ': 'gh', 'ف': 'f', 'ق': 'q',
+    'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n', 'ه': 'h',
+    'و': 'w', 'ي': 'y', 'ى': 'a', 'ة': 'ah', 'ؤ': 'u', 'ئ': 'i',
+    'َ': 'a', 'ُ': 'u', 'ِ': 'i', 'ّ': '', 'ْ': '', 'ً': 'an', 'ٌ': 'un', 'ٍ': 'in'
+}
+
+def transliterate_arabic(text: str) -> str:
+    """Replaces Arabic terms and characters with fluent English syllables."""
+    if not re.search(r'[\u0600-\u06FF]', text):
+        return text
+
+    s = text
+    # 1. Replace known multi-word / word terms first
+    for ar, en in ARABIC_ROAD_TERMS.items():
+        s = s.replace(ar, en)
+
+    # 2. Transliterate any remaining Arabic words character by character
+    def replace_word(match):
+        word = match.group(0)
+        out = []
+        for ch in word:
+            out.append(ARABIC_CHAR_MAP.get(ch, ch))
+        res = "".join(out)
+        return res.capitalize() if res else ""
+
+    s = re.sub(r'[\u0600-\u06FF]+', replace_word, s)
+    return s
 
 def normalize_road_text(text: str) -> str:
     """
-    Normalizes bilingual street names, slashes, distance abbreviations,
-    and highway codes for natural, fluent pronunciation.
+    Normalizes street names, slashes, route codes (e.g. S128, E11),
+    distance units, and Arabic text for crystal-clear spoken navigation.
     """
     if not text:
         return ""
 
     s = text.strip()
 
-    # 1. Handle bilingual names with slashes (e.g. "Al Khail Road / شارع الخيل" -> "Al Khail Road")
+    # 1. Handle multi-part slash separated components (e.g. "Al Asayel St / شارع الأصايل / S128")
     if '/' in s:
-        parts = [p.strip() for p in s.split('/')]
-        # Prefer the English/Latin part if present
-        english_part = next((p for p in parts if re.search(r'[a-zA-Z]', p)), None)
-        if english_part:
-            s = english_part
-        else:
-            s = parts[0]
+        raw_parts = [p.strip() for p in s.split('/') if p.strip()]
+        processed_parts: List[str] = []
+        seen_names = set()
 
-    # Remove any stray slashes
-    s = s.replace('/', ' ')
+        for p in raw_parts:
+            # Check if this part is a route shield code like S128, D71, E11, E311
+            is_route_code = bool(re.match(r'^[A-Za-z]\d+$', p))
+            has_arabic = bool(re.search(r'[\u0600-\u06FF]', p))
 
-    # 2. Transliterate common Arabic prefixes in mixed strings
-    for ar, en in ARABIC_ROAD_TERMS.items():
-        s = s.replace(ar, en)
+            # Transliterate if Arabic
+            clean_part = transliterate_arabic(p) if has_arabic else p
 
-    # 3. Expand metric distance units (e.g. "500 m" -> "500 meters", "1.5 km" -> "1.5 kilometers")
+            # Expand route codes (e.g. "S128" -> "S 128")
+            clean_part = re.sub(r'\b([A-Za-z])(\d+)\b', r'\1 \2', clean_part)
+
+            # Normalization key for deduplication (avoid saying "Al Asayel Street, Al Asayel Street")
+            norm_key = re.sub(r'[^a-zA-Z0-9]', '', clean_part).lower()
+
+            if is_route_code or (norm_key and norm_key not in seen_names):
+                if norm_key:
+                    seen_names.add(norm_key)
+                processed_parts.append(clean_part)
+
+        s = ", ".join(processed_parts) if processed_parts else s.replace('/', ' ')
+    else:
+        s = transliterate_arabic(s)
+
+    # 2. Expand metric distance units (e.g. "500 m" -> "500 meters", "1.5 km" -> "1.5 kilometers")
     s = re.sub(r'(\d+(?:\.\d+)?)\s*m\b', r'\1 meters', s, flags=re.IGNORECASE)
     s = re.sub(r'(\d+(?:\.\d+)?)\s*km\b', r'\1 kilometers', s, flags=re.IGNORECASE)
 
-    # 4. Expand common road abbreviations
+    # 3. Expand common road abbreviations
     s = re.sub(r'\bRd\b\.?', 'Road', s)
     s = re.sub(r'\bSt\b\.?', 'Street', s)
     s = re.sub(r'\bAve\b\.?', 'Avenue', s)
@@ -82,13 +161,14 @@ def normalize_road_text(text: str) -> str:
     s = re.sub(r'\bShk\b\.?', 'Sheikh', s)
     s = re.sub(r'\bSh\b\.?', 'Sheikh', s)
 
-    # 5. Format highway route codes (e.g. "E11" -> "E 11", "D71" -> "D 71", "E311" -> "E 311")
-    s = re.sub(r'\b([ED])(\d+)\b', r'\1 \2', s)
+    # 4. Format all route codes (e.g. "S128" -> "S 128", "E11" -> "E 11", "D71" -> "D 71", "E311" -> "E 311")
+    s = re.sub(r'\b([A-Za-z])(\d+)\b', r'\1 \2', s)
 
-    # 6. Format Exit numbers
+    # 5. Format Exit numbers (e.g. "Exit 50" -> "Exit 50")
     s = re.sub(r'\bExit\s*(\d+)', r'Exit \1', s, flags=re.IGNORECASE)
 
-    # Clean up double whitespace
+    # Clean up double whitespace / commas
+    s = re.sub(r'\s*,\s*', ', ', s)
     s = re.sub(r'\s+', ' ', s).strip()
 
     return s
@@ -98,8 +178,7 @@ class VoiceGuidanceService:
         self.is_speaking = False
         self.last_spoken_text: str = ""
         self.last_spoken_time: float = 0.0
-        self.english_voice: str = "en-US-JennyNeural"
-        self.arabic_voice: str = "ar-AE-FatimaNeural"
+        self.voice: str = "en-US-JennyNeural"
         self._audio_cache: Dict[str, bytes] = {}
         self._lock = asyncio.Lock()
 
@@ -112,20 +191,17 @@ class VoiceGuidanceService:
         if clean_text in self._audio_cache:
             return self._audio_cache[clean_text]
 
-        # Dynamically choose voice: native Emirati Arabic for Arabic text, English Neural for English
-        selected_voice = self.arabic_voice if is_predominantly_arabic(clean_text) else self.english_voice
-
         try:
             import edge_tts
-            communicate = edge_tts.Communicate(clean_text, selected_voice, rate="+4%")
+            communicate = edge_tts.Communicate(clean_text, self.voice, rate="+4%")
             audio_buffer = io.BytesIO()
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     audio_buffer.write(chunk["data"])
             
             data = audio_buffer.getvalue()
-            # Cache up to 25 recent phrases
-            if len(self._audio_cache) > 25:
+            # Cache up to 30 recent phrases
+            if len(self._audio_cache) > 30:
                 self._audio_cache.clear()
             self._audio_cache[clean_text] = data
             return data
