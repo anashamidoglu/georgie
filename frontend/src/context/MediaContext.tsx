@@ -37,16 +37,16 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const res = await fetch('/api/media/current');
         if (res.ok) {
           const trackData = await res.json();
-          const isRealTrack = Boolean(
+          const isReal = Boolean(
             trackData &&
             trackData.title &&
             trackData.title !== 'No Track Playing' &&
             trackData.title !== 'Unknown Track' &&
-            trackData.title.trim() !== ''
+            trackData.title.trim() !== '' &&
+            trackData.status !== 'stopped'
           );
-          const isSessionActive = isRealTrack && trackData?.status !== 'stopped';
 
-          if (isSessionActive) {
+          if (isReal) {
             setCurrentTrack({
               title: trackData.title,
               artist: trackData.artist || 'Unknown Artist',
@@ -79,43 +79,29 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!isComponentMounted) return;
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Connect via Vite proxy /ws for absolute reliability across local and remote devices
         const wsUrl = `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-          console.log('[Media WS] Connected successfully');
-        };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
             if (data.event === 'media:track_changed') {
               const trackData = data.data;
-              if (trackData) {
-                const isRealTrack = Boolean(
-                  trackData.title &&
-                  trackData.title !== 'No Track Playing' &&
-                  trackData.title !== 'Unknown Track' &&
-                  trackData.title.trim() !== ''
-                );
-                const isSessionActive = isRealTrack && trackData.status !== 'stopped';
-
-                if (isSessionActive) {
-                  setCurrentTrack({
-                    title: trackData.title,
-                    artist: trackData.artist || 'Unknown Artist',
-                    album: trackData.album || '',
-                    duration: trackData.duration || 0,
-                    currentTime: trackData.position || 0,
-                    isPlaying: trackData.status === 'playing',
-                    artworkUrl: trackData.artwork_url,
-                  });
-                  setHasActiveMedia(true);
-                } else {
-                  setCurrentTrack(DEFAULT_TRACK);
-                  setHasActiveMedia(false);
-                }
+              if (trackData && trackData.title && trackData.title !== 'No Track Playing' && trackData.title.trim() !== '') {
+                const isPlaying = trackData.status === 'playing';
+                setCurrentTrack((prev) => ({
+                  title: trackData.title,
+                  artist: trackData.artist || 'Unknown Artist',
+                  album: trackData.album || '',
+                  duration: trackData.duration || 0,
+                  currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
+                  isPlaying: isPlaying,
+                  artworkUrl: trackData.artwork_url || prev.artworkUrl,
+                }));
+                setHasActiveMedia(trackData.status !== 'stopped');
+              } else if (trackData?.status === 'stopped' || trackData?.title === 'No Track Playing') {
+                setCurrentTrack(DEFAULT_TRACK);
+                setHasActiveMedia(false);
               }
             } else if (data.event === 'media:playback_state') {
               const trackData = data.data;
@@ -126,22 +112,13 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   setHasActiveMedia(false);
                 } else {
                   const isPlaying = status === 'playing';
-                  setCurrentTrack((prev) => {
-                    const hasValidTrack = Boolean(
-                      prev.title &&
-                      prev.title !== 'No Track Playing' &&
-                      prev.title !== 'Unknown Track'
-                    );
-                    if (hasValidTrack) {
-                      setHasActiveMedia(true);
-                    }
-                    return {
-                      ...prev,
-                      isPlaying: isPlaying,
-                      currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
-                      duration: typeof trackData.duration === 'number' && trackData.duration > 0 ? trackData.duration : prev.duration,
-                    };
-                  });
+                  setCurrentTrack((prev) => ({
+                    ...prev,
+                    isPlaying: isPlaying,
+                    currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
+                    duration: typeof trackData.duration === 'number' && trackData.duration > 0 ? trackData.duration : prev.duration,
+                  }));
+                  setHasActiveMedia(true);
                 }
               }
             }

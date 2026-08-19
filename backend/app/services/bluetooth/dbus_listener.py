@@ -439,7 +439,8 @@ class DBusBluetoothListener:
     async def _on_track_changed(self, title: str, artist: str, album: str, duration: int, position: int = 0, status: str = "playing"):
         if not title or title in ['Unknown Track', '']:
             return
-        art_url = await ArtworkService.resolve_artwork(artist, title)
+            
+        # 1. Update track state and broadcast IMMEDIATELY with zero blocking delay
         self.current_track = TrackMetadata(
             title=title,
             artist=artist,
@@ -447,10 +448,63 @@ class DBusBluetoothListener:
             duration=duration,
             position=position,
             status=status,
-            artwork_url=art_url
+            artwork_url=self.current_track.artwork_url if self.current_track.title == title else None
         )
-        logger.info(f"[Media] Broadcasting track change: '{title}' - {artist} ({status})")
+        logger.info(f"[Media] Broadcasting track change instantly: '{title}' - {artist} ({status})")
         await ws_manager.broadcast("media:track_changed", self.current_track.model_dump())
+
+        # 2. Asynchronously resolve iTunes album artwork in background without blocking
+        asyncio.create_task(self._resolve_artwork_background(artist, title))
+
+    async def _resolve_artwork_background(self, artist: str, title: str):
+        try:
+            art_url = await ArtworkService.resolve_artwork(artist, title)
+            if art_url and self.current_track.title == title:
+                self.current_track.artwork_url = art_url
+                await ws_manager.broadcast("media:track_changed", self.current_track.model_dump())
+        except Exception as e:
+            logger.debug(f"[Artwork] Background resolution note: {e}")
+
+    async def get_live_track(self) -> TrackMetadata:
+        """
+        Returns the current track metadata.
+        """
+        player_path = self.active_player_path or await self._find_player_path()
+        if player_path and self.bus:
+            try:
+                from dbus_next import Message
+                reply = await self.bus.call(
+                    Message(
+                        destination='org.bluez',
+                        path=player_path,
+                        interface='org.freedesktop.DBus.Properties',
+                        member='GetAll',
+                        signature='s',
+                        body=['org.bluez.MediaPlayer1']
+                    )
+                )
+                if reply.body:
+                    props = unwrap_variant(reply.body[0])
+                    pos_ms = props.get('Position')
+                    if pos_ms is not None:
+                        self.current_track.position = int(pos_ms) // 1000
+                    status = props.get('Status')
+                    if status:
+                        self.current_track.status = str(status)
+                    track_val = props.get('Track', {})
+                    if track_val and isinstance(track_val, dict):
+                        title = str(track_val.get('Title', ''))
+                        artist = str(track_val.get('Artist', ''))
+                        album = str(track_val.get('Album', ''))
+                        dur_ms = track_val.get('Duration', 0)
+                        if title and title != 'Unknown Track':
+                            self.current_track.title = title
+                            self.current_track.artist = artist
+                            self.current_track.album = album
+                            self.current_track.duration = int(dur_ms) // 1000
+            except Exception as e:
+                logger.debug(f"[BlueZ] Error refreshing live track properties: {e}")
+        return self.current_track
 
     async def media_play(self):
         player_path = self.active_player_path or await self._find_player_path()
