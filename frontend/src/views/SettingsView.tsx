@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
-import { Sun, Moon, Bluetooth, Power, Volume2, ShieldAlert, Smartphone, Trash2 } from 'lucide-react';
+import { Bluetooth, Power, Volume2, ShieldAlert, Smartphone, Trash2 } from 'lucide-react';
 
 interface SettingsViewProps {
   onBackToDash?: () => void;
@@ -15,7 +15,6 @@ interface BluetoothDevice {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
-  const [themeMode, setThemeMode] = useState<'night' | 'day'>('night');
   const [gainLevel, setGainLevel] = useState<number>(75);
   const [isShuttingDown, setIsShuttingDown] = useState<boolean>(false);
 
@@ -122,10 +121,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
   };
 
   return (
-    <div className="w-full h-full p-5 overflow-y-auto select-none space-y-4 font-sf">
+    <div className="w-full h-full p-4 overflow-hidden select-none flex flex-col justify-between font-sf">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-3">
-        <span className="text-lg font-semibold tracking-tight text-white">
+      <div className="flex items-center justify-between border-b border-white/10 pb-2.5 flex-shrink-0">
+        <span className="text-base font-bold tracking-tight text-white">
           Settings
         </span>
 
@@ -138,13 +137,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3.5">
-        {/* 1. Bluetooth Device Management & Pairing (Interactive Touchscreen Card) */}
-        <LiquidGlassCard padding="md" className="space-y-3 col-span-2 md:col-span-1">
-          <div className="flex items-center justify-between">
+      {/* Main 2-Column Balanced Grid */}
+      <div className="grid grid-cols-2 gap-3.5 flex-1 min-h-0 pt-3">
+        {/* Left Column: Full-Height Bluetooth Device Management & Pairing */}
+        <LiquidGlassCard padding="md" className="h-full flex flex-col justify-between overflow-hidden">
+          <div className="flex items-center justify-between flex-shrink-0 mb-2">
             <div className="flex items-center space-x-2 text-white">
               <Bluetooth className="w-4 h-4 text-sky-400" />
-              <span className="text-sm font-semibold">Bluetooth Devices</span>
+              <span className="text-sm font-bold">Bluetooth Devices</span>
             </div>
 
             <button
@@ -163,21 +163,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
 
           {/* Discoverable Hint */}
           {isPairable && (
-            <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-200">
+            <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-200 flex-shrink-0 mb-2">
               Search for <strong className="text-white">Georgie Dash</strong> on your phone to pair.
             </div>
           )}
 
-          {/* Devices List */}
-          <div className="space-y-2">
+          {/* Devices List (Smooth hidden scrollbar inside container) */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-0.5">
             {btDevices.length > 0 ? (
               btDevices.map((dev) => (
                 <div
                   key={dev.id}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.04] border border-white/10"
+                  className="flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.04] border border-white/10"
                 >
-                  <div className="flex items-center space-x-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0 text-white/70">
+                  <div className="flex items-center space-x-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0 text-white/70">
                       <Smartphone className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col min-w-0">
@@ -231,94 +231,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
           </div>
         </LiquidGlassCard>
 
-        {/* 2. Audio Calibration for Cassette Deck */}
-        <LiquidGlassCard padding="md" className="space-y-3">
-          <div className="flex items-center space-x-2 text-white">
-            <Volume2 className="w-4 h-4 text-emerald-400" />
-            <span className="text-sm font-semibold">Audio Output Calibration</span>
-          </div>
-          <p className="text-xs text-white/50">
-            Pi line-out calibration for cassette deck headroom.
-          </p>
-          <div className="flex items-center space-x-3">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={gainLevel}
-              onChange={(e) => setGainLevel(Number(e.target.value))}
-              className="flex-1 accent-white h-1 bg-white/10 rounded-lg cursor-pointer"
-            />
-            <span className="text-xs font-sf-display font-bold text-white/80 tabular-nums w-8">
-              {gainLevel}%
-            </span>
-          </div>
-        </LiquidGlassCard>
+        {/* Right Column: Stacked Audio Calibration & Safe Power Down */}
+        <div className="h-full flex flex-col space-y-3.5 min-h-0 overflow-hidden">
+          {/* 1. Audio Calibration for Cassette Deck */}
+          <LiquidGlassCard padding="md" className="flex-1 flex flex-col justify-between overflow-hidden">
+            <div>
+              <div className="flex items-center space-x-2 text-white">
+                <Volume2 className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-bold">Audio Output Calibration</span>
+              </div>
+              <p className="text-xs text-white/50 mt-1">
+                Pi line-out calibration for cassette deck headroom.
+              </p>
+            </div>
 
-        {/* 3. Day / Night Contrast */}
-        <LiquidGlassCard padding="md" className="space-y-3">
-          <div className="flex items-center space-x-2 text-white">
-            <Sun className="w-4 h-4 text-amber-400" />
-            <span className="text-sm font-semibold">Theme Contrast</span>
-          </div>
-          <p className="text-xs text-white/50">
-            Adjust surface contrast multipliers for daylight glare reduction.
-          </p>
-          <div className="flex space-x-2">
+            <div className="flex items-center space-x-3 pt-2">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={gainLevel}
+                onChange={(e) => setGainLevel(Number(e.target.value))}
+                className="flex-1 accent-white h-1.5 bg-white/10 rounded-lg cursor-pointer"
+              />
+              <span className="text-sm font-sf font-bold text-white tabular-nums w-10 text-right">
+                {gainLevel}%
+              </span>
+            </div>
+          </LiquidGlassCard>
+
+          {/* 2. Power & Safe Shutdown */}
+          <LiquidGlassCard padding="md" className="flex-1 flex flex-col justify-between overflow-hidden">
+            <div>
+              <div className="flex items-center space-x-2 text-rose-400">
+                <Power className="w-4 h-4" />
+                <span className="text-sm font-bold">Safe Power Down</span>
+              </div>
+              <p className="text-xs text-white/50 mt-1">
+                Checkpoints SQLite database state before turning off vehicle ignition.
+              </p>
+            </div>
+
             <button
               type="button"
-              onClick={() => {
-                setThemeMode('night');
-                document.documentElement.removeAttribute('data-theme');
-              }}
-              className={`flex-1 glass-btn py-2 text-xs font-semibold space-x-2 ${
-                themeMode === 'night' ? 'bg-white/20 text-white' : 'text-white/40'
-              }`}
+              onClick={handleShutdown}
+              disabled={isShuttingDown}
+              className="w-full glass-btn py-2 text-xs font-bold text-red-300 border border-red-500/30 hover:bg-red-500/10 space-x-2"
             >
-              <Moon className="w-3.5 h-3.5" />
-              <span>Night Base</span>
+              {isShuttingDown ? (
+                <span>Syncing database and powering down...</span>
+              ) : (
+                <>
+                  <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+                  <span>Shutdown System</span>
+                </>
+              )}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setThemeMode('day');
-                document.documentElement.setAttribute('data-theme', 'day');
-              }}
-              className={`flex-1 glass-btn py-2 text-xs font-semibold space-x-2 ${
-                themeMode === 'day' ? 'bg-white/20 text-white' : 'text-white/40'
-              }`}
-            >
-              <Sun className="w-3.5 h-3.5 text-amber-400" />
-              <span>Day Contrast</span>
-            </button>
-          </div>
-        </LiquidGlassCard>
-
-        {/* 4. Power & Safe Shutdown */}
-        <LiquidGlassCard padding="md" className="space-y-3">
-          <div className="flex items-center space-x-2 text-rose-400">
-            <Power className="w-4 h-4" />
-            <span className="text-sm font-semibold">Safe Power Down</span>
-          </div>
-          <p className="text-xs text-white/50">
-            Checkpoints SQLite WAL state before turning off vehicle ignition.
-          </p>
-          <button
-            type="button"
-            onClick={handleShutdown}
-            disabled={isShuttingDown}
-            className="w-full glass-btn py-2.5 text-xs font-semibold text-rose-300 border border-rose-500/30 hover:bg-rose-500/10 space-x-2"
-          >
-            {isShuttingDown ? (
-              <span>Syncing database and powering down...</span>
-            ) : (
-              <>
-                <ShieldAlert className="w-3.5 h-3.5" />
-                <span>Shutdown System</span>
-              </>
-            )}
-          </button>
-        </LiquidGlassCard>
+          </LiquidGlassCard>
+        </div>
       </div>
     </div>
   );
