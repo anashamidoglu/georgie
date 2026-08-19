@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Wifi, Bluetooth, StepForward, StepBack, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Wifi, Bluetooth, StepForward, StepBack, Play, Pause, SkipBack, SkipForward, Volume2, X } from 'lucide-react';
 import { useNav } from '../../context/NavContext';
 import { useMedia } from '../../context/MediaContext';
 import type { ConnectivityStatus } from '../../types';
@@ -18,6 +18,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
+  const [isMediaPopoverOpen, setIsMediaPopoverOpen] = useState<boolean>(false);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const {
     navStatus,
@@ -62,8 +64,20 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Format track duration seconds to mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, (currentTrack.currentTime / (currentTrack.duration || 1)) * 100)
+  );
+
   return (
-    <header className="w-full h-12 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-30 font-sf">
+    <header className="w-full h-12 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b] select-none z-40 font-sf relative">
       {/* Left: Quick Destination Shortcuts & Step Simulator */}
       <div className="flex items-center space-x-2">
         {/* Preset Shortcuts */}
@@ -111,62 +125,43 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         )}
       </div>
 
-      {/* Center/Right: Mini Media Pill (Active when navigating/previewing and media is on) */}
+      {/* Center/Right: Touch-Friendly Media Pill (ONLY when Nav is active & media is playing) + Connectivity & Clock */}
       <div className="flex items-center space-x-2.5">
-        {hasActiveMedia && (
-          <div className="flex items-center space-x-2 bg-white/[0.06] border border-white/10 px-2 py-0.5 rounded-full backdrop-blur-md shadow-sm">
-            {/* Tiny Album Thumbnail */}
+        {/* Clickable Touch Media Pill (Expanded to floating popover on tap) */}
+        {hasActiveMedia && navStatus !== 'idle' && (
+          <button
+            type="button"
+            onClick={() => setIsMediaPopoverOpen(!isMediaPopoverOpen)}
+            className={`h-8 px-2.5 rounded-full border flex items-center space-x-2 transition-all active:scale-95 shadow-md ${
+              isMediaPopoverOpen
+                ? 'bg-white/20 border-white/30 text-white'
+                : 'bg-white/[0.08] hover:bg-white/[0.14] border-white/15 text-white/90'
+            }`}
+            title="Quick Media Controls"
+          >
+            {/* Album Thumbnail */}
             {currentTrack.artworkUrl ? (
               <img
                 src={currentTrack.artworkUrl}
                 alt="Art"
-                className="w-5 h-5 rounded-full object-cover border border-white/10 flex-shrink-0"
+                className="w-5 h-5 rounded-md object-cover border border-white/10 flex-shrink-0"
               />
             ) : (
-              <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[8px] font-bold text-white/60">
-                ♪
+              <div className="w-5 h-5 rounded-md bg-white/10 flex items-center justify-center text-[9px] font-bold text-white/70">
+                <Volume2 className="w-3 h-3" />
               </div>
             )}
 
             {/* Track Title */}
-            <span className="text-[10px] font-bold text-white max-w-[85px] truncate">
+            <span className="text-xs font-bold text-white max-w-[100px] truncate">
               {currentTrack.title}
             </span>
 
-            {/* Mini Playback Controls */}
-            <div className="flex items-center space-x-0.5">
-              <button
-                type="button"
-                onClick={prevTrack}
-                className="p-0.5 text-white/60 hover:text-white transition-colors"
-                title="Previous Track"
-              >
-                <SkipBack className="w-3 h-3" />
-              </button>
-
-              <button
-                type="button"
-                onClick={togglePlayPause}
-                className="p-0.5 text-white hover:text-emerald-400 transition-colors"
-                title={currentTrack.isPlaying ? 'Pause' : 'Play'}
-              >
-                {currentTrack.isPlaying ? (
-                  <Pause className="w-3 h-3" />
-                ) : (
-                  <Play className="w-3 h-3 fill-white" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={nextTrack}
-                className="p-0.5 text-white/60 hover:text-white transition-colors"
-                title="Next Track"
-              >
-                <SkipForward className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
+            {/* Playing Animation Dot */}
+            {currentTrack.isPlaying && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+            )}
+          </button>
         )}
 
         {/* Dev Nav Toggle */}
@@ -228,6 +223,110 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Floating Quick Media Popover Card Overlay */}
+      {isMediaPopoverOpen && hasActiveMedia && (
+        <>
+          {/* Backdrop Dismiss Layer */}
+          <div
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
+            onClick={() => setIsMediaPopoverOpen(false)}
+          />
+
+          {/* Touch-Friendly Floating Media Card */}
+          <div
+            ref={popoverRef}
+            className="absolute top-14 right-6 z-50 w-80 rounded-[28px] p-4 bg-[#12141c]/95 border border-white/20 shadow-2xl backdrop-blur-2xl flex flex-col font-sf select-none animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar: Now Playing Header & Close Button */}
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                Quick Media
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsMediaPopoverOpen(false)}
+                className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Track Info & Artwork */}
+            <div className="flex items-center space-x-3.5 my-1">
+              {currentTrack.artworkUrl ? (
+                <img
+                  src={currentTrack.artworkUrl}
+                  alt={currentTrack.title}
+                  className="w-14 h-14 rounded-2xl object-cover shadow-lg border border-white/10 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-white/60">
+                  <Volume2 className="w-6 h-6" />
+                </div>
+              )}
+
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-base font-bold text-white tracking-tight leading-snug truncate">
+                  {currentTrack.title}
+                </span>
+                <span className="text-xs font-semibold text-white/60 truncate mt-0.5">
+                  {currentTrack.artist}
+                </span>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full mt-3">
+              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center text-[10px] text-white/40 tabular-nums font-semibold mt-1">
+                <span>{formatTime(currentTrack.currentTime)}</span>
+                <span>{formatTime(currentTrack.duration)}</span>
+              </div>
+            </div>
+
+            {/* Large 7-Inch Thumb-Friendly Playback Controls */}
+            <div className="flex items-center justify-center space-x-4 mt-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={prevTrack}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition-all"
+                title="Previous Track"
+              >
+                <SkipBack className="w-4 h-4 fill-white" />
+              </button>
+
+              <button
+                type="button"
+                onClick={togglePlayPause}
+                className="w-12 h-12 rounded-full bg-white hover:bg-white/90 active:scale-95 text-black flex items-center justify-center transition-all shadow-lg font-bold"
+                title={currentTrack.isPlaying ? 'Pause' : 'Play'}
+              >
+                {currentTrack.isPlaying ? (
+                  <Pause className="w-5 h-5 fill-black" />
+                ) : (
+                  <Play className="w-5 h-5 fill-black ml-0.5" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={nextTrack}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition-all"
+                title="Next Track"
+              >
+                <SkipForward className="w-4 h-4 fill-white" />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </header>
   );
 };
