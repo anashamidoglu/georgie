@@ -261,6 +261,7 @@ function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
 function parseManeuverStep(
   step: any,
   nextStep: any,
+  prevStep: any,
   idx: number,
   originCoords: [number, number],
   legIndex?: number,
@@ -272,6 +273,7 @@ function parseManeuverStep(
     stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`;
 
   const bannerPrimary = step.bannerInstructions?.[0]?.primary;
+  const prevBannerPrimary = prevStep?.bannerInstructions?.[0]?.primary;
   const bannerSub = step.bannerInstructions?.[0]?.sub;
 
   const rawType = bannerPrimary?.type || step.maneuver?.type || 'turn';
@@ -297,24 +299,19 @@ function parseManeuverStep(
     nextStep?.name ||
     '';
 
-  const rawShield =
-    bannerPrimary?.components?.find((c: any) => c.type === 'icon')?.mapbox_shield?.display_ref ||
-    step.bannerInstructions?.[0]?.primary?.components?.find((c: any) => c.mapbox_shield)?.mapbox_shield?.display_ref ||
-    (step as any).ref;
+  // 1. Resolve Road Shield: prioritize current step instruction & ref, then approaching banner
+  const instructionShield = typeof instruction === 'string' ? instruction.match(/\b([EDS]\s?\d{1,4})\b/i)?.[1] : null;
+  const refShield = (step as any).ref && typeof (step as any).ref === 'string' ? (step as any).ref.match(/\b([EDS]\s?\d{1,4})\b/i)?.[1] : null;
+  const prevBannerShield = prevBannerPrimary?.components?.find((c: any) => c.type === 'icon')?.mapbox_shield?.display_ref;
+  const roadNameShield = typeof roadName === 'string' ? roadName.match(/\b([EDS]\s?\d{1,4})\b/i)?.[1] : null;
 
-  const explicitShield = typeof rawShield === 'string' ? rawShield : typeof rawShield === 'number' ? String(rawShield) : '';
-
-  // Fallback regex match for UAE E/D/S road numbers in roadName or instruction (e.g. "E11", "D71", "S116", "E 311")
-  const matchedShield =
-    explicitShield ||
-    (typeof roadName === 'string' ? roadName.match(/\b([EDS]\s?\d{1,4})\b/i)?.[1] : null) ||
-    (typeof instruction === 'string' ? instruction.match(/\b([EDS]\s?\d{1,4})\b/i)?.[1] : null);
-
+  const matchedShield = instructionShield || refShield || prevBannerShield || roadNameShield;
   const shield =
     typeof matchedShield === 'string' && matchedShield.trim().length > 0
       ? matchedShield.toUpperCase().replace(/\s+/, '')
       : undefined;
 
+  // 2. Resolve Exit Shield: only when explicitly part of this maneuver, never on roundabouts
   const isRoundabout =
     rawType.includes('roundabout') ||
     rawType.includes('rotary') ||
@@ -323,21 +320,11 @@ function parseManeuverStep(
   let exitNumber: string | undefined = undefined;
 
   if (!isRoundabout) {
-    const rawExit =
-      bannerPrimary?.components?.find((c: any) => c.type === 'exit-number')?.text ||
-      step.maneuver?.exit;
+    const instructionExit = typeof instruction === 'string' ? instruction.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null;
+    const prevBannerExit = prevBannerPrimary?.components?.find((c: any) => c.type === 'exit-number')?.text;
+    const roadNameExit = typeof roadName === 'string' ? roadName.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null;
 
-    const explicitExit =
-      typeof rawExit === 'string'
-        ? rawExit
-        : typeof rawExit === 'number'
-        ? `Exit ${rawExit}`
-        : '';
-
-    const matchedExit =
-      explicitExit ||
-      (typeof instruction === 'string' ? instruction.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null) ||
-      (typeof roadName === 'string' ? roadName.match(/\bExit\s*(\d{1,4}[A-Za-z]?)\b/i)?.[0] : null);
+    const matchedExit = instructionExit || (instruction.toLowerCase().includes('exit') ? prevBannerExit : null) || roadNameExit;
 
     exitNumber =
       typeof matchedExit === 'string' && matchedExit.trim().length > 0
@@ -458,6 +445,7 @@ export async function fetchDirections(
                 const parsed = parseManeuverStep(
                   step,
                   legRawSteps[sIdx + 1],
+                  legRawSteps[sIdx - 1],
                   globalStepIdx++,
                   origin,
                   legIdx,
