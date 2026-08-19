@@ -101,7 +101,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   stopDebounceRef.current = null;
                 }
 
-                const isPlaying = trackData.status === 'playing';
+                const isPlaying = trackData.status === 'playing' || (trackData.status !== 'paused' && trackData.status !== 'stopped');
                 setCurrentTrack((prev) => ({
                   title: trackData.title,
                   artist: trackData.artist || 'Unknown Artist',

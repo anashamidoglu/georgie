@@ -266,7 +266,10 @@ class DBusBluetoothListener:
                                 album = str(track_val.get('Album', ''))
                                 duration = int(track_val.get('Duration', 0)) // 1000
                                 position = self.current_track.position
-                                asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, self.current_track.status))
+                                # If Status was explicitly provided, use it; otherwise default to playing on track change
+                                current_status = str(status_val) if status_val is not None else 'playing'
+                                self.current_track.status = current_status
+                                asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, current_status))
                         elif has_update:
                             asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
 
@@ -521,6 +524,8 @@ class DBusBluetoothListener:
                     interface='org.bluez.MediaPlayer1',
                     member='Play'
                 ))
+                self.current_track.status = 'playing'
+                await ws_manager.broadcast("media:playback_state", self.current_track.model_dump())
             except Exception as e:
                 logger.error(f"[DBusListener] Error playing media: {e}")
 
@@ -535,6 +540,8 @@ class DBusBluetoothListener:
                     interface='org.bluez.MediaPlayer1',
                     member='Pause'
                 ))
+                self.current_track.status = 'paused'
+                await ws_manager.broadcast("media:playback_state", self.current_track.model_dump())
             except Exception as e:
                 logger.error(f"[DBusListener] Error pausing media: {e}")
 
