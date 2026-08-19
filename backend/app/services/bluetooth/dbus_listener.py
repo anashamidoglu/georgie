@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import subprocess
 from typing import Optional, Dict, Any
 from ...routers.ws import ws_manager
 from ...models.schemas import TrackMetadata, CallState
@@ -42,7 +41,6 @@ try:
         @method()
         def RequestConfirmation(self, device: 'o', passkey: 'u'):
             logger.info(f"[BlueZ Agent] Auto-confirming pairing passkey {passkey} for {device}")
-            # Returning nothing indicates auto-accept/confirmation in BlueZ spec
             return
 
         @method()
@@ -74,9 +72,10 @@ class DBusBluetoothListener:
         self.bus = None
         self.active_call_path: Optional[str] = None
         self.active_call_state = CallState(state="idle")
+        self.active_player_path: Optional[str] = None
         self.current_track = TrackMetadata(
-            title="Unknown Track",
-            artist="Unknown Artist",
+            title="No Track Playing",
+            artist="Connect Bluetooth to Stream",
             album="",
             duration=0,
             position=0,
@@ -101,10 +100,12 @@ class DBusBluetoothListener:
 
             # Auto-enable any connected oFono modems
             await self._auto_enable_modems()
-            # Subscribe to oFono Manager & VoiceCallManager signals
-            await self._subscribe_ofono()
-            # Subscribe to BlueZ Media Player signals
-            await self._subscribe_bluez()
+
+            # Subscribe to all system D-Bus signals for BlueZ and oFono
+            await self._subscribe_signals()
+
+            # Immediately poll existing BlueZ media player state if music is already playing
+            await self._poll_current_media_state()
 
         except ImportError:
             logger.warning("[DBusListener] dbus-next not installed. D-Bus listener disabled.")
@@ -118,7 +119,7 @@ class DBusBluetoothListener:
         try:
             from dbus_next import Message, Variant
 
-            # Set adapter name / alias to "Georgie Dash"
+            # Set adapter alias to "Georgie Dash"
             await self.bus.call(
                 Message(
                     destination='org.bluez',
@@ -129,14 +130,13 @@ class DBusBluetoothListener:
                     body=['org.bluez.Adapter1', 'Alias', Variant('s', 'Georgie Dash')]
                 )
             )
-            logger.info("[BlueZ] Set Bluetooth device name to 'Georgie Dash'")
+            logger.info("[BlueZ] Set Bluetooth broadcast name to 'Georgie Dash'")
 
             # Export and register auto-pairing agent
             if BlueZPairingAgent:
                 agent = BlueZPairingAgent()
                 self.bus.export('/org/bluez/georgie/agent', agent)
 
-                # Register with AgentManager1
                 try:
                     await self.bus.call(
                         Message(
@@ -192,7 +192,6 @@ class DBusBluetoothListener:
         """
         try:
             from dbus_next import Message, Variant
-            # Powered = True
             await self.bus.call(
                 Message(
                     destination='org.ofono',
@@ -203,7 +202,6 @@ class DBusBluetoothListener:
                     body=['Powered', Variant('b', True)]
                 )
             )
-            # Online = True
             await self.bus.call(
                 Message(
                     destination='org.ofono',
@@ -218,28 +216,60 @@ class DBusBluetoothListener:
         except Exception as e:
             logger.warning(f"[oFono] Failed activating modem {path}: {e}")
 
-    async def _subscribe_ofono(self):
+    async def _subscribe_signals(self):
         """
-        Subscribes to oFono signals:
-        - Manager.ModemAdded (auto activates new Bluetooth phones)
-        - VoiceCallManager.CallAdded (incoming calls)
-        - VoiceCallManager.CallRemoved (ended calls)
-        - VoiceCall.PropertyChanged (state transitions)
+        Subscribes to all relevant D-Bus signals for BlueZ media and oFono telephony.
         """
         try:
             from dbus_next import Message, MessageType
 
-            def message_handler(msg: Message):
+            def signal_dispatcher(msg: Message):
                 if msg.message_type != MessageType.SIGNAL:
                     return
 
-                # oFono Manager.ModemAdded
-                if msg.member == 'ModemAdded' and msg.interface == 'org.ofono.Manager':
+                # 1. PropertiesChanged on org.bluez.MediaPlayer1
+                if msg.member == 'PropertiesChanged' and msg.interface == 'org.freedesktop.DBus.Properties':
+                    iface, changed, _ = msg.body
+                    if iface == 'org.bluez.MediaPlayer1':
+                        self.active_player_path = msg.path
+                        track = changed.get('Track', {})
+                        track_val = track.value if hasattr(track, 'value') else track
+                        if track_val:
+                            title = str(track_val.get('Title', 'Unknown Track'))
+                            artist = str(track_val.get('Artist', 'Unknown Artist'))
+                            album = str(track_val.get('Album', ''))
+                            duration = int(track_val.get('Duration', 0)) // 1000
+                            position = int(track_val.get('Position', 0)) // 1000 if 'Position' in track_val else 0
+
+                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, position))
+
+                        if 'Status' in changed:
+                            status_val = changed['Status'].value if hasattr(changed['Status'], 'value') else changed['Status']
+                            self.current_track.status = status_val
+                            asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
+
+                # 2. InterfacesAdded (e.g. MediaPlayer1 or oFono Modem attached)
+                elif msg.member == 'InterfacesAdded' and msg.interface == 'org.freedesktop.DBus.ObjectManager':
+                    obj_path, interfaces = msg.body
+                    if 'org.bluez.MediaPlayer1' in interfaces:
+                        self.active_player_path = obj_path
+                        props = interfaces['org.bluez.MediaPlayer1']
+                        track = props.get('Track', {})
+                        track_val = track.value if hasattr(track, 'value') else track
+                        if track_val:
+                            title = str(track_val.get('Title', 'Unknown Track'))
+                            artist = str(track_val.get('Artist', 'Unknown Artist'))
+                            album = str(track_val.get('Album', ''))
+                            duration = int(track_val.get('Duration', 0)) // 1000
+                            asyncio.create_task(self._on_track_changed(title, artist, album, duration, 0))
+
+                # 3. oFono Manager.ModemAdded
+                elif msg.member == 'ModemAdded' and msg.interface == 'org.ofono.Manager':
                     modem_path, _ = msg.body
                     logger.info(f"[oFono] New modem connected: {modem_path}, activating...")
                     asyncio.create_task(self._activate_modem(modem_path))
 
-                # VoiceCallManager.CallAdded
+                # 4. oFono VoiceCallManager.CallAdded (Incoming Call)
                 elif msg.member == 'CallAdded' and msg.interface == 'org.ofono.VoiceCallManager':
                     call_path, properties = msg.body
                     self.active_call_path = call_path
@@ -257,7 +287,7 @@ class DBusBluetoothListener:
                     asyncio.create_task(audio_ducker.duck(target_volume_percent=15))
                     asyncio.create_task(ws_manager.broadcast("call:incoming", self.active_call_state.model_dump()))
 
-                # VoiceCallManager.CallRemoved
+                # 5. oFono VoiceCallManager.CallRemoved (Ended Call)
                 elif msg.member == 'CallRemoved' and msg.interface == 'org.ofono.VoiceCallManager':
                     logger.info(f"[oFono] CallRemoved: {self.active_call_path}")
                     self.active_call_path = None
@@ -265,7 +295,7 @@ class DBusBluetoothListener:
                     asyncio.create_task(audio_ducker.restore())
                     asyncio.create_task(ws_manager.broadcast("call:ended", self.active_call_state.model_dump()))
 
-                # VoiceCall.PropertyChanged
+                # 6. oFono VoiceCall.PropertyChanged
                 elif msg.member == 'PropertyChanged' and msg.interface == 'org.ofono.VoiceCall':
                     name, val = msg.body
                     prop_val = val.value if hasattr(val, 'value') else val
@@ -281,9 +311,9 @@ class DBusBluetoothListener:
                             asyncio.create_task(ws_manager.broadcast("call:ended", self.active_call_state.model_dump()))
 
             if self.bus and hasattr(self.bus, 'add_message_handler'):
-                self.bus.add_message_handler(message_handler)
+                self.bus.add_message_handler(signal_dispatcher)
 
-                # Add match rule for org.ofono
+                # Add match rules without faulty sender filters so all D-Bus signals are received
                 await self.bus.call(
                     Message(
                         destination='org.freedesktop.DBus',
@@ -291,75 +321,97 @@ class DBusBluetoothListener:
                         interface='org.freedesktop.DBus',
                         member='AddMatch',
                         signature='s',
-                        body=["type='signal',sender='org.ofono'"]
+                        body=["type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged'"]
                     )
                 )
+                await self.bus.call(
+                    Message(
+                        destination='org.freedesktop.DBus',
+                        path='/org/freedesktop/DBus',
+                        interface='org.freedesktop.DBus',
+                        member='AddMatch',
+                        signature='s',
+                        body=["type='signal',interface='org.freedesktop.DBus.ObjectManager'"]
+                    )
+                )
+                await self.bus.call(
+                    Message(
+                        destination='org.freedesktop.DBus',
+                        path='/org/freedesktop/DBus',
+                        interface='org.freedesktop.DBus',
+                        member='AddMatch',
+                        signature='s',
+                        body=["type='signal',interface='org.ofono.VoiceCallManager'"]
+                    )
+                )
+                await self.bus.call(
+                    Message(
+                        destination='org.freedesktop.DBus',
+                        path='/org/freedesktop/DBus',
+                        interface='org.freedesktop.DBus',
+                        member='AddMatch',
+                        signature='s',
+                        body=["type='signal',interface='org.ofono.VoiceCall'"]
+                    )
+                )
+                logger.info("[DBusListener] Successfully subscribed to BlueZ and oFono D-Bus signals")
         except Exception as e:
-            logger.warning(f"[DBusListener] Failed to set up oFono signal match: {e}")
+            logger.warning(f"[DBusListener] Failed to set up signal matches: {e}")
 
-    async def _subscribe_bluez(self):
+    async def _poll_current_media_state(self):
         """
-        Subscribes to BlueZ MediaPlayer1 properties changed signals.
+        Queries BlueZ for any currently active MediaPlayer1 object on boot.
         """
         try:
-            from dbus_next import Message, MessageType
+            from dbus_next import Message
 
-            def media_handler(msg: Message):
-                if msg.message_type != MessageType.SIGNAL:
-                    return
-
-                if msg.member == 'PropertiesChanged' and msg.interface == 'org.freedesktop.DBus.Properties':
-                    iface, changed, _ = msg.body
-                    if iface == 'org.bluez.MediaPlayer1':
-                        self.active_player_path = msg.path
-                        track = changed.get('Track', {})
-                        track_val = track.value if hasattr(track, 'value') else track
-                        if track_val:
-                            title = str(track_val.get('Title', 'Unknown Track'))
-                            artist = str(track_val.get('Artist', 'Unknown Artist'))
-                            album = str(track_val.get('Album', ''))
-                            duration = int(track_val.get('Duration', 0)) // 1000
-
-                            asyncio.create_task(self._on_track_changed(title, artist, album, duration))
-
-                        if 'Status' in changed:
-                            status_val = changed['Status'].value if hasattr(changed['Status'], 'value') else changed['Status']
-                            self.current_track.status = status_val
-                            asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
-
-            if self.bus and hasattr(self.bus, 'add_message_handler'):
-                self.bus.add_message_handler(media_handler)
-                await self.bus.call(
-                    Message(
-                        destination='org.freedesktop.DBus',
-                        path='/org/freedesktop/DBus',
-                        interface='org.freedesktop.DBus',
-                        member='AddMatch',
-                        signature='s',
-                        body=["type='signal',sender='org.bluez'"]
-                    )
+            reply = await self.bus.call(
+                Message(
+                    destination='org.bluez',
+                    path='/',
+                    interface='org.freedesktop.DBus.ObjectManager',
+                    member='GetManagedObjects'
                 )
+            )
+            objects = reply.body[0] if reply.body else {}
+            for path, interfaces in objects.items():
+                if 'org.bluez.MediaPlayer1' in interfaces:
+                    self.active_player_path = path
+                    props = interfaces['org.bluez.MediaPlayer1']
+                    track = props.get('Track', {})
+                    track_val = track.value if hasattr(track, 'value') else track
+                    status = props.get('Status', {}).value if hasattr(props.get('Status'), 'value') else props.get('Status', 'stopped')
+                    if track_val:
+                        title = str(track_val.get('Title', 'Unknown Track'))
+                        artist = str(track_val.get('Artist', 'Unknown Artist'))
+                        album = str(track_val.get('Album', ''))
+                        duration = int(track_val.get('Duration', 0)) // 1000
+                        position = int(props.get('Position', {}).value if hasattr(props.get('Position'), 'value') else props.get('Position', 0)) // 1000
+                        logger.info(f"[BlueZ] Found active media player on boot: '{title}' by {artist} ({status})")
+                        await self._on_track_changed(title, artist, album, duration, position, status)
+                        return
         except Exception as e:
-            logger.warning(f"[DBusListener] Failed to set up BlueZ media signal match: {e}")
+            logger.warning(f"[BlueZ] Error polling media state on boot: {e}")
 
-    async def _on_track_changed(self, title: str, artist: str, album: str, duration: int):
+    async def _on_track_changed(self, title: str, artist: str, album: str, duration: int, position: int = 0, status: str = "playing"):
+        if not title or title == 'Unknown Track':
+            return
         art_url = await ArtworkService.resolve_artwork(artist, title)
         self.current_track = TrackMetadata(
             title=title,
             artist=artist,
             album=album,
             duration=duration,
-            position=0,
-            status="playing",
+            position=position,
+            status=status,
             artwork_url=art_url
         )
+        logger.info(f"[Media] Broadcasting track change: {title} - {artist}")
         await ws_manager.broadcast("media:track_changed", self.current_track.model_dump())
 
     async def media_play(self):
-        if not self.bus:
-            return
         player_path = self.active_player_path or await self._find_player_path()
-        if player_path:
+        if player_path and self.bus:
             try:
                 from dbus_next import Message
                 await self.bus.call(Message(
@@ -372,10 +424,8 @@ class DBusBluetoothListener:
                 logger.error(f"[DBusListener] Error playing media: {e}")
 
     async def media_pause(self):
-        if not self.bus:
-            return
         player_path = self.active_player_path or await self._find_player_path()
-        if player_path:
+        if player_path and self.bus:
             try:
                 from dbus_next import Message
                 await self.bus.call(Message(
@@ -388,10 +438,8 @@ class DBusBluetoothListener:
                 logger.error(f"[DBusListener] Error pausing media: {e}")
 
     async def media_next(self):
-        if not self.bus:
-            return
         player_path = self.active_player_path or await self._find_player_path()
-        if player_path:
+        if player_path and self.bus:
             try:
                 from dbus_next import Message
                 await self.bus.call(Message(
@@ -404,10 +452,8 @@ class DBusBluetoothListener:
                 logger.error(f"[DBusListener] Error skipping next track: {e}")
 
     async def media_previous(self):
-        if not self.bus:
-            return
         player_path = self.active_player_path or await self._find_player_path()
-        if player_path:
+        if player_path and self.bus:
             try:
                 from dbus_next import Message
                 await self.bus.call(Message(
@@ -438,9 +484,6 @@ class DBusBluetoothListener:
         return None
 
     async def answer_call(self):
-        """
-        Calls oFono org.ofono.VoiceCall.Answer() on active call object path.
-        """
         if not self.active_call_path or not self.bus:
             logger.warning("[DBusListener] No active call path to answer")
             return
@@ -461,9 +504,6 @@ class DBusBluetoothListener:
             logger.error(f"[DBusListener] Error answering call: {e}")
 
     async def hangup_call(self):
-        """
-        Calls oFono org.ofono.VoiceCall.Hangup() on active call object path.
-        """
         if not self.active_call_path or not self.bus:
             self.active_call_state = CallState(state="idle")
             await ws_manager.broadcast("call:ended", self.active_call_state.model_dump())
