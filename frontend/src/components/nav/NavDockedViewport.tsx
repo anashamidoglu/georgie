@@ -1,7 +1,8 @@
 import React from 'react';
-import { Maximize2, Minimize2, CornerUpRight, Navigation, Play, X } from 'lucide-react';
+import { Maximize2, Minimize2, Navigation, Play, X } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
+import { ManeuverIcon } from './ManeuverIcon';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
@@ -43,7 +44,14 @@ export const NavDockedViewport: React.FC = () => {
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-center space-x-4">
-              <CornerUpRight className="w-9 h-9 text-white stroke-[3] flex-shrink-0" />
+              <div className="flex-shrink-0 pt-0.5">
+                <ManeuverIcon
+                  type={primaryManeuver.type}
+                  modifier={primaryManeuver.modifier}
+                  size="lg"
+                  className="text-white"
+                />
+              </div>
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center space-x-2">
                   <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none">
