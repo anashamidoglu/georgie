@@ -81,22 +81,8 @@ export const NavDockedViewport: React.FC = () => {
               </div>
             )}
           </div>
-        ) : isNavExpanded && navStatus === 'idle' && !isSearchOpen ? (
-          /* Actual Google Maps Floating Search Bar in Expanded Idle View */
-          <div
-            className="pointer-events-auto w-[340px] h-11 px-4 rounded-2xl bg-[#13141a]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-3 cursor-pointer hover:bg-[#1a1b22] hover:border-white/30 transition-all font-sf select-none group"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsSearchOpen(true);
-            }}
-          >
-            <Search className="w-4 h-4 text-white group-hover:scale-105 transition-transform" />
-            <span className="text-sm font-medium text-white/50 group-hover:text-white/80 transition-colors">
-              Search
-            </span>
-          </div>
         ) : !isSearchOpen && navStatus !== 'navigating' ? (
-          /* Compact Left Search Button in Docked View */
+          /* Clean Top-Left Search Button */
           <button
             type="button"
             onClick={(e) => {
