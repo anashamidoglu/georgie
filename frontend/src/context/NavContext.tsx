@@ -96,6 +96,11 @@ interface NavContextType {
   isRerouting: boolean;
   simulateOffRoute: () => void;
   resetSimulatedPosition: () => void;
+
+  // Voice Guidance (TTS)
+  isVoiceMuted: boolean;
+  toggleVoiceMute: () => void;
+  speakTurn: (text: string, priority?: string) => Promise<void>;
 }
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
@@ -148,6 +153,85 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mapInstance.setCenter(position.coords);
     }
   }, [mapInstance, position.isLocated, position.coords[0], position.coords[1]]);
+
+  // Voice Guidance (TTS) State
+  const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('georgie_voice_muted') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const lastAnnouncedStepIdRef = useRef<number | null>(null);
+
+  const toggleVoiceMute = () => {
+    setIsVoiceMuted((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('georgie_voice_muted', String(next));
+      } catch {}
+      if (next) {
+        fetch('/api/nav/voice/stop', { method: 'POST' }).catch(() => {});
+      }
+      return next;
+    });
+  };
+
+  const speakTurn = async (text: string, priority: string = 'normal') => {
+    if (isVoiceMuted || !text || !text.trim()) return;
+    try {
+      await fetch('/api/nav/voice/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.trim(), priority }),
+      });
+    } catch {
+      // Browser Web Speech fallback in development
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  };
+
+  // Helper to format spoken navigation instructions
+  const formatSpokenInstruction = (maneuver: ManeuverInfo | null, prefixDistance?: string) => {
+    if (!maneuver) return '';
+    let instr = maneuver.instruction || maneuver.roadName || 'Continue on route';
+
+    // Clean up road abbreviations for natural speech
+    instr = instr
+      .replace(/\bRd\b/g, 'Road')
+      .replace(/\bSt\b/g, 'Street')
+      .replace(/\bAve\b/g, 'Avenue')
+      .replace(/\bBlvd\b/g, 'Boulevard')
+      .replace(/\bDr\b/g, 'Drive')
+      .replace(/\bHwy\b/g, 'Highway')
+      .replace(/\bExit\s*(\d+)/gi, 'Exit $1')
+      .replace(/\b([E|D]\d+)\b/g, '$1');
+
+    if (prefixDistance) {
+      return `In ${prefixDistance}, ${instr.charAt(0).toLowerCase() + instr.slice(1)}`;
+    }
+    return instr;
+  };
+
+  // Automatic spoken turn announcements when entering steps or advancing maneuvers
+  useEffect(() => {
+    if (navStatus === 'navigating' && primaryManeuver && !isVoiceMuted) {
+      if (lastAnnouncedStepIdRef.current !== primaryManeuver.id) {
+        lastAnnouncedStepIdRef.current = primaryManeuver.id;
+        const spokenText = formatSpokenInstruction(
+          primaryManeuver,
+          primaryManeuver.distanceStr ? primaryManeuver.distanceStr : undefined
+        );
+        speakTurn(spokenText);
+      }
+    }
+  }, [navStatus, primaryManeuver?.id, isVoiceMuted]);
 
   // Internal routing calculation for a given destination + waypoints
   const calculateRoute = async (
@@ -770,6 +854,11 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isRerouting,
         simulateOffRoute,
         resetSimulatedPosition,
+
+        // Voice Guidance
+        isVoiceMuted,
+        toggleVoiceMute,
+        speakTurn,
       }}
     >
       {children}

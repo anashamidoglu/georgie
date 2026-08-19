@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
@@ -7,7 +7,13 @@ import { RoadShield, ExitShield } from './RoadShield';
 import { useNav } from '../../context/NavContext';
 
 export const NavPreviewCard: React.FC = () => {
-  const { primaryManeuver, inspectedStep, clearInspectedStep } = useNav();
+  const {
+    primaryManeuver,
+    inspectedStep,
+    clearInspectedStep,
+    isVoiceMuted,
+    toggleVoiceMute,
+  } = useNav();
 
   // If a specific step is being inspected from the list, display that step
   const currentStep = inspectedStep || primaryManeuver;
@@ -53,13 +59,13 @@ export const NavPreviewCard: React.FC = () => {
 
         {/* Turn Distance & Natural Google-Style Instruction Text */}
         <div className="flex flex-col justify-center min-w-0 flex-1">
-          {/* Distance with Highway Shield / Exit Badges */}
-          <div className="flex items-center justify-between w-full space-x-4">
+          {/* Distance with Highway Shield / Exit Badges & Voice Mute Button */}
+          <div className="flex items-center justify-between w-full space-x-3">
             <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
               {distance}
             </span>
 
-            <div className="flex items-center space-x-2.5 ml-auto flex-shrink-0">
+            <div className="flex items-center space-x-2 ml-auto flex-shrink-0">
               {/* Road Shield Badge (e.g. E11, D71, E311) */}
               {shield && (
                 <RoadShield code={shield} size="md" />
@@ -69,6 +75,25 @@ export const NavPreviewCard: React.FC = () => {
               {exitNumber && (
                 <ExitShield exitNumber={exitNumber} size="md" />
               )}
+
+              {/* 1-Tap Voice Guidance Mute / Unmute Toggle */}
+              <button
+                type="button"
+                onClick={toggleVoiceMute}
+                aria-label={isVoiceMuted ? 'Unmute Voice Guidance' : 'Mute Voice Guidance'}
+                className={`p-1.5 rounded-full transition-all duration-200 ${
+                  isVoiceMuted
+                    ? 'bg-white/10 text-white/40 hover:text-white hover:bg-white/20'
+                    : 'bg-sky-500/20 text-sky-300 border border-sky-500/40 hover:bg-sky-500/30'
+                }`}
+                title={isVoiceMuted ? 'Voice Guidance Muted (Click to Unmute)' : 'Voice Guidance Active (Click to Mute)'}
+              >
+                {isVoiceMuted ? (
+                  <VolumeX className="w-3.5 h-3.5" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5" />
+                )}
+              </button>
             </div>
           </div>
 

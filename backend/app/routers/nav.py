@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
+from pydantic import BaseModel
 import httpx
 from typing import Optional
 from ..config import settings
@@ -118,3 +119,25 @@ async def search_places(query: str = Query(...)):
             return resp.json()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Places API proxy error: {str(e)}")
+
+class VoicePromptRequest(BaseModel):
+    text: str
+    priority: Optional[str] = "normal"
+
+@router.post("/voice/speak")
+async def voice_speak(req: VoicePromptRequest):
+    """
+    Speaks a navigation prompt with automatic audio ducking.
+    """
+    from ..services.voice_service import voice_service
+    success = await voice_service.speak(req.text, priority=req.priority or "normal")
+    return {"status": "ok", "spoken": success}
+
+@router.post("/voice/stop")
+async def voice_stop():
+    """
+    Interrupts ongoing speech immediately.
+    """
+    from ..services.voice_service import voice_service
+    voice_service.stop()
+    return {"status": "stopped"}
