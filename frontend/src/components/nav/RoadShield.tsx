@@ -1,13 +1,13 @@
 import React from 'react';
 
 interface RoadShieldProps {
-  code?: string;
+  code?: string | number | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
 interface ExitShieldProps {
-  exitNumber?: string;
+  exitNumber?: string | number | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -15,39 +15,47 @@ interface ExitShieldProps {
 /**
  * Parses road codes like "E11", "E 311", "D71", "D 83", "S116", "I-95" into category and clean number
  */
-function parseRoadCode(rawCode?: string): { type: 'E' | 'D' | 'S' | 'generic'; number: string } | null {
-  if (!rawCode) return null;
-  const cleaned = rawCode.trim().toUpperCase();
+function parseRoadCode(rawCode?: string | number | null): { type: 'E' | 'D' | 'S' | 'generic'; number: string } | null {
+  if (rawCode === undefined || rawCode === null) return null;
+  const rawStr = typeof rawCode === 'number' ? String(rawCode) : typeof rawCode === 'string' ? rawCode : '';
+  if (!rawStr) return null;
+  const cleaned = rawStr.trim().toUpperCase();
 
   // Match UAE E-Routes (e.g. E11, E 311, E-11, E11 (NORTH))
   const matchE = cleaned.match(/^E[-\s]?(\d{1,4})/i);
   if (matchE) {
-    return { type: 'E', number: matchE[1] };
+    return { type: 'E', number: matchE[1] || '' };
   }
 
   // Match Dubai D-Routes (e.g. D71, D 83, D-71, D71 (EAST))
   const matchD = cleaned.match(/^D[-\s]?(\d{1,4})/i);
   if (matchD) {
-    return { type: 'D', number: matchD[1] };
+    return { type: 'D', number: matchD[1] || '' };
   }
 
   // Match Sharjah S-Routes (e.g. S116, S 120, S-115)
   const matchS = cleaned.match(/^S[-\s]?(\d{1,4})/i);
   if (matchS) {
-    return { type: 'S', number: matchS[1] };
+    return { type: 'S', number: matchS[1] || '' };
   }
 
-  return { type: 'generic', number: cleaned };
+  // Generic valid highway / route code (contains at least one number and max 8 chars)
+  if (/^[A-Z0-9\s-]{1,8}$/.test(cleaned) && /\d/.test(cleaned)) {
+    return { type: 'generic', number: cleaned };
+  }
+
+  return null;
 }
 
 /**
  * Authentic UAE National Highway Falcon Shield (E-Routes)
  * Official Royal Blue Falcon silhouette with yellow 'E', Arabic 'إ', and route number
  */
-export const EmiratesFalconShield: React.FC<{ number: string; size?: 'sm' | 'md' | 'lg' }> = ({
+export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
   size = 'md',
 }) => {
+  const numStr = String(number ?? '');
   const dimensions = {
     sm: { width: 28, height: 35 },
     md: { width: 34, height: 42 },
@@ -61,7 +69,7 @@ export const EmiratesFalconShield: React.FC<{ number: string; size?: 'sm' | 'md'
       viewBox="0 0 100 125"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
-      <title>{`UAE Highway E ${number}`}</title>
+      <title>{`UAE Highway E ${numStr}`}</title>
       {/* UAE National Falcon Silhouette Body */}
       <path
         d="M 50 10
@@ -124,13 +132,13 @@ export const EmiratesFalconShield: React.FC<{ number: string; size?: 'sm' | 'md'
         x="50"
         y="104"
         fill="#FFC20E"
-        fontSize={number.length > 2 ? '36' : '44'}
+        fontSize={numStr.length > 2 ? '36' : '44'}
         fontWeight="900"
         fontFamily="'SF Pro Display', 'DIN Alternate', 'DIN 1451', 'Arial Black', sans-serif"
         textAnchor="middle"
-        letterSpacing={number.length > 2 ? '-1.5' : '-0.5'}
+        letterSpacing={numStr.length > 2 ? '-1.5' : '-0.5'}
       >
-        {number}
+        {numStr}
       </text>
     </svg>
   );
@@ -140,10 +148,11 @@ export const EmiratesFalconShield: React.FC<{ number: string; size?: 'sm' | 'md'
  * Authentic Dubai City Route Fort Shield (D-Routes)
  * Official RTA Green Castle/Fortress tower silhouette with yellow 'D', Arabic 'د', and route number
  */
-export const DubaiFortShield: React.FC<{ number: string; size?: 'sm' | 'md' | 'lg' }> = ({
+export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
   size = 'md',
 }) => {
+  const numStr = String(number ?? '');
   const dimensions = {
     sm: { width: 28, height: 35 },
     md: { width: 34, height: 42 },
@@ -157,7 +166,7 @@ export const DubaiFortShield: React.FC<{ number: string; size?: 'sm' | 'md' | 'l
       viewBox="0 0 100 125"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
-      <title>{`Dubai Route D ${number}`}</title>
+      <title>{`Dubai Route D ${numStr}`}</title>
       {/* Dubai Fort / Castle Silhouette with Crenellations */}
       <path
         d="M 20 18
@@ -202,13 +211,13 @@ export const DubaiFortShield: React.FC<{ number: string; size?: 'sm' | 'md' | 'l
         x="50"
         y="104"
         fill="#FFC20E"
-        fontSize={number.length > 2 ? '36' : '44'}
+        fontSize={numStr.length > 2 ? '36' : '44'}
         fontWeight="900"
         fontFamily="'SF Pro Display', 'DIN Alternate', 'DIN 1451', 'Arial Black', sans-serif"
         textAnchor="middle"
-        letterSpacing={number.length > 2 ? '-1.5' : '-0.5'}
+        letterSpacing={numStr.length > 2 ? '-1.5' : '-0.5'}
       >
-        {number}
+        {numStr}
       </text>
     </svg>
   );
@@ -217,10 +226,11 @@ export const DubaiFortShield: React.FC<{ number: string; size?: 'sm' | 'md' | 'l
 /**
  * Authentic Sharjah Route Shield (S-Routes)
  */
-export const SharjahRouteShield: React.FC<{ number: string; size?: 'sm' | 'md' | 'lg' }> = ({
+export const SharjahRouteShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
   size = 'md',
 }) => {
+  const numStr = String(number ?? '');
   const dimensions = {
     sm: { width: 28, height: 35 },
     md: { width: 34, height: 42 },
@@ -234,7 +244,7 @@ export const SharjahRouteShield: React.FC<{ number: string; size?: 'sm' | 'md' |
       viewBox="0 0 100 125"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
-      <title>{`Sharjah Route S ${number}`}</title>
+      <title>{`Sharjah Route S ${numStr}`}</title>
       <path
         d="M 18 20
            L 82 20
@@ -278,13 +288,13 @@ export const SharjahRouteShield: React.FC<{ number: string; size?: 'sm' | 'md' |
         x="50"
         y="104"
         fill="#ffffff"
-        fontSize={number.length > 2 ? '36' : '44'}
+        fontSize={numStr.length > 2 ? '36' : '44'}
         fontWeight="900"
         fontFamily="'SF Pro Display', 'DIN Alternate', 'DIN 1451', 'Arial Black', sans-serif"
         textAnchor="middle"
-        letterSpacing={number.length > 2 ? '-1.5' : '-0.5'}
+        letterSpacing={numStr.length > 2 ? '-1.5' : '-0.5'}
       >
-        {number}
+        {numStr}
       </text>
     </svg>
   );
@@ -299,10 +309,14 @@ export const ExitShield: React.FC<ExitShieldProps> = ({
   size = 'md',
   className = '',
 }) => {
-  if (!exitNumber) return null;
+  if (exitNumber === undefined || exitNumber === null) return null;
 
-  // Clean exit number string (e.g. "Exit 50" -> "50", "Exit 29B" -> "29B")
-  const numOnly = exitNumber.replace(/^exit\s*/i, '').trim();
+  // Clean exit number string (e.g. 50 -> "50", "Exit 50" -> "50", "Exit 29B" -> "29B")
+  const rawStr = typeof exitNumber === 'number' ? String(exitNumber) : typeof exitNumber === 'string' ? exitNumber : '';
+  if (!rawStr) return null;
+
+  const numOnly = rawStr.replace(/^exit\s*/i, '').trim();
+  if (!numOnly) return null;
 
   const sizeStyles = {
     sm: 'px-1.5 py-0.5 text-[10px] gap-1',
@@ -345,7 +359,7 @@ export const RoadShield: React.FC<RoadShieldProps> = ({
   size = 'md',
   className = '',
 }) => {
-  if (!code) return null;
+  if (code === undefined || code === null) return null;
 
   const parsed = parseRoadCode(code);
   if (!parsed) return null;
