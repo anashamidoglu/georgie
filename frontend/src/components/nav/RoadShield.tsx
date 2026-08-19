@@ -49,7 +49,7 @@ function parseRoadCode(rawCode?: string | number | null): { type: 'E' | 'D' | 'S
 
 /**
  * Exact Official UAE National Highway Falcon Shield (E-Routes)
- * Extracted directly from official UAE E11 Wikimedia SVG (362.3 x 481.2)
+ * Transparent background silhouette with crisp white rim
  */
 export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
@@ -57,30 +57,26 @@ export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 's
 }) => {
   const numStr = String(number ?? '');
   const dimensions = {
-    sm: { width: 28, height: 37 },
-    md: { width: 34, height: 45 },
-    lg: { width: 44, height: 58 },
+    sm: { width: 24, height: 35 },
+    md: { width: 30, height: 44 },
+    lg: { width: 38, height: 56 },
   }[size];
 
   return (
     <svg
       width={dimensions.width}
       height={dimensions.height}
-      viewBox="298 236 363 482"
+      viewBox="316 234 330 484"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
       <title>{`UAE Highway E ${numStr}`}</title>
-      
-      {/* Outer White Board Border */}
-      <path
-        d="M 298.6,236.8 V 717 H 659.9 V 236.8 Z"
-        fill="#ffffff"
-      />
 
-      {/* Official UAE Falcon Silhouette (Royal Blue) */}
+      {/* Official UAE Falcon Silhouette (Royal Blue with thin white outline) */}
       <path
         d="m 616.6,499.4 1.4,11.8 0.7,3.9 1.2,4.1 0.6,5.3 2.7,9.2 0.7,3.3 0.8,4 h -11.5 l 13.4,63.9 h -17.3 l 0.6,35.2 -5.9,4.6 -7.9,4.7 -12,6.6 -9.9,5.2 -19.9,8.1 -11.2,3.3 -7.2,1.8 -9.9,2.7 -7.3,1.5 -11.4,1.3 -9.6,1.2 -11.4,0.8 h -11.9 l -11.2,-0.8 -11.2,-0.6 -9.4,-1.3 -8.6,-2.1 -7.2,-1.2 -6.1,-2.1 -8.5,-1.8 -7.3,-2.7 -7.9,-3.3 -9.2,-3.3 -8.7,-4.1 -7.3,-4.1 -5.3,-3.2 -7.2,-4.6 -6.6,-3.9 -3.9,-2.7 0.6,-35.2 H 332.2 L 345.4,541 H 334 l 5.1,-23.2 2.4,-8.4 0.6,-8.8 0.6,-6.6 h -9.3 l 3.9,-18.5 1.4,-10.6 2,-11.3 0.8,-8.6 0.6,-5.1 -12.8,1.2 2.9,-6 1.8,-8.4 0.8,-4.7 0.7,-6.7 v -7.2 l -0.7,-7.4 -0.8,-6.5 v -6.6 l 0.8,-7.9 1.9,-8 2,-6 2,-5.1 2,-3.9 2.7,-4.8 2.8,-4 3.9,-4.5 2.6,-3.3 4,-3.3 6.6,-3.4 3.9,-1.4 5.4,-0.6 4.5,0.6 6.1,1.4 5.1,2.6 6,3.2 6,2.7 4.5,1.5 5.4,0.6 h 4.5 l 5.5,-1.5 4.6,-0.6 3.3,-1.2 6.5,-3.3 3.3,-2.7 3.4,-2.1 7.2,-7.2 2.7,-3.3 0.6,-3.9 0.9,-2.7 -0.9,-3.3 -1.8,-1.2 -1.5,-0.7 -1.9,-1.4 -2,-1.8 -0.7,-2.1 -0.6,-1.2 -13.2,-1.4 -2,4.7 -1.3,-1.5 -0.6,-1.8 -0.8,-2.7 -0.6,-2.2 0.6,-2.5 0.8,-2 2.5,-3.9 1.4,-1.5 2.7,-1.2 3.9,-2.7 2.6,-1.8 4,-4.2 1.9,-2.5 1.4,-1.4 2.7,-1.2 4,-0.7 6,-0.8 4.5,-0.6 h 4.5 l 6,0.6 4.8,1.5 4.5,1.8 2.8,2.7 2.6,3.2 3.3,4 5.3,9.3 2,5.4 1.9,4.6 1.4,4.5 1.2,5.4 2.1,5.4 1.8,3.9 6.7,7.8 2,2.7 2.8,1.3 3.3,2.6 3.9,1.5 5.8,1.2 h 6.6 l 4.7,-0.6 6,-1.4 4,-1.3 3.9,-2 4,-2.6 4.7,-2.7 3.9,-1.4 4.5,-1.2 h 4 l 5.4,0.6 4,1.4 4.7,1.9 7.9,6.6 3.3,3.3 5.3,6.6 2.4,4.1 4.9,9.2 1.8,5.9 2.1,5.5 0.6,3.9 1.5,7.1 V 396 l -0.8,5.4 -0.7,6.1 v 5.1 l 0.7,7.5 v 4.5 l 1.4,3.9 1.3,5.4 1.4,4.6 1.2,2.6 -12.6,-1.2 0.6,5.7 0.8,7.4 0.7,6 1.2,7.4 1.4,9.1 1.3,6.5 0.6,4.1 0.7,3.4 1.4,4.5 H 616 Z"
         fill="#0044aa"
+        stroke="#ffffff"
+        strokeWidth="3.5"
       />
 
       {/* Official English 'E' */}
@@ -114,7 +110,7 @@ export const EmiratesFalconShield: React.FC<{ number: string | number; size?: 's
 
 /**
  * Exact Official Dubai Fort / Castle Route Shield (D-Routes)
- * Extracted directly from official UAE D71 Wikimedia SVG (301 x 401)
+ * Transparent background silhouette with crisp white rim
  */
 export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
@@ -122,33 +118,26 @@ export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 
 }) => {
   const numStr = String(number ?? '');
   const dimensions = {
-    sm: { width: 28, height: 37 },
-    md: { width: 34, height: 45 },
-    lg: { width: 44, height: 58 },
+    sm: { width: 26, height: 35 },
+    md: { width: 32, height: 43 },
+    lg: { width: 42, height: 56 },
   }[size];
 
   return (
     <svg
       width={dimensions.width}
       height={dimensions.height}
-      viewBox="274 80 302 402"
+      viewBox="286 106 278 352"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
       <title>{`Dubai Route D ${numStr}`}</title>
-      
-      {/* Outer White Board Border */}
-      <rect
-        y="81.1"
-        x="274.7"
-        height="400"
-        width="300"
-        fill="#ffffff"
-      />
 
-      {/* Official Dubai Fort Castle Silhouette with 7 Battlements (RTA Green) */}
+      {/* Official Dubai Fort Castle Silhouette with 7 Battlements (RTA Green with thin white outline) */}
       <path
         d="m 299.7,108.4 v 69.2 h 10.5 c -10.5,44.5 -10.5,89.8 -10.5,134.9 0,47 0,141.2 0,141.2 l 250.1,0.1 V 312.5 c 0,-45.1 0,-90.4 -10.5,-134.9 h 10.5 V 108.4 H 527 v 23.1 h -22.8 v -23.1 h -22.7 v 23.1 H 458.8 V 108.4 H 436 v 23.1 h -22.7 v -23.1 h -22.7 v 23.1 h -22.7 v -23.1 h -22.7 v 23.1 h -22.8 l 0.1,-23.1 z"
         fill="#00703c"
+        stroke="#ffffff"
+        strokeWidth="3.5"
       />
 
       {/* Official English 'D' */}
@@ -182,6 +171,7 @@ export const DubaiFortShield: React.FC<{ number: string | number; size?: 'sm' | 
 
 /**
  * Official Sharjah Route Shield (S-Routes)
+ * Transparent background silhouette
  */
 export const SharjahRouteShield: React.FC<{ number: string | number; size?: 'sm' | 'md' | 'lg' }> = ({
   number,
@@ -189,27 +179,26 @@ export const SharjahRouteShield: React.FC<{ number: string | number; size?: 'sm'
 }) => {
   const numStr = String(number ?? '');
   const dimensions = {
-    sm: { width: 28, height: 37 },
-    md: { width: 34, height: 45 },
-    lg: { width: 44, height: 58 },
+    sm: { width: 24, height: 35 },
+    md: { width: 30, height: 44 },
+    lg: { width: 38, height: 56 },
   }[size];
 
   return (
     <svg
       width={dimensions.width}
       height={dimensions.height}
-      viewBox="0 0 100 130"
+      viewBox="4 4 92 122"
       className="inline-block flex-shrink-0 select-none filter drop-shadow-sm"
     >
       <title>{`Sharjah Route S ${numStr}`}</title>
-      
-      {/* Outer White Board Border */}
-      <rect x="0" y="0" width="100" height="130" rx="4" fill="#ffffff" />
       
       {/* Sharjah Green Shield */}
       <path
         d="M 6 6 L 94 6 L 94 92 C 94 116, 75 124, 50 124 C 25 124, 6 116, 6 92 Z"
         fill="#0f5132"
+        stroke="#ffffff"
+        strokeWidth="2.5"
       />
 
       <text
@@ -272,7 +261,7 @@ export const ExitShield: React.FC<ExitShieldProps> = ({
 
   const sizeStyles = {
     sm: 'px-1.5 py-0.5 text-[10px] gap-1',
-    md: 'px-2.5 py-0.5 text-xs gap-1.5',
+    md: 'px-2 py-0.5 text-xs gap-1.5',
     lg: 'px-3 py-1 text-sm gap-2',
   }[size];
 
