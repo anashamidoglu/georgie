@@ -10,11 +10,11 @@ import { CallInterruptBanner } from './components/calls/CallInterruptBanner';
 
 const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'nav' | 'media' | 'settings'>('dashboard');
-  const { isNavExpanded, setIsNavExpanded, navStatus } = useNav();
+  const { isNavExpanded, setIsNavExpanded } = useNav();
   const { callStatus } = useCall();
 
-  // Show floating call interrupt banner when nav is expanded or active, and a call is ongoing/incoming
-  const showExpandedCallBanner = (isNavExpanded || navStatus !== 'idle') && callStatus !== 'idle';
+  // Show floating call interrupt banner ONLY when nav is expanded to full-screen (split-view has the docked call card)
+  const showExpandedCallBanner = isNavExpanded && callStatus !== 'idle';
 
   return (
     <main className="w-screen h-screen bg-black flex items-center justify-center overflow-hidden font-sf">

@@ -81,13 +81,44 @@ export const DashboardView: React.FC = () => {
     </LiquidGlassCard>
   );
 
-  // Stackable Widgets for Navigation Mode (Upcoming Steps + Media only if media is active)
+  // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media)
   const navWidgets: WidgetItem[] = [
+    ...(callStatus !== 'idle'
+      ? [
+          {
+            id: 'active_call',
+            label: 'Call',
+            content: <CallDockedCard />,
+          },
+        ]
+      : []),
     {
       id: 'upcoming_steps',
       label: 'Upcoming Steps',
       content: <UpcomingManeuversCard />,
     },
+    ...(hasActiveMedia
+      ? [
+          {
+            id: 'media_player',
+            label: 'Media Player',
+            content: mediaCardContent,
+          },
+        ]
+      : []),
+  ];
+
+  // Stackable Widgets for Idle Mode (Call -> Media)
+  const idleWidgets: WidgetItem[] = [
+    ...(callStatus !== 'idle'
+      ? [
+          {
+            id: 'active_call',
+            label: 'Call',
+            content: <CallDockedCard />,
+          },
+        ]
+      : []),
     ...(hasActiveMedia
       ? [
           {
@@ -112,7 +143,7 @@ export const DashboardView: React.FC = () => {
           <NavDockedViewport />
         </div>
 
-        {/* Right Column: Top Card (Turn/Route/Date) & Bottom Stackable Widget (Upcoming Steps <-> Media) */}
+        {/* Right Column: Top Card (Turn/Route/Date) & Bottom Stackable Widget (Call <-> Steps <-> Media) */}
         <div
           className={`h-full min-h-0 max-h-full flex flex-col space-y-3.5 overflow-hidden transition-[width,opacity,transform,padding,margin] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
             isNavExpanded
@@ -131,20 +162,23 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Upcoming Steps <-> Media) OR Active Call */}
+          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Call <-> Upcoming Steps <-> Media) */}
           <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden relative">
-            {callStatus !== 'idle' ? (
-              /* Phone Call in progress or incoming -> Takes full priority */
-              <CallDockedCard />
-            ) : navStatus !== 'idle' ? (
-              /* Active Navigation / Preview -> Swipeable iOS Widget Stack */
+            {navStatus !== 'idle' ? (
               <WidgetStackCard
                 widgets={navWidgets}
                 defaultIndex={0}
                 className="w-full h-full"
               />
+            ) : idleWidgets.length > 1 ? (
+              <WidgetStackCard
+                widgets={idleWidgets}
+                defaultIndex={0}
+                className="w-full h-full"
+              />
+            ) : callStatus !== 'idle' ? (
+              <CallDockedCard />
             ) : (
-              /* Idle Mode -> Direct Media Player Card */
               mediaCardContent
             )}
           </div>
