@@ -73,6 +73,22 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Close media popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pillRef.current && !pillRef.current.contains(e.target as Node)) {
+        setIsMediaPopoverOpen(false);
+      }
+    };
+
+    if (isMediaPopoverOpen) {
+      window.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMediaPopoverOpen]);
+
   // Format track duration seconds to mm:ss
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -147,7 +163,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
       {/* Center/Right: Touch-Friendly Media Pill + Connectivity & Clock */}
       <div className="flex items-center space-x-2.5">
-        {/* Media Pill Container with Anchor for Centered Popover */}
+        {/* Media Pill Container with Anchor for Popover */}
         {hasActiveMedia && navStatus !== 'idle' && (
           <div ref={pillRef} className="relative flex items-center">
             {/* Clickable Media Pill */}
@@ -185,88 +201,87 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               </div>
             </button>
 
-            {/* Centered Media Controls Popover */}
+            {/* Media Popover Styled Identically to MediaDockedCard (Large Art, Exact Fonts & Tactile Filled Controls) */}
             {isMediaPopoverOpen && (
               <div
-                className="absolute top-10 right-0 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
-                style={{ width: '280px' }}
+                className="absolute top-11 right-0 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                style={{ width: '260px' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <LiquidGlassCard
                   padding="md"
-                  className="rounded-2xl border border-white/20 shadow-2xl bg-black/95 backdrop-blur-xl p-4 font-sf flex flex-col space-y-3"
+                  className="rounded-3xl border border-white/20 shadow-2xl bg-[#090a0f]/95 backdrop-blur-2xl p-5 font-sf flex flex-col items-center text-center select-none space-y-3"
                 >
-                  {/* Track Header with Art */}
-                  <div className="flex items-center space-x-3">
+                  {/* Top: Prominent Album Artwork with 🐻 fallback */}
+                  <div className="w-20 h-20 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-0.5">
                     {currentTrack.artworkUrl ? (
                       <img
                         src={currentTrack.artworkUrl}
-                        alt="Album Art"
-                        className="w-12 h-12 rounded-lg object-cover border border-white/10 flex-shrink-0 shadow-md"
+                        alt={currentTrack.title}
+                        className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center text-white/40">
-                        <Volume2 className="w-6 h-6" />
+                      <div className="w-full h-full bg-[#181920] flex flex-col items-center justify-center p-2">
+                        <span className="text-3xl leading-none">🐻</span>
                       </div>
                     )}
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-sm font-bold text-white truncate">
-                        {currentTrack.title || 'Not Playing'}
-                      </span>
-                      <span className="text-xs text-white/60 truncate">
-                        {currentTrack.artist || 'Unknown Artist'}
-                      </span>
-                      <span className="text-[10px] text-white/40 truncate">
-                        {currentTrack.album || 'Unknown Album'}
-                      </span>
-                    </div>
                   </div>
 
-                  {/* Scrub Bar & Timestamps */}
-                  <div className="flex flex-col space-y-1">
-                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                  {/* Middle: Title & Artist (Exact same typography as Big Media Component) */}
+                  <div className="flex flex-col items-center justify-center w-full px-2">
+                    <span className="text-base font-bold text-white tracking-tight leading-tight truncate max-w-full">
+                      {currentTrack.title || 'Not Playing'}
+                    </span>
+                    <span className="text-xs text-white/50 font-normal mt-0.5 truncate max-w-full">
+                      {currentTrack.artist || 'Unknown Artist'}
+                    </span>
+                  </div>
+
+                  {/* Progress Bar & Timestamps */}
+                  <div className="w-full px-1">
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-1.5">
                       <div
-                        className="h-full bg-white/80 rounded-full transition-all duration-200"
+                        className="h-full bg-white rounded-full transition-all duration-300"
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
+                    <div className="flex justify-between items-center text-xs font-sf tabular-nums text-white/40">
                       <span>{formatTime(currentTrack.currentTime)}</span>
                       <span>-{formatTime(remainingSeconds)}</span>
                     </div>
                   </div>
 
-                  {/* Media Controls (Previous, Play/Pause, Next) */}
-                  <div className="flex items-center justify-center space-x-4 pt-1">
+                  {/* Bottom: Tactile Transport Controls (Filled white icons matching Big Media Component) */}
+                  <div className="w-full flex items-center justify-center space-x-6 pt-0.5 pb-0.5">
                     <button
                       type="button"
                       onClick={prevTrack}
-                      className="p-2 text-white/70 hover:text-white transition-colors"
-                      title="Previous Track"
+                      aria-label="Previous Track"
+                      className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                     >
-                      <SkipBack className="w-4 h-4 fill-current" />
+                      <SkipBack className="w-5 h-5 fill-white/80" />
                     </button>
 
                     <button
                       type="button"
                       onClick={togglePlayPause}
-                      className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
-                      title={currentTrack.isPlaying ? 'Pause' : 'Play'}
+                      aria-label={currentTrack.isPlaying ? 'Pause' : 'Play'}
+                      className="text-white hover:text-white transition-transform active:scale-90 p-1.5"
                     >
                       {currentTrack.isPlaying ? (
-                        <Pause className="w-4 h-4 fill-black" />
+                        <Pause className="w-6 h-6 fill-white" />
                       ) : (
-                        <Play className="w-4 h-4 fill-black ml-0.5" />
+                        <Play className="w-6 h-6 fill-white translate-x-0.5" />
                       )}
                     </button>
 
                     <button
                       type="button"
                       onClick={nextTrack}
-                      className="p-2 text-white/70 hover:text-white transition-colors"
-                      title="Next Track"
+                      aria-label="Next Track"
+                      className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                     >
-                      <SkipForward className="w-4 h-4 fill-current" />
+                      <SkipForward className="w-5 h-5 fill-white/80" />
                     </button>
                   </div>
                 </LiquidGlassCard>
