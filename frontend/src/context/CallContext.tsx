@@ -28,18 +28,31 @@ const CallContext = createContext<CallContextType | undefined>(undefined);
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
-  const [callerName, setCallerName] = useState<string>('Sarah');
+  const [callerName, setCallerName] = useState<string>('Mom');
   const [callerNumber, setCallerNumber] = useState<string>('+971 50 123 4567');
   const [durationSeconds, setDurationSeconds] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
-  const { pauseMedia } = useMedia();
+  const { currentTrack, pauseMedia, resumeMedia } = useMedia();
   const timerRef = useRef<number | null>(null);
+  const wasMediaPlayingBeforeCall = useRef<boolean>(false);
 
-  // Auto-pause media whenever an incoming or active call begins
+  // Auto-pause media when call starts, and auto-resume media when call finishes
   useEffect(() => {
     if (callStatus === 'incoming' || callStatus === 'active') {
+      if (currentTrack.isPlaying) {
+        wasMediaPlayingBeforeCall.current = true;
+      }
       pauseMedia();
+    } else if (callStatus === 'idle') {
+      if (wasMediaPlayingBeforeCall.current) {
+        wasMediaPlayingBeforeCall.current = false;
+        // Brief delay to allow Bluetooth audio sink to switch back cleanly
+        const resumeTimer = window.setTimeout(() => {
+          resumeMedia();
+        }, 600);
+        return () => clearTimeout(resumeTimer);
+      }
     }
   }, [callStatus]);
 
@@ -83,8 +96,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             const data = JSON.parse(event.data);
             if (data.event === 'call:incoming') {
-              setCallerName(data.data?.caller_name || 'Incoming Call');
-              setCallerNumber(data.data?.caller_id || '+971 50 000 0000');
+              if (currentTrack.isPlaying) {
+                wasMediaPlayingBeforeCall.current = true;
+              }
+              setCallerName(data.data?.caller_name || 'Mom');
+              setCallerNumber(data.data?.caller_id || '+971 50 123 4567');
               setCallStatus('incoming');
               pauseMedia();
             } else if (data.event === 'call:state') {
@@ -128,7 +144,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ws.close();
       }
     };
-  }, []);
+  }, [currentTrack.isPlaying, pauseMedia]);
 
   const answerCall = async () => {
     setCallStatus('active');
@@ -163,9 +179,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const simulateIncomingCall = (
-    name = 'Sarah',
+    name = 'Mom',
     number = '+971 50 123 4567'
   ) => {
+    if (currentTrack.isPlaying) {
+      wasMediaPlayingBeforeCall.current = true;
+    }
     setCallerName(name);
     setCallerNumber(number);
     setCallStatus('incoming');
@@ -192,10 +211,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export function useCall(): CallContextType {
+export const useCall = () => {
   const context = useContext(CallContext);
   if (!context) {
     throw new Error('useCall must be used within a CallProvider');
   }
   return context;
-}
+};
