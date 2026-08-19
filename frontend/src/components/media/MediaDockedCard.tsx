@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
+import { MarqueeText } from '../common/MarqueeText';
 import { useNav } from '../../context/NavContext';
 import type { MediaTrack } from '../../types';
 
@@ -52,7 +53,7 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
         padding="none"
         className="w-full h-full p-4 sm:p-5 flex flex-col justify-between select-none font-sf overflow-hidden"
       >
-        {/* Top Row: Prominent Album Art + Large Track Info */}
+        {/* Top Row: Prominent Album Art + Scrolling Marquee Track Details */}
         <div className="flex items-center space-x-4 w-full flex-shrink-0">
           {/* Album Art */}
           <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl">
@@ -69,14 +70,18 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
             )}
           </div>
 
-          {/* Track Details */}
-          <div className="flex flex-col justify-center min-w-0 flex-1 text-left">
-            <span className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug truncate">
-              {track.title}
-            </span>
-            <span className="text-xs sm:text-sm text-white/60 font-semibold truncate mt-1">
-              {track.artist}
-            </span>
+          {/* Track Details with Looping Marquee for Long Text */}
+          <div className="flex flex-col justify-center min-w-0 flex-1 text-left overflow-hidden">
+            <MarqueeText
+              text={track.title || 'No Track Playing'}
+              className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug"
+              speed={12}
+            />
+            <MarqueeText
+              text={track.artist || 'Connect Bluetooth'}
+              className="text-xs sm:text-sm text-white/60 font-semibold mt-1"
+              speed={15}
+            />
 
             {/* Clean Solid Equalizer Visualizer */}
             {track.isPlaying && (
@@ -167,14 +172,18 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
         )}
       </div>
 
-      {/* Middle: Prominent Track Title & Artist */}
+      {/* Middle: Prominent Track Title & Artist with Marquee Loop */}
       <div className="flex flex-col items-center justify-center w-full px-3 mt-3 mb-1.5 flex-shrink-0 min-w-0">
-        <span className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug truncate max-w-full">
-          {track.title}
-        </span>
-        <span className="text-xs sm:text-sm text-white/60 font-semibold mt-1 truncate max-w-full">
-          {track.artist}
-        </span>
+        <MarqueeText
+          text={track.title || 'No Track Playing'}
+          className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug text-center"
+          speed={12}
+        />
+        <MarqueeText
+          text={track.artist || 'Connect Bluetooth'}
+          className="text-xs sm:text-sm text-white/60 font-semibold mt-1 text-center"
+          speed={15}
+        />
       </div>
 
       {/* Progress Bar with Elapsed & Remaining Time */}

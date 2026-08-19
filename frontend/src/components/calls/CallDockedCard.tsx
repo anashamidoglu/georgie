@@ -43,23 +43,26 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
         padding="none"
         className="w-full h-full p-4 sm:p-5 flex flex-col justify-between select-none font-sf animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
       >
-        {/* Top Section: Large Contact Avatar on Left + Bigger Contact Name on Right */}
+        {/* Top Section: Large Contact Avatar on Left + Caller Details on Right */}
         <div className="flex items-center space-x-4 w-full flex-shrink-0">
-          <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl">
+          <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl">
             <div className="w-full h-full bg-[#16171f] flex items-center justify-center">
-              <User className="w-10 h-10 text-white/50" />
+              <User className="w-9 h-9 text-white/50" />
             </div>
           </div>
 
           <div className="flex flex-col justify-center min-w-0 flex-1 text-left">
+            {/* Contact Name on Top (e.g. Mom) */}
             <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight truncate">
-              {callerName}
+              {callerName || 'Incoming Call'}
             </span>
-            <span className="text-sm text-white/60 font-semibold truncate mt-1">
+
+            {/* Phone Number Below (e.g. +971 50 123 4567) */}
+            <span className="text-sm font-semibold text-white/60 tracking-normal truncate mt-1">
               {callerNumber}
             </span>
 
-            {/* Active Call Duration (only when call is actively in progress) */}
+            {/* Active Call Duration */}
             {callStatus === 'active' && (
               <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold font-sf tabular-nums w-fit">
                 {formatTime(durationSeconds)}
@@ -143,10 +146,10 @@ export const CallDockedCard: React.FC<CallDockedCardProps> = ({
         </div>
       </div>
 
-      {/* Middle: Caller Name & Phone Number */}
+      {/* Middle: Contact Name (Top) & Phone Number (Below) */}
       <div className="flex flex-col items-center justify-center w-full px-3 mt-2 mb-1 flex-shrink-0 min-w-0">
         <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-snug truncate max-w-full">
-          {callerName}
+          {callerName || 'Incoming Call'}
         </span>
         <span className="text-sm text-white/60 font-semibold mt-1 truncate max-w-full">
           {callerNumber}

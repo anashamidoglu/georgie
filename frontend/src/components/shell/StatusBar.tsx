@@ -171,7 +171,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         {/* Incoming Call Tester Button */}
         <button
           type="button"
-          onClick={() => simulateIncomingCall('+971 50 123 4567', 'Mom')}
+          onClick={() => simulateIncomingCall('Mom', '+971 50 123 4567')}
           className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-xs font-bold transition-colors shadow-sm"
           title="Simulate incoming Bluetooth Hands-Free call"
         >
