@@ -75,8 +75,8 @@ export const NavDockedViewport: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <span className="text-sm font-semibold text-white/85 mt-0.5 truncate max-w-[280px]">
-                  {primaryManeuver.instruction || primaryManeuver.roadName}
+                <span className="text-sm font-semibold text-white/95 mt-1 leading-snug line-clamp-2">
+                  {primaryManeuver.instruction}
                 </span>
               </div>
             </div>

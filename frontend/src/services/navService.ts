@@ -287,10 +287,9 @@ function parseManeuverStep(
 
   const instruction = isWaypointStop && stopName
     ? `${stopName} reached`
-    : bannerPrimary?.text ||
-      step.maneuver?.instruction ||
-      step.name ||
-      'Continue on route';
+    : step.maneuver?.instruction ||
+      bannerPrimary?.text ||
+      (step.name ? `Continue onto ${step.name}` : 'Continue on route');
 
   const roadName =
     step.name ||
