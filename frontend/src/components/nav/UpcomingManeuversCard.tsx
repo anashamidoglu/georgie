@@ -1,4 +1,5 @@
 import React from 'react';
+import { Flag } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { ManeuverIcon } from './ManeuverIcon';
 import { useNav } from '../../context/NavContext';
@@ -36,48 +37,66 @@ export const UpcomingManeuversCard: React.FC = () => {
           const isSelected = inspectedStep?.id === step.id;
 
           return (
-            <button
-              key={step.id || idx}
-              type="button"
-              onClick={() => inspectStep(step)}
-              className={`w-full text-left flex items-start space-x-3.5 p-2 rounded-2xl transition-all duration-150 group ${
-                isSelected
-                  ? 'bg-sky-500/15 border border-sky-500/40 shadow-lg'
-                  : 'hover:bg-white/[0.05] border border-transparent'
-              }`}
-            >
-              {/* Natural Google-Style Maneuver Arrow Glyph */}
-              <div className="pt-0.5 flex-shrink-0">
-                <ManeuverIcon
-                  type={step.type}
-                  modifier={step.modifier}
-                  size="md"
-                  className={isSelected ? 'text-sky-300' : 'text-white/80 group-hover:text-white'}
-                />
-              </div>
-
-              {/* Natural Google Maps-Style Instruction & Distance */}
-              <div className="flex flex-col min-w-0 flex-1">
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold font-sf-display tabular-nums text-white tracking-tight leading-snug">
-                    In {step.distanceStr}
-                  </span>
-                  {step.shield && (
-                    <span className="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-[9px] font-bold text-amber-300 uppercase">
-                      {step.shield}
-                    </span>
-                  )}
-                  {step.exitNumber && (
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-bold text-emerald-300 uppercase">
-                      {step.exitNumber}
-                    </span>
-                  )}
+            <React.Fragment key={step.id || idx}>
+              <button
+                type="button"
+                onClick={() => inspectStep(step)}
+                className={`w-full text-left flex items-start space-x-3.5 p-2 rounded-2xl transition-all duration-150 group ${
+                  isSelected
+                    ? 'bg-sky-500/15 border border-sky-500/40 shadow-lg'
+                    : 'hover:bg-white/[0.05] border border-transparent'
+                }`}
+              >
+                {/* Natural Google-Style Maneuver Arrow Glyph */}
+                <div className="pt-0.5 flex-shrink-0">
+                  <ManeuverIcon
+                    type={step.type}
+                    modifier={step.modifier}
+                    size="md"
+                    className={isSelected ? 'text-sky-300' : 'text-white/80 group-hover:text-white'}
+                  />
                 </div>
-                <span className="text-xs font-medium text-white/80 leading-snug mt-0.5 group-hover:text-white line-clamp-2">
-                  {step.instruction}
-                </span>
-              </div>
-            </button>
+
+                {/* Natural Google Maps-Style Instruction & Distance */}
+                <div className="flex flex-col min-w-0 flex-1">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-xs font-bold font-sf-display tabular-nums text-white tracking-tight leading-snug">
+                      In {step.distanceStr}
+                    </span>
+                    {step.shield && (
+                      <span className="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-[9px] font-bold text-amber-300 uppercase">
+                        {step.shield}
+                      </span>
+                    )}
+                    {step.exitNumber && (
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-bold text-emerald-300 uppercase">
+                        {step.exitNumber}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs font-medium text-white/80 leading-snug mt-0.5 group-hover:text-white line-clamp-2">
+                    {step.instruction}
+                  </span>
+                </div>
+              </button>
+
+              {/* Next Stop Milestone Divider */}
+              {step.isWaypointStop && (
+                <div className="my-2 px-3 py-2 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center space-x-2.5 shadow-md">
+                  <div className="w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center flex-shrink-0 font-bold">
+                    <Flag className="w-3.5 h-3.5 fill-black" />
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">
+                      Next Stop
+                    </span>
+                    <span className="text-xs font-bold text-white truncate">
+                      {step.stopName || 'Waypoint Stop'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
       </div>

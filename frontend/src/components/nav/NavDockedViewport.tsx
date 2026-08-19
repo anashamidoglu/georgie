@@ -6,10 +6,6 @@ import {
   Play,
   X,
   Search,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  ArrowLeftRight,
 } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
 import { LaneGuidance } from './LaneGuidance';
@@ -27,9 +23,6 @@ export const NavDockedViewport: React.FC = () => {
     navStatus,
     destinationName,
     waypoints,
-    removeWaypoint,
-    moveWaypoint,
-    swapWaypointWithDestination,
     eta,
     primaryManeuver,
     activeRoute,
@@ -155,93 +148,20 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Banner: Preview Confirmation Mode with Multi-Stop Waypoints */}
+      {/* 3. Bottom Floating Banner: Preview Confirmation Mode */}
       {navStatus === 'preview' && (
-        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center pointer-events-none z-30 space-y-2">
-          {/* Waypoints horizontal badge strip */}
-          {waypoints.length > 0 && (
-            <div className="pointer-events-auto flex items-center space-x-2 overflow-x-auto max-w-[520px] w-full px-1 scrollbar-none">
-              {waypoints.map((wp, idx) => (
-                <div
-                  key={wp.id}
-                  className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-black/90 border border-amber-500/40 text-xs font-semibold text-white/90 shadow-lg backdrop-blur-md flex-shrink-0"
-                >
-                  <span className="w-4 h-4 rounded-full bg-amber-500 text-black font-black text-[10px] flex items-center justify-center font-mono">
-                    {idx + 1}
-                  </span>
-                  <span className="truncate max-w-[100px]">{wp.name}</span>
-
-                  {/* Reorder Earlier */}
-                  {idx > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveWaypoint(idx, idx - 1);
-                      }}
-                      className="w-4 h-4 rounded-full hover:bg-white/20 text-white/50 hover:text-white flex items-center justify-center transition-colors"
-                      title="Move stop earlier"
-                    >
-                      <ChevronLeft className="w-3 h-3" />
-                    </button>
-                  )}
-
-                  {/* Reorder Later */}
-                  {idx < waypoints.length - 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveWaypoint(idx, idx + 1);
-                      }}
-                      className="w-4 h-4 rounded-full hover:bg-white/20 text-white/50 hover:text-white flex items-center justify-center transition-colors"
-                      title="Move stop later"
-                    >
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  )}
-
-                  {/* Swap with Final Destination */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      swapWaypointWithDestination(idx);
-                    }}
-                    className="w-4 h-4 rounded-full hover:bg-amber-500/20 text-amber-400/70 hover:text-amber-300 flex items-center justify-center transition-colors"
-                    title="Make this the final destination"
-                  >
-                    <ArrowLeftRight className="w-2.5 h-2.5" />
-                  </button>
-
-                  {/* Delete Stop */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeWaypoint(wp.id);
-                    }}
-                    className="w-4 h-4 rounded-full hover:bg-white/20 text-white/50 hover:text-white flex items-center justify-center transition-colors ml-0.5"
-                    title="Remove stop"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex justify-center pointer-events-none z-30">
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-3 flex items-center justify-between font-sf select-none w-full max-w-[520px]"
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-3 flex items-center justify-between font-sf select-none w-full max-w-[480px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Route Summary & Google Maps Style Traffic-Colored ETA */}
-            <div className="flex flex-col min-w-0 mr-3">
+            <div className="flex flex-col min-w-0 mr-4">
               <span className="text-[11px] text-white/50 truncate font-semibold uppercase tracking-wider">
                 {waypoints.length > 0 ? `${destinationName} (${waypoints.length + 1} stops)` : destinationName}
               </span>
-              <div className="flex items-baseline space-x-3.5 mt-0.5 whitespace-nowrap">
+              <div className="flex items-baseline space-x-4 mt-0.5 whitespace-nowrap">
                 <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight whitespace-nowrap ${trafficColorClass}`}>
                   {eta.duration}
                 </span>
@@ -254,22 +174,8 @@ export const NavDockedViewport: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons: Add Stop, Cancel [X], Start Navigation */}
-            <div className="flex items-center space-x-2 flex-shrink-0">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsAddStopMode(true);
-                  setIsSearchOpen(true);
-                }}
-                className="h-10 px-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white flex items-center space-x-1.5 transition-colors text-xs font-semibold"
-                title="Add a stop along route"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Stop</span>
-              </button>
-
+            {/* Action Buttons: Cancel [X], Start Navigation */}
+            <div className="flex items-center space-x-2.5 flex-shrink-0">
               <button
                 type="button"
                 onClick={(e) => {

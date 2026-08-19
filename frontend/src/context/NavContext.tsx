@@ -140,7 +140,15 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const currentCoords = positionRef.current.coords;
       const wpCoords = activeWaypoints.map((w) => w.coordinates);
-      const res = await fetchDirections(currentCoords, destCoords, wpCoords, MAPBOX_TOKEN, controller.signal);
+      const res = await fetchDirections(
+        currentCoords,
+        destCoords,
+        wpCoords,
+        MAPBOX_TOKEN,
+        controller.signal,
+        _destName || destinationName || 'Destination',
+        activeWaypoints.map((w) => w.name)
+      );
       setAvailableRoutes(res.routes);
       setSelectedRouteIndex(0);
       setActiveRoute(res.activeRoute);

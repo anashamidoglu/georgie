@@ -17,6 +17,9 @@ export interface ManeuverInfo {
   shield?: string;
   exitNumber?: string;
   location: [number, number];
+  legIndex?: number;
+  isWaypointStop?: boolean;
+  stopName?: string;
 }
 
 export interface RouteGeometry {
@@ -48,6 +51,15 @@ export interface TrafficInfo {
   label: string;      // 'Fast route' | 'Moderate traffic' | 'Heavy traffic'
 }
 
+export interface RouteLegInfo {
+  legIndex: number;
+  summary: string;
+  distanceStr: string;
+  durationStr: string;
+  destinationName: string;
+  steps: ManeuverInfo[];
+}
+
 export interface RouteResult {
   id: number;
   summary: string;
@@ -63,6 +75,7 @@ export interface RouteResult {
   primaryManeuver: ManeuverInfo;
   upcomingSteps: ManeuverInfo[];
   allSteps: ManeuverInfo[];
+  legs?: RouteLegInfo[];
 }
 
 export interface DirectionsResponse {
@@ -202,7 +215,7 @@ function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
     if (!congestion || congestion.length === 0) {
       features.push({
         type: 'Feature',
-        properties: { congestion: 'low', routeId, isFirstLeg },
+        properties: { congestion: 'low', routeId, isFirstLeg, legIndex: legIdx },
         geometry: { type: 'LineString', coordinates: coordsToUse },
       });
       return;
@@ -221,7 +234,7 @@ function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
         currentCoords.push(nextCoord);
         features.push({
           type: 'Feature',
-          properties: { congestion: currentLevel, routeId, isFirstLeg },
+          properties: { congestion: currentLevel, routeId, isFirstLeg, legIndex: legIdx },
           geometry: { type: 'LineString', coordinates: currentCoords },
         });
         currentLevel = level;
@@ -232,7 +245,7 @@ function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
     if (currentCoords.length > 1) {
       features.push({
         type: 'Feature',
-        properties: { congestion: currentLevel, routeId, isFirstLeg },
+        properties: { congestion: currentLevel, routeId, isFirstLeg, legIndex: legIdx },
         geometry: { type: 'LineString', coordinates: currentCoords },
       });
     }
@@ -244,7 +257,15 @@ function buildCongestionGeoJSON(route: any, routeId: number): RouteGeoJSON {
   };
 }
 
-function parseManeuverStep(step: any, nextStep: any, idx: number, originCoords: [number, number]): ManeuverInfo {
+function parseManeuverStep(
+  step: any,
+  nextStep: any,
+  idx: number,
+  originCoords: [number, number],
+  legIndex?: number,
+  isWaypointStop?: boolean,
+  stopName?: string
+): ManeuverInfo {
   const stepDist = Math.round(step.distance);
   const distanceStr =
     stepDist >= 1000 ? `${(stepDist / 1000).toFixed(1)} km` : `${stepDist} m`;
@@ -311,6 +332,9 @@ function parseManeuverStep(step: any, nextStep: any, idx: number, originCoords: 
     shield,
     exitNumber,
     location,
+    legIndex,
+    isWaypointStop,
+    stopName,
   };
 }
 
@@ -319,7 +343,9 @@ export async function fetchDirections(
   destination: [number, number],
   waypoints: [number, number][] = [],
   accessToken: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  destinationName: string = 'Destination',
+  waypointNames: string[] = []
 ): Promise<DirectionsResponse> {
   const points = [origin, ...waypoints, destination];
   const coordinates = points.map((p) => `${p[0]},${p[1]}`).join(';');
@@ -358,16 +384,61 @@ export async function fetchDirections(
             const arrivalMinutes = arrivalDate.getMinutes().toString().padStart(2, '0');
             const arrivalStr = `${arrivalHours}:${arrivalMinutes} arrival`;
 
-            // Merge all legs steps
-            const allRawSteps: any[] = [];
-            (route.legs || []).forEach((leg: any) => {
-              if (leg.steps) {
-                allRawSteps.push(...leg.steps);
-              }
+            // Process individual legs for per-stop dropdowns & next stop banners
+            const legsInfo: RouteLegInfo[] = [];
+            const allSteps: ManeuverInfo[] = [];
+            let globalStepIdx = 0;
+
+            const legs = route.legs || [];
+            legs.forEach((leg: any, legIdx: number) => {
+              const legDistMeters = Math.round(leg.distance || 0);
+              const legDistStr =
+                legDistMeters >= 1000 ? `${(legDistMeters / 1000).toFixed(1)} km` : `${legDistMeters} m`;
+              const legDurMin = Math.round((leg.duration || 0) / 60);
+              const legDurStr =
+                legDurMin >= 60
+                  ? `${Math.floor(legDurMin / 60)} hr ${legDurMin % 60} min`
+                  : `${legDurMin} min`;
+
+              const legDestName =
+                legIdx < waypoints.length
+                  ? waypointNames[legIdx] || `Stop ${legIdx + 1}`
+                  : destinationName;
+
+              const legRawSteps = leg.steps || [];
+              const legManeuvers: ManeuverInfo[] = [];
+
+              legRawSteps.forEach((step: any, sIdx: number) => {
+                const isLastStepOfIntermediateLeg =
+                  legIdx < legs.length - 1 && sIdx === legRawSteps.length - 1;
+
+                const parsed = parseManeuverStep(
+                  step,
+                  legRawSteps[sIdx + 1],
+                  globalStepIdx++,
+                  origin,
+                  legIdx,
+                  isLastStepOfIntermediateLeg,
+                  isLastStepOfIntermediateLeg ? legDestName : undefined
+                );
+                legManeuvers.push(parsed);
+                allSteps.push(parsed);
+              });
+
+              legsInfo.push({
+                legIndex: legIdx,
+                summary: extractMajorRoads(legRawSteps),
+                distanceStr: legDistStr,
+                durationStr: legDurStr,
+                destinationName: legDestName,
+                steps: legManeuvers,
+              });
             });
 
             // Highway & arterial road summary label
-            const summary = extractMajorRoads(allRawSteps);
+            const summary = extractMajorRoads(
+              route.legs?.flatMap((l: any) => l.steps || []) || []
+            );
 
             // Relative diff string
             const diffMin = Math.round((route.duration - fastestDuration) / 60);
@@ -381,10 +452,6 @@ export async function fetchDirections(
               }
             });
             const traffic = computeTraffic(allCongestions);
-
-            const allSteps: ManeuverInfo[] = allRawSteps.map((step: any, idx: number) =>
-              parseManeuverStep(step, allRawSteps[idx + 1], idx, origin)
-            );
 
             const primaryManeuver = allSteps[0] || {
               id: 0,
@@ -415,6 +482,7 @@ export async function fetchDirections(
               primaryManeuver,
               upcomingSteps,
               allSteps,
+              legs: legsInfo,
             };
           });
 
@@ -467,7 +535,7 @@ export async function fetchDirections(
       features: [
         {
           type: 'Feature',
-          properties: { congestion: 'low', routeId: 0 },
+          properties: { congestion: 'low', routeId: 0, isFirstLeg: true },
           geometry: {
             type: 'LineString',
             coordinates: [origin, destination],

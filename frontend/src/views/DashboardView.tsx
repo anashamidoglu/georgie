@@ -15,6 +15,7 @@ export const DashboardView: React.FC = () => {
     isNavExpanded,
     setIsNavExpanded,
     navStatus,
+    waypoints,
     inspectedStep,
   } = useNav();
 
@@ -67,13 +68,13 @@ export const DashboardView: React.FC = () => {
               )}
             </div>
 
-            {/* Bottom Right: Upcoming Steps (if Nav active/preview) OR Full Media Card (if Nav idle & media playing) OR Audio Placeholder */}
+            {/* Bottom Right: Upcoming Steps (if single-route preview or navigating) OR Media Card */}
             <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden">
-              {navStatus !== 'idle' ? (
-                /* When Nav is preview/active -> Upcoming Steps takes 100% priority */
+              {navStatus === 'navigating' || (navStatus === 'preview' && waypoints.length === 0) ? (
+                /* Single destination preview or active navigation -> Full upcoming steps */
                 <UpcomingManeuversCard />
               ) : hasActiveMedia ? (
-                /* When Nav is idle & media is playing -> Full Media Card */
+                /* When multi-stop preview or idle & media playing -> Full Media Card */
                 <MediaDockedCard
                   track={currentTrack}
                   onPlayPause={togglePlayPause}
@@ -81,7 +82,7 @@ export const DashboardView: React.FC = () => {
                   onPrev={prevTrack}
                 />
               ) : (
-                /* When Nav is idle & no media -> Clean audio placeholder */
+                /* Clean audio placeholder */
                 <LiquidGlassCard
                   padding="lg"
                   className="w-full h-full flex flex-col items-center justify-center text-center border-dashed border-white/10"
