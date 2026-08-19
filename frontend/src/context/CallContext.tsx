@@ -36,12 +36,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { pauseMedia } = useMedia();
   const timerRef = useRef<number | null>(null);
 
-  const backendHost = import.meta.env.VITE_BACKEND_HOST || window.location.hostname;
-  const backendPort = import.meta.env.VITE_BACKEND_PORT || '8000';
-  const apiBase = import.meta.env.VITE_BACKEND_HOST
-    ? `http://${import.meta.env.VITE_BACKEND_HOST}:${backendPort}`
-    : '';
-
   // Auto-pause media whenever an incoming or active call begins
   useEffect(() => {
     if (callStatus === 'incoming' || callStatus === 'active') {
@@ -76,11 +70,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimeout: number | null = null;
+    let isComponentMounted = true;
 
     const connect = () => {
+      if (!isComponentMounted) return;
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${backendHost}:${backendPort}/ws`;
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(wsUrl);
 
         ws.onmessage = (event) => {
@@ -107,33 +103,38 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         ws.onclose = () => {
-          reconnectTimeout = window.setTimeout(connect, 3000);
+          if (isComponentMounted) {
+            reconnectTimeout = window.setTimeout(connect, 2000);
+          }
         };
 
         ws.onerror = () => {
           ws?.close();
         };
       } catch (e) {
-        reconnectTimeout = window.setTimeout(connect, 3000);
+        if (isComponentMounted) {
+          reconnectTimeout = window.setTimeout(connect, 2000);
+        }
       }
     };
 
     connect();
 
     return () => {
+      isComponentMounted = false;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (ws) {
         ws.onclose = null;
         ws.close();
       }
     };
-  }, [backendHost, backendPort]);
+  }, []);
 
   const answerCall = async () => {
     setCallStatus('active');
     pauseMedia();
     try {
-      await fetch(`${apiBase}/api/calls/answer`, { method: 'POST' });
+      await fetch('/api/calls/answer', { method: 'POST' });
     } catch {
       // Local development fallback
     }
@@ -142,7 +143,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const declineCall = async () => {
     setCallStatus('idle');
     try {
-      await fetch(`${apiBase}/api/calls/reject`, { method: 'POST' });
+      await fetch('/api/calls/reject', { method: 'POST' });
     } catch {
       // Local development fallback
     }
@@ -151,7 +152,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hangupCall = async () => {
     setCallStatus('idle');
     try {
-      await fetch(`${apiBase}/api/calls/hangup`, { method: 'POST' });
+      await fetch('/api/calls/hangup', { method: 'POST' });
     } catch {
       // Local development fallback
     }
@@ -161,7 +162,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsMuted((prev) => !prev);
   };
 
-  const simulateIncomingCall = (name = 'Sarah', number = '+971 50 123 4567') => {
+  const simulateIncomingCall = (
+    name = 'Sarah',
+    number = '+971 50 123 4567'
+  ) => {
     setCallerName(name);
     setCallerNumber(number);
     setCallStatus('incoming');
@@ -188,10 +192,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useCall = (): CallContextType => {
+export function useCall(): CallContextType {
   const context = useContext(CallContext);
   if (!context) {
     throw new Error('useCall must be used within a CallProvider');
   }
   return context;
-};
+}

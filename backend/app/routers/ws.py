@@ -40,9 +40,21 @@ ws_manager = ConnectionManager()
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.connect(websocket)
+    
+    # Push initial live state immediately upon WebSocket connect
+    try:
+        from ..services.bluetooth.dbus_listener import dbus_listener
+        from ..services.bluetooth.mock_listener import mock_bt_listener
+        from ..config import settings
+
+        track = mock_bt_listener.current_track if settings.MOCK_MODE else await dbus_listener.get_live_track()
+        if track and track.title and track.title != 'No Track Playing':
+            await websocket.send_text(json.dumps({"event": "media:track_changed", "data": track.model_dump()}))
+    except Exception as e:
+        logger.debug(f"[WS] Error pushing initial track state: {e}")
+
     try:
         while True:
-            # Handle incoming ping / messages if needed
             data = await websocket.receive_text()
             try:
                 msg = json.loads(data)

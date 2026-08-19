@@ -30,17 +30,11 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentTrack, setCurrentTrack] = useState<MediaTrack>(DEFAULT_TRACK);
   const progressTimerRef = useRef<number | null>(null);
 
-  const backendHost = import.meta.env.VITE_BACKEND_HOST || window.location.hostname;
-  const backendPort = import.meta.env.VITE_BACKEND_PORT || '8001';
-  const apiBase = import.meta.env.VITE_BACKEND_HOST
-    ? `http://${import.meta.env.VITE_BACKEND_HOST}:${backendPort}`
-    : '';
-
   // Initial fetch of current track on mount
   useEffect(() => {
     const fetchCurrentMedia = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/media/current`);
+        const res = await fetch('/api/media/current');
         if (res.ok) {
           const trackData = await res.json();
           const isRealTrack = Boolean(
@@ -73,18 +67,25 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
     fetchCurrentMedia();
-  }, [apiBase]);
+  }, []);
 
-  // Listen to live backend WebSocket for BlueZ AVRCP track updates (Stable single connection)
+  // Listen to live backend WebSocket for BlueZ AVRCP track updates
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimeout: number | null = null;
+    let isComponentMounted = true;
 
     const connect = () => {
+      if (!isComponentMounted) return;
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${backendHost}:${backendPort}/ws`;
+        // Connect via Vite proxy /ws for absolute reliability across local and remote devices
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log('[Media WS] Connected successfully');
+        };
 
         ws.onmessage = (event) => {
           try {
@@ -150,27 +151,32 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
 
         ws.onclose = () => {
-          reconnectTimeout = window.setTimeout(connect, 3000);
+          if (isComponentMounted) {
+            reconnectTimeout = window.setTimeout(connect, 2000);
+          }
         };
 
         ws.onerror = () => {
           ws?.close();
         };
       } catch (e) {
-        reconnectTimeout = window.setTimeout(connect, 3000);
+        if (isComponentMounted) {
+          reconnectTimeout = window.setTimeout(connect, 2000);
+        }
       }
     };
 
     connect();
 
     return () => {
+      isComponentMounted = false;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (ws) {
         ws.onclose = null;
         ws.close();
       }
     };
-  }, [backendHost, backendPort]);
+  }, []);
 
   // Track position timer
   useEffect(() => {
@@ -202,7 +208,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const willPlay = !currentTrack.isPlaying;
     setCurrentTrack((prev) => ({ ...prev, isPlaying: willPlay }));
     try {
-      await fetch(`${apiBase}/api/media/${willPlay ? 'play' : 'pause'}`, { method: 'POST' });
+      await fetch(`/api/media/${willPlay ? 'play' : 'pause'}`, { method: 'POST' });
     } catch {
       // Dev mode fallback
     }
@@ -211,7 +217,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const pauseMedia = async () => {
     setCurrentTrack((prev) => ({ ...prev, isPlaying: false }));
     try {
-      await fetch(`${apiBase}/api/media/pause`, { method: 'POST' });
+      await fetch('/api/media/pause', { method: 'POST' });
     } catch {
       // Dev mode fallback
     }
@@ -220,7 +226,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const resumeMedia = async () => {
     setCurrentTrack((prev) => ({ ...prev, isPlaying: true }));
     try {
-      await fetch(`${apiBase}/api/media/play`, { method: 'POST' });
+      await fetch('/api/media/play', { method: 'POST' });
     } catch {
       // Dev mode fallback
     }
@@ -228,7 +234,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const nextTrack = async () => {
     try {
-      await fetch(`${apiBase}/api/media/next`, { method: 'POST' });
+      await fetch('/api/media/next', { method: 'POST' });
     } catch {
       // Dev mode fallback
     }
@@ -236,7 +242,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const prevTrack = async () => {
     try {
-      await fetch(`${apiBase}/api/media/previous`, { method: 'POST' });
+      await fetch('/api/media/previous', { method: 'POST' });
     } catch {
       // Dev mode fallback
     }
