@@ -71,7 +71,7 @@ export const DashboardView: React.FC = () => {
     content: <RadioDockedCard />,
   };
 
-  // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media -> Radio)
+  // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media (if active) -> Radio)
   const navWidgets: WidgetItem[] = [
     ...(callStatus !== 'idle'
       ? [
@@ -87,11 +87,11 @@ export const DashboardView: React.FC = () => {
       label: 'Upcoming Steps',
       content: <UpcomingManeuversCard />,
     },
-    bluetoothMediaWidget,
+    ...(hasActiveMedia ? [bluetoothMediaWidget] : []),
     radioWidget,
   ];
 
-  // Stackable Widgets for Idle Mode (Call -> Media -> Radio)
+  // Stackable Widgets for Idle Mode (Call -> Media (if active) -> Radio)
   const idleWidgets: WidgetItem[] = [
     ...(callStatus !== 'idle'
       ? [
@@ -102,7 +102,7 @@ export const DashboardView: React.FC = () => {
           },
         ]
       : []),
-    bluetoothMediaWidget,
+    ...(hasActiveMedia ? [bluetoothMediaWidget] : []),
     radioWidget,
   ];
 
