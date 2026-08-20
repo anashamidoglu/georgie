@@ -502,7 +502,7 @@ export const MapboxCanvas: React.FC = () => {
             'line-color': [
               'case',
               ['==', ['get', 'isSubsequentLeg'], true],
-              '#090d16',
+              '#0f172a',
               [
                 'match',
                 ['get', 'congestion'],
@@ -523,14 +523,14 @@ export const MapboxCanvas: React.FC = () => {
             'line-opacity': [
               'case',
               ['==', ['get', 'isSubsequentLeg'], true],
-              0.15,
+              0.45,
               0.9,
             ],
             'line-blur': 0,
             'line-emissive-strength': [
               'case',
               ['==', ['get', 'isSubsequentLeg'], true],
-              0.05,
+              0.25,
               0.8,
             ],
           },
@@ -550,7 +550,7 @@ export const MapboxCanvas: React.FC = () => {
             'line-color': [
               'case',
               ['==', ['get', 'isSubsequentLeg'], true],
-              '#1e293b',
+              '#2563eb',
               [
                 'match',
                 ['get', 'congestion'],
@@ -571,13 +571,13 @@ export const MapboxCanvas: React.FC = () => {
             'line-opacity': [
               'case',
               ['==', ['get', 'isSubsequentLeg'], true],
-              0.25,
+              0.60,
               1.0,
             ],
             'line-emissive-strength': [
               'case',
               ['==', ['get', 'isSubsequentLeg'], true],
-              0.05,
+              0.45,
               1.0,
             ],
           },

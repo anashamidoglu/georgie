@@ -252,31 +252,16 @@ export const NavDockedViewport: React.FC = () => {
                   </button>
                 </>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsAddStopMode(true);
-                      setIsSearchOpen(true);
-                    }}
-                    className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white flex items-center justify-center transition-all active:scale-90"
-                    title="Add a stop along route"
-                    aria-label="Add Stop"
-                  >
-                    <Plus className="w-5 h-5 text-sky-400" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={endNavigation}
-                    aria-label="End Navigation"
-                    className="w-11 h-11 rounded-full bg-red-500/20 hover:bg-red-500 border border-red-500/40 text-red-300 hover:text-white flex items-center justify-center transition-all active:scale-90 shadow-lg"
-                    title="End Navigation"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </>
+                /* Active Navigation: Clean End Route (Red X) button */
+                <button
+                  type="button"
+                  onClick={endNavigation}
+                  aria-label="End Navigation"
+                  className="w-11 h-11 rounded-full bg-red-500/20 hover:bg-red-500 border border-red-500/40 text-red-300 hover:text-white flex items-center justify-center transition-all active:scale-90 shadow-lg"
+                  title="End Navigation"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               )}
             </div>
           </div>
