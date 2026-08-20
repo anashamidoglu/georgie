@@ -249,6 +249,22 @@ class DBusBluetoothListener:
                             logger.info(f"[BlueZ Device] {msg.path} Connected: {connected_val}")
                             async def handle_device_conn_change(is_conn: bool):
                                 if is_conn:
+                                    try:
+                                        from dbus_next import Message, Variant
+                                        await self.bus.call(
+                                            Message(
+                                                destination='org.bluez',
+                                                path=msg.path,
+                                                interface='org.freedesktop.DBus.Properties',
+                                                member='Set',
+                                                signature='ssv',
+                                                body=['org.bluez.Device1', 'Trusted', Variant('b', True)]
+                                            )
+                                        )
+                                        logger.info(f"[BlueZ] Set {msg.path} to Trusted=True for persistent link")
+                                    except Exception as ex:
+                                        logger.debug(f"[BlueZ] Note setting Trusted=True: {ex}")
+
                                     await asyncio.sleep(1.0)
                                     await self._poll_current_media_state()
                                 else:

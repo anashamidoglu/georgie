@@ -71,15 +71,29 @@ cd "$PROJECT_DIR/frontend"
 sudo -u "$ACTUAL_USER" npm install
 sudo -u "$ACTUAL_USER" npm run build
 
-# 5. Configure BlueZ & oFono for In-Car Hands-Free Audio
-echo "[+] Step 5/8: Configuring BlueZ and oFono services..."
+# 5. Configure BlueZ, WirePlumber & oFono for Persistent In-Car Hands-Free Audio
+echo "[+] Step 5/8: Configuring BlueZ, WirePlumber and oFono services..."
 if [ -f "$PROJECT_DIR/provisioning/bluetooth-main.conf" ]; then
   cp "$PROJECT_DIR/provisioning/bluetooth-main.conf" /etc/bluetooth/main.conf
 fi
+
+# Install WirePlumber anti-drop configuration (prevents audio autosuspend and disconnects)
+mkdir -p /etc/wireplumber/wireplumber.conf.d
+if [ -f "$PROJECT_DIR/provisioning/wireplumber-bluetooth.conf" ]; then
+  cp "$PROJECT_DIR/provisioning/wireplumber-bluetooth.conf" /etc/wireplumber/wireplumber.conf.d/50-bluez.conf
+fi
+
 systemctl enable bluetooth.service
 systemctl restart bluetooth.service
 systemctl enable ofono.service
 systemctl restart ofono.service
+
+# Restart PipeWire & WirePlumber user services if running
+if command -v systemctl &> /dev/null; then
+  sudo -u "$ACTUAL_USER" systemctl --user daemon-reload 2>/dev/null || true
+  sudo -u "$ACTUAL_USER" systemctl --user restart wireplumber 2>/dev/null || true
+  sudo -u "$ACTUAL_USER" systemctl --user restart pipewire 2>/dev/null || true
+fi
 
 # 6. Configure Chromium Policies for Automatic Geolocation Permission
 echo "[+] Step 6/8: Setting up Chromium kiosk policies..."
