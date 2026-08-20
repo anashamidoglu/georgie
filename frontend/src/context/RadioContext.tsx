@@ -25,14 +25,8 @@ const RadioContext = createContext<RadioContextType | undefined>(undefined);
 
 export const RadioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSource, setActiveSource] = useState<AudioSource>('bluetooth');
-  const [stations, setStations] = useState<RadioStation[]>(() => {
-    try {
-      const saved = localStorage.getItem('georgie_radio_stations_v2');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_RADIO_STATIONS;
-  });
-  const [currentStation, setCurrentStation] = useState<RadioStation>(stations[0] || DEFAULT_RADIO_STATIONS[0]);
+  const [stations, setStations] = useState<RadioStation[]>(DEFAULT_RADIO_STATIONS);
+  const [currentStation, setCurrentStation] = useState<RadioStation>(DEFAULT_RADIO_STATIONS[0]);
   const [isRadioPlaying, setIsRadioPlaying] = useState<boolean>(false);
   const [isRadioBuffering, setIsRadioBuffering] = useState<boolean>(false);
 
