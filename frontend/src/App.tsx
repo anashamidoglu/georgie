@@ -62,15 +62,15 @@ const AppShell: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <CallProvider>
-      <RadioProvider>
-        <MediaProvider>
+    <MediaProvider>
+      <CallProvider>
+        <RadioProvider>
           <NavProvider>
             <AppShell />
           </NavProvider>
-        </MediaProvider>
-      </RadioProvider>
-    </CallProvider>
+        </RadioProvider>
+      </CallProvider>
+    </MediaProvider>
   );
 };
 
