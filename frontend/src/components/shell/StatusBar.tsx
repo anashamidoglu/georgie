@@ -13,15 +13,25 @@ import {
   MapPin,
   Phone,
   Music,
-  WifiOff,
 } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
 import { useMedia } from '../../context/MediaContext';
 import { useCall } from '../../context/CallContext';
-import { useSystem } from '../../context/SystemContext';
+import type { ConnectivityStatus } from '../../types';
 
-export const StatusBar: React.FC = () => {
+interface StatusBarProps {
+  connectivity?: ConnectivityStatus;
+}
+
+export const StatusBar: React.FC<StatusBarProps> = ({
+  connectivity = {
+    cellular: '5G',
+    wifi: true,
+    bluetooth: true,
+    gpsActive: true,
+  },
+}) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
   const [isMediaPopoverOpen, setIsMediaPopoverOpen] = useState<boolean>(false);
@@ -47,7 +57,6 @@ export const StatusBar: React.FC = () => {
   } = useMedia();
 
   const { simulateIncomingCall } = useCall();
-  const { isOnline, isBluetoothConnected } = useSystem();
 
   useEffect(() => {
     const updateTime = () => {
@@ -303,23 +312,15 @@ export const StatusBar: React.FC = () => {
           </div>
         )}
 
-        {/* Live Dynamic Connectivity Status */}
+        {/* Connectivity Status */}
         <div className="flex items-center space-x-2.5 text-white/60">
-          {isOnline ? (
-            <>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/[0.10] text-white tracking-tight">
-                5G
-              </span>
-              <Wifi className="w-4 h-4 text-white" />
-            </>
-          ) : (
-            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/10 text-white/50 text-xs font-semibold">
-              <WifiOff className="w-3.5 h-3.5 text-white/40" />
-              <span>Offline</span>
-            </div>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/[0.10] text-white tracking-tight">
+            {connectivity.cellular}
+          </span>
+          {connectivity.wifi && (
+            <Wifi className="w-4 h-4 text-white" />
           )}
-
-          {isBluetoothConnected && (
+          {connectivity.bluetooth && (
             <Bluetooth className="w-4 h-4 text-sky-400" />
           )}
         </div>
