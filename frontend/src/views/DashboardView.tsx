@@ -29,10 +29,10 @@ export const DashboardView: React.FC = () => {
     prevTrack,
   } = useMedia();
 
-  const { activeSource, setActiveSource, isRadioPlaying } = useRadio();
+  const { isRadioPlaying } = useRadio();
   const { callStatus } = useCall();
 
-  const isAudioStackActive = hasActiveMedia || activeSource === 'radio' || isRadioPlaying;
+  const isAudioActive = hasActiveMedia || isRadioPlaying;
 
   // Dynamic Layout Rule:
   // - When a call is incoming/active and Nav is idle -> Expand to split view so Call card is prominent.
@@ -42,36 +42,36 @@ export const DashboardView: React.FC = () => {
     if (navStatus === 'idle') {
       if (callStatus !== 'idle') {
         setIsNavExpanded(false);
-      } else if (!isAudioStackActive) {
+      } else if (!isAudioActive) {
         setIsNavExpanded(true);
       } else {
         setIsNavExpanded(false);
       }
     }
-  }, [isAudioStackActive, navStatus, callStatus, setIsNavExpanded]);
+  }, [isAudioActive, navStatus, callStatus, setIsNavExpanded]);
 
-  // Media / Radio Player Card Element
-  const mediaCardContent = activeSource === 'radio' ? (
-    <RadioDockedCard onSwitchToBluetooth={() => setActiveSource('bluetooth')} />
-  ) : hasActiveMedia ? (
-    <MediaDockedCard
-      track={currentTrack}
-      onPlayPause={togglePlayPause}
-      onNext={nextTrack}
-      onPrev={prevTrack}
-      onSwitchToRadio={() => setActiveSource('radio')}
-    />
-  ) : (
-    <MediaDockedCard
-      track={currentTrack}
-      onPlayPause={togglePlayPause}
-      onNext={nextTrack}
-      onPrev={prevTrack}
-      onSwitchToRadio={() => setActiveSource('radio')}
-    />
-  );
+  // Bluetooth Media Widget
+  const bluetoothMediaWidget: WidgetItem = {
+    id: 'media_player',
+    label: 'Media Player',
+    content: (
+      <MediaDockedCard
+        track={currentTrack}
+        onPlayPause={togglePlayPause}
+        onNext={nextTrack}
+        onPrev={prevTrack}
+      />
+    ),
+  };
 
-  // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media)
+  // FM Radio Widget
+  const radioWidget: WidgetItem = {
+    id: 'radio_player',
+    label: 'FM Radio',
+    content: <RadioDockedCard />,
+  };
+
+  // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media -> Radio)
   const navWidgets: WidgetItem[] = [
     ...(callStatus !== 'idle'
       ? [
@@ -87,18 +87,11 @@ export const DashboardView: React.FC = () => {
       label: 'Upcoming Steps',
       content: <UpcomingManeuversCard />,
     },
-    ...(isAudioStackActive
-      ? [
-          {
-            id: 'media_player',
-            label: activeSource === 'radio' ? 'Radio' : 'Media Player',
-            content: mediaCardContent,
-          },
-        ]
-      : []),
+    bluetoothMediaWidget,
+    radioWidget,
   ];
 
-  // Stackable Widgets for Idle Mode (Call -> Media)
+  // Stackable Widgets for Idle Mode (Call -> Media -> Radio)
   const idleWidgets: WidgetItem[] = [
     ...(callStatus !== 'idle'
       ? [
@@ -109,15 +102,8 @@ export const DashboardView: React.FC = () => {
           },
         ]
       : []),
-    ...(isAudioStackActive
-      ? [
-          {
-            id: 'media_player',
-            label: activeSource === 'radio' ? 'Radio' : 'Media Player',
-            content: mediaCardContent,
-          },
-        ]
-      : []),
+    bluetoothMediaWidget,
+    radioWidget,
   ];
 
   return (
@@ -152,7 +138,7 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Call <-> Upcoming Steps <-> Media) */}
+          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Call <-> Upcoming Steps <-> Media <-> Radio) */}
           <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden relative">
             {navStatus !== 'idle' ? (
               <WidgetStackCard
@@ -160,16 +146,12 @@ export const DashboardView: React.FC = () => {
                 defaultIndex={0}
                 className="w-full h-full"
               />
-            ) : idleWidgets.length > 1 ? (
+            ) : (
               <WidgetStackCard
                 widgets={idleWidgets}
                 defaultIndex={0}
                 className="w-full h-full"
               />
-            ) : callStatus !== 'idle' ? (
-              <CallDockedCard />
-            ) : (
-              mediaCardContent
             )}
           </div>
         </div>

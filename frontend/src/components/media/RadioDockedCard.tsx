@@ -1,13 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Star, Radio, Smartphone, Loader2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Star, Loader2 } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useRadio } from '../../context/RadioContext';
 
-interface RadioDockedCardProps {
-  onSwitchToBluetooth?: () => void;
-}
-
-export const RadioDockedCard: React.FC<RadioDockedCardProps> = ({ onSwitchToBluetooth }) => {
+export const RadioDockedCard: React.FC = () => {
   const {
     stations,
     currentStation,
@@ -18,7 +14,6 @@ export const RadioDockedCard: React.FC<RadioDockedCardProps> = ({ onSwitchToBlue
     nextStation,
     prevStation,
     toggleStationFavorite,
-    setActiveSource,
   } = useRadio();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -45,36 +40,17 @@ export const RadioDockedCard: React.FC<RadioDockedCardProps> = ({ onSwitchToBlue
         padding="none"
         className="w-full h-full p-4 sm:p-5 flex flex-col justify-between items-center text-center select-none font-sf overflow-hidden"
       >
-        {/* Top: Source Switcher & Favorite Star */}
-        <div className="w-full flex items-center justify-between flex-shrink-0 px-1">
-          {/* Apple Segmented Control */}
-          <div className="inline-flex items-center p-1 rounded-full bg-white/[0.08] border border-white/10">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveSource('bluetooth');
-                onSwitchToBluetooth?.();
-              }}
-              className="px-3 py-1 rounded-full text-xs font-semibold text-white/50 hover:text-white transition-colors flex items-center space-x-1.5 active:scale-95"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Bluetooth</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSource('radio')}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-white text-black transition-all flex items-center space-x-1.5 shadow-md"
-            >
-              <Radio className="w-3.5 h-3.5" />
-              <span>Radio</span>
-            </button>
-          </div>
+        {/* Top Bar: Station Category & Favorite Star */}
+        <div className="w-full flex items-center justify-between flex-shrink-0 px-2">
+          <span className="text-xs font-semibold text-white/50 tracking-tight">
+            FM Radio
+          </span>
 
           {/* Favorite Toggle */}
           <button
             type="button"
             onClick={() => toggleStationFavorite(currentStation.id)}
-            className={`p-2 rounded-full transition-colors active:scale-90 ${
+            className={`p-1.5 rounded-full transition-colors active:scale-90 ${
               currentStation.isFavorite
                 ? 'text-amber-400 bg-amber-400/15'
                 : 'text-white/30 hover:text-white hover:bg-white/10'
