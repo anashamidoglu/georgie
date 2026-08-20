@@ -8,10 +8,11 @@ import { CallDockedCard } from '../components/calls/CallDockedCard';
 import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
 import { WidgetStackCard, type WidgetItem } from '../components/common/WidgetStackCard';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
-import { Music, PlusCircle } from 'lucide-react';
+import { Music, Bluetooth } from 'lucide-react';
 import { useNav } from '../context/NavContext';
 import { useMedia } from '../context/MediaContext';
 import { useCall } from '../context/CallContext';
+import { useSystem } from '../context/SystemContext';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -23,7 +24,6 @@ export const DashboardView: React.FC = () => {
 
   const {
     hasActiveMedia,
-    setHasActiveMedia,
     currentTrack,
     togglePlayPause,
     nextTrack,
@@ -31,6 +31,7 @@ export const DashboardView: React.FC = () => {
   } = useMedia();
 
   const { callStatus } = useCall();
+  const { isBluetoothConnected, connectedDeviceName } = useSystem();
 
   // Dynamic Layout Rule:
   // - When a call is incoming/active and Nav is idle -> Expand to split view so Call card is prominent.
@@ -62,22 +63,30 @@ export const DashboardView: React.FC = () => {
       className="w-full h-full flex flex-col items-center justify-center text-center border-dashed border-white/10"
     >
       <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white/40">
-        <Music className="w-6 h-6" />
+        {isBluetoothConnected ? (
+          <Music className="w-6 h-6 text-sky-400" />
+        ) : (
+          <Bluetooth className="w-6 h-6 text-white/40" />
+        )}
       </div>
       <span className="text-sm font-semibold text-white/80 font-sf">
-        No Media Playing
+        {isBluetoothConnected
+          ? connectedDeviceName
+            ? `Connected to ${connectedDeviceName}`
+            : 'Ready to Stream'
+          : 'Bluetooth Disconnected'}
       </span>
-      <span className="text-xs text-white/40 mt-1">
-        Connect Bluetooth to stream audio
+      <span className="text-xs text-white/40 mt-1 font-sf">
+        {isBluetoothConnected
+          ? 'Play any track or video on your phone'
+          : 'Connect your phone to stream audio'}
       </span>
-      <button
-        type="button"
-        onClick={() => setHasActiveMedia(true)}
-        className="mt-4 inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white/80 transition-colors"
-      >
-        <PlusCircle className="w-3.5 h-3.5" />
-        <span>Connect Audio</span>
-      </button>
+      {!isBluetoothConnected && (
+        <div className="mt-3.5 inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-white/10 text-xs font-semibold text-white/70">
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+          <span>Broadcast: "Georgie"</span>
+        </div>
+      )}
     </LiquidGlassCard>
   );
 

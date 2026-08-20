@@ -13,25 +13,15 @@ import {
   MapPin,
   Phone,
   Music,
+  WifiOff,
 } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
 import { useMedia } from '../../context/MediaContext';
 import { useCall } from '../../context/CallContext';
-import type { ConnectivityStatus } from '../../types';
+import { useSystem } from '../../context/SystemContext';
 
-interface StatusBarProps {
-  connectivity?: ConnectivityStatus;
-}
-
-export const StatusBar: React.FC<StatusBarProps> = ({
-  connectivity = {
-    cellular: '5G',
-    wifi: true,
-    bluetooth: true,
-    gpsActive: true,
-  },
-}) => {
+export const StatusBar: React.FC = () => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
   const [isMediaPopoverOpen, setIsMediaPopoverOpen] = useState<boolean>(false);
@@ -57,6 +47,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   } = useMedia();
 
   const { simulateIncomingCall } = useCall();
+  const { isOnline, isBluetoothConnected } = useSystem();
 
   useEffect(() => {
     const updateTime = () => {
@@ -312,15 +303,23 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           </div>
         )}
 
-        {/* Connectivity Status */}
+        {/* Live Dynamic Connectivity Status */}
         <div className="flex items-center space-x-2.5 text-white/60">
-          <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/[0.10] text-white tracking-tight">
-            {connectivity.cellular}
-          </span>
-          {connectivity.wifi && (
-            <Wifi className="w-4 h-4 text-white" />
+          {isOnline ? (
+            <>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/[0.10] text-white tracking-tight">
+                5G
+              </span>
+              <Wifi className="w-4 h-4 text-white" />
+            </>
+          ) : (
+            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/10 text-white/50 text-xs font-semibold">
+              <WifiOff className="w-3.5 h-3.5 text-white/40" />
+              <span>Offline</span>
+            </div>
           )}
-          {connectivity.bluetooth && (
+
+          {isBluetoothConnected && (
             <Bluetooth className="w-4 h-4 text-sky-400" />
           )}
         </div>

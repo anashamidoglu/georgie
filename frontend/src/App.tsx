@@ -59,15 +59,19 @@ const AppShell: React.FC = () => {
   );
 };
 
+import { SystemProvider } from './context/SystemContext';
+
 export const App: React.FC = () => {
   return (
-    <MediaProvider>
-      <CallProvider>
-        <NavProvider>
-          <AppShell />
-        </NavProvider>
-      </CallProvider>
-    </MediaProvider>
+    <SystemProvider>
+      <MediaProvider>
+        <CallProvider>
+          <NavProvider>
+            <AppShell />
+          </NavProvider>
+        </CallProvider>
+      </MediaProvider>
+    </SystemProvider>
   );
 };
 
