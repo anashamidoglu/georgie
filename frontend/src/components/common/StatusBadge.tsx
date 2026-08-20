@@ -24,7 +24,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   return (
     <span
       className={clsx(
-        'badge-pill tracking-widest uppercase transition-all duration-200',
+        'badge-pill font-medium transition-all duration-200',
         variantStyles[variant],
         className
       )}

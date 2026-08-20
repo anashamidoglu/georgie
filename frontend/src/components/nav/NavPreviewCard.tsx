@@ -30,7 +30,7 @@ export const NavPreviewCard: React.FC = () => {
       {/* Inspected Step Header with Bigger Text and Overview Button */}
       {inspectedStep && (
         <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
-          <span className="text-xs font-bold uppercase tracking-wider text-sky-400 font-sf">
+          <span className="text-xs font-bold text-sky-400 font-sf">
             Step {inspectedStep.id + 1} Preview
           </span>
           <button

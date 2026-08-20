@@ -170,7 +170,7 @@ export const RouteSelectionCard: React.FC = () => {
             {/* Header: Stop Name + Reorder Up/Down + Remove Button */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 min-w-0 flex-1 mr-2">
-                <span className="w-5 h-5 rounded-full bg-amber-500 text-black font-black text-xs flex items-center justify-center font-mono flex-shrink-0">
+                <span className="w-5 h-5 rounded-full bg-amber-500 text-black font-black text-xs flex items-center justify-center font-sf-display flex-shrink-0">
                   {idx + 1}
                 </span>
                 <span className="text-xl font-bold font-sf-display text-white truncate tracking-tight">

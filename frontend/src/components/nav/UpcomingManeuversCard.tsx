@@ -15,7 +15,7 @@ export const UpcomingManeuversCard: React.FC = () => {
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5 px-2 flex-shrink-0">
-        <span className="text-xs font-bold text-white/60 uppercase tracking-wider font-sf">
+        <span className="text-xs font-bold text-white/60 font-sf">
           Upcoming Steps
         </span>
         <span className="text-xs font-bold text-white/40 font-sf tabular-nums">
@@ -79,7 +79,7 @@ export const UpcomingManeuversCard: React.FC = () => {
                       In {step.distanceStr}
                     </span>
                     {step.isWaypointStop && (
-                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-[10px] font-bold text-amber-300">
                         Stop Reached
                       </span>
                     )}

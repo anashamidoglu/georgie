@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Clock, MapPin, Home, GraduationCap, ArrowLeft, Loader2, Star, Trash2 } from 'lucide-react';
+import { Search, X, MapPin, Home, GraduationCap, ArrowLeft, Loader2, Star, Trash2 } from 'lucide-react';
 import {
   searchPlaces,
   fetchSavedPlaces,
@@ -185,17 +185,17 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
   return (
     <div
       ref={cardRef}
-      className={`absolute z-30 pointer-events-auto select-none font-sf transition-all duration-200 ${
+      className={`absolute z-30 pointer-events-auto select-none font-sf transition-all duration-200 flex flex-col ${
         isNavExpanded
-          ? 'top-4 left-4 w-[440px] sm:w-[460px] max-h-[calc(100%-32px)]'
-          : 'top-4 left-4 right-4 max-h-[calc(100%-32px)]'
+          ? 'top-4 left-4 w-[440px] sm:w-[460px] bottom-4'
+          : 'top-4 left-4 right-4 bottom-4'
       }`}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
     >
-      <div className="w-full rounded-3xl bg-[#13141a]/95 backdrop-blur-2xl border border-white/20 shadow-[0_16px_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
-        {/* Scaled-Up Search Bar Header */}
+      <div className="w-full h-full rounded-3xl bg-[#13141a]/95 backdrop-blur-2xl border border-white/20 shadow-[0_16px_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
+        {/* Search Bar Header */}
         <div className="flex items-center px-4 py-3.5 border-b border-white/15 flex-shrink-0 bg-white/[0.05]">
           <button
             type="button"
@@ -239,8 +239,8 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
           </div>
         </div>
 
-        {/* Scaled-Up Dropdown Content Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto max-h-[420px] divide-y divide-white/[0.08] scrollbar-thin scrollbar-thumb-white/20">
+        {/* Fully Scrollable Dropdown Content Area */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-white/[0.08] scrollbar-thin scrollbar-thumb-white/20 pb-8">
           {query.trim() ? (
             /* Autocomplete Results */
             isLoading ? (
@@ -280,7 +280,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                         </span>
                       )}
 
-                      {/* Scaled Favorite Button */}
+                      {/* Favorite Button */}
                       <button
                         type="button"
                         onClick={(e) => handleToggleFavorite(e, place)}
@@ -306,9 +306,9 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
             /* Saved Places Shortcuts + Recents History List */
             <div className="py-1">
               {/* Saved Places Section */}
-              <div className="px-4 pt-3.5 pb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/50">
+              <div className="px-4 pt-3.5 pb-2 flex items-center justify-between text-xs font-bold text-white/50">
                 <span>Saved Places</span>
-                <span className="text-sky-400 text-xs font-bold lowercase">
+                <span className="text-sky-400 text-xs font-bold">
                   {savedPlaces.length} saved
                 </span>
               </div>
@@ -369,7 +369,7 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
               <div className="h-[1px] bg-white/15 my-1.5 mx-4" />
 
               {/* Recents History Section */}
-              <div className="px-4 pt-3.5 pb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/50">
+              <div className="px-4 pt-3.5 pb-2 flex items-center justify-between text-xs font-bold text-white/50">
                 <span>Recent Destinations</span>
               </div>
 
@@ -383,13 +383,10 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                     <div
                       key={recent.id}
                       onClick={() => handleSelectPlace(recent)}
-                      className="w-full text-left px-4 py-3.5 hover:bg-white/[0.08] active:bg-white/[0.15] transition-colors flex items-center space-x-3.5 group cursor-pointer"
+                      className="w-full text-left px-4 py-3.5 hover:bg-white/[0.08] active:bg-white/[0.15] transition-colors flex items-center justify-between group cursor-pointer"
                     >
-                      <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 text-white/50 flex items-center justify-center flex-shrink-0 group-hover:text-white transition-colors shadow-md">
-                        <Clock className="w-6 h-6" />
-                      </div>
-
-                      <div className="flex flex-col min-w-0 flex-1">
+                      {/* Clean Text without Clock Icon */}
+                      <div className="flex flex-col min-w-0 flex-1 pr-3">
                         <span className="text-base sm:text-lg font-bold text-white group-hover:text-sky-300 transition-colors truncate">
                           {recent.name}
                         </span>
@@ -398,35 +395,37 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                         </span>
                       </div>
 
-                      {typeof recent.distanceKm === 'number' && (
-                        <span className="text-xs font-bold text-white/80 tabular-nums px-3 py-1 rounded-full bg-white/10 border border-white/15 flex-shrink-0 ml-1">
-                          {recent.distanceKm} km
-                        </span>
-                      )}
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        {typeof recent.distanceKm === 'number' && (
+                          <span className="text-xs font-bold text-white/80 tabular-nums px-3 py-1 rounded-full bg-white/10 border border-white/15">
+                            {recent.distanceKm} km
+                          </span>
+                        )}
 
-                      {/* Scaled Favorite Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleFavorite(e, recent)}
-                        className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0 active:scale-90 ${
-                          isSaved
-                            ? 'text-amber-400 bg-amber-400/20 hover:bg-amber-400/30'
-                            : 'text-white/40 hover:text-white hover:bg-white/15'
-                        }`}
-                        title={isSaved ? 'Remove from Saved' : 'Save to Favorites'}
-                      >
-                        <Star className={`w-5 h-5 ${isSaved ? 'fill-amber-400' : ''}`} />
-                      </button>
+                        {/* Favorite Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleFavorite(e, recent)}
+                          className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors active:scale-90 ${
+                            isSaved
+                              ? 'text-amber-400 bg-amber-400/20 hover:bg-amber-400/30'
+                              : 'text-white/40 hover:text-white hover:bg-white/15'
+                          }`}
+                          title={isSaved ? 'Remove from Saved' : 'Save to Favorites'}
+                        >
+                          <Star className={`w-5 h-5 ${isSaved ? 'fill-amber-400' : ''}`} />
+                        </button>
 
-                      {/* Scaled Delete from Recents Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteRecent(e, recent.id)}
-                        className="w-11 h-11 text-white/40 hover:text-red-400 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors flex-shrink-0 active:scale-90"
-                        title="Delete from Recents"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
+                        {/* Delete from Recents Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteRecent(e, recent.id)}
+                          className="w-11 h-11 text-white/40 hover:text-red-400 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors active:scale-90"
+                          title="Delete from Recents"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })

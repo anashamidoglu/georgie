@@ -285,7 +285,7 @@ export const ExitShield: React.FC<ExitShieldProps> = ({
 
   return (
     <div
-      className={`inline-flex items-center bg-[#006633] border border-white text-white font-black tracking-tight select-none shadow-sm font-mono ${sizeStyles} ${className}`}
+      className={`inline-flex items-center bg-[#006633] border border-white text-white font-bold tracking-tight select-none shadow-sm font-sf ${sizeStyles} ${className}`}
       title={`Freeway Exit ${numOnly}`}
     >
       <svg
@@ -299,10 +299,10 @@ export const ExitShield: React.FC<ExitShieldProps> = ({
       >
         <path d="M7 17L17 7M17 7H9M17 7V15" />
       </svg>
-      <span className={`${exitLabelSizes} font-bold uppercase tracking-wider text-white/95 font-sans`}>
-        EXIT
+      <span className={`${exitLabelSizes} font-bold text-white/95 font-sf`}>
+        Exit
       </span>
-      <span className={`${numSizes} tabular-nums font-sf-display font-black tracking-tight text-white`}>
+      <span className={`${numSizes} tabular-nums font-sf-display font-bold tracking-tight text-white`}>
         {numOnly}
       </span>
     </div>

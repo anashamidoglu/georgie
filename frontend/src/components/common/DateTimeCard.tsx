@@ -32,7 +32,7 @@ export const DateTimeCard: React.FC = () => {
   return (
     <div className="w-full min-h-[116px] px-6 flex items-center justify-between select-none font-sf">
       <div className="flex flex-col justify-center">
-        <span className="text-sm font-bold text-white/50 uppercase tracking-widest">
+        <span className="text-sm font-bold text-white/50">
           {dayStr}
         </span>
         <span className="text-2xl font-bold text-white mt-1 tracking-tight">
@@ -44,7 +44,7 @@ export const DateTimeCard: React.FC = () => {
         <span className="text-6xl font-bold font-sf-display text-white tabular-nums tracking-tight leading-none">
           {timeStr || '12:00'}
         </span>
-        <span className="text-base font-bold text-white/50 uppercase">
+        <span className="text-base font-bold text-white/50">
           {periodStr}
         </span>
       </div>

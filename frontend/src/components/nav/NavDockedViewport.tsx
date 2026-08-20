@@ -209,7 +209,7 @@ export const NavDockedViewport: React.FC = () => {
           >
             {/* Route Summary & Google Maps Style Traffic-Colored ETA */}
             <div className="flex flex-col min-w-0 mr-4">
-              <span className="text-xs text-white/50 truncate font-bold uppercase tracking-wider">
+              <span className="text-xs text-white/50 truncate font-semibold">
                 {waypoints.length > 0 ? `${destinationName} (${waypoints.length + 1} stops)` : destinationName}
               </span>
               <div className="flex items-baseline space-x-4 mt-0.5 whitespace-nowrap">
