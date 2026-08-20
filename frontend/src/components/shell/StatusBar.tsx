@@ -108,8 +108,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const remainingSeconds = Math.max(0, currentTrack.duration - currentTrack.currentTime);
 
   const shouldShowMediaPill =
-    (isNavExpanded || navStatus !== 'idle') &&
     hasActiveMedia &&
+    (isNavExpanded || navStatus !== 'idle') &&
     Boolean(currentTrack.title && currentTrack.title !== 'No Track Playing');
 
   return (
@@ -205,7 +205,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                   className="w-6 h-6 rounded-lg object-cover border border-white/15 flex-shrink-0"
                 />
               ) : (
-                <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white/80 flex-shrink-0">
+                <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white/80">
                   <Volume2 className="w-3.5 h-3.5" />
                 </div>
               )}
@@ -327,13 +327,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
         <div className="h-4 w-[1px] bg-white/15" />
 
-        {/* Time & Date Display */}
-        <div className="flex flex-col items-end leading-none font-sf">
-          <span className="text-sm font-bold text-white tracking-tight tabular-nums">
-            {timeStr}
+        {/* Live SF Pro Clock */}
+        <div className="flex items-center space-x-2.5 font-sf">
+          <span className="text-xs font-bold text-white/50 tracking-wider">
+            {dateStr || 'WED 19'}
           </span>
-          <span className="text-[10px] font-semibold text-white/60 mt-0.5 tracking-tight">
-            {dateStr}
+          <span className="text-base font-bold font-sf-display text-white tabular-nums tracking-tight">
+            {timeStr || '12:00 PM'}
           </span>
         </div>
       </div>

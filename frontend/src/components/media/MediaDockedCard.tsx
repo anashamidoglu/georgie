@@ -48,15 +48,16 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent =
-    track.duration > 0 ? Math.min(100, (track.currentTime / track.duration) * 100) : 0;
+  const progressPercent = track.duration > 0
+    ? Math.min(100, (track.currentTime / track.duration) * 100)
+    : 0;
   const remainingSeconds = Math.max(0, track.duration - track.currentTime);
 
-  // Base artwork hero size in full idle view is 112px (w-28 h-28).
-  // Threshold rule: If available height scales artwork below 50% (< 56px), hide completely.
+  // Original base idle size is 112px (w-28 h-28).
+  // Fixed UI content (padding, text, scrubber, controls) takes ~190px.
   const BASE_ART_SIZE = 112;
-  const MIN_ART_THRESHOLD = 56;
-  const availableArtHeight = containerHeight - 180;
+  const MIN_ART_THRESHOLD = 56; // 50% of 112px
+  const availableArtHeight = containerHeight - 190;
   const showArtwork = availableArtHeight >= MIN_ART_THRESHOLD;
   const currentArtSize = Math.min(BASE_ART_SIZE, Math.max(MIN_ART_THRESHOLD, availableArtHeight));
 

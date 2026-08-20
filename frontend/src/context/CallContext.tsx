@@ -42,8 +42,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (callStatus === 'incoming' || callStatus === 'active') {
       if (currentTrack.isPlaying) {
         wasMediaPlayingBeforeCall.current = true;
-        pauseMedia();
       }
+      pauseMedia();
     } else if (callStatus === 'idle') {
       if (wasMediaPlayingBeforeCall.current) {
         wasMediaPlayingBeforeCall.current = false;
@@ -184,11 +184,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ) => {
     if (currentTrack.isPlaying) {
       wasMediaPlayingBeforeCall.current = true;
-      pauseMedia();
     }
     setCallerName(name);
     setCallerNumber(number);
     setCallStatus('incoming');
+    pauseMedia();
   };
 
   return (

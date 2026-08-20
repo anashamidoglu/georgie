@@ -141,26 +141,14 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     clearTimeout(stopDebounceRef.current);
                     stopDebounceRef.current = null;
                   }
-
-                  const isRealTrack = Boolean(
-                    trackData.title &&
-                    trackData.title !== 'No Track Playing' &&
-                    trackData.title !== 'Unknown Track' &&
-                    trackData.title.trim() !== ''
-                  );
-
-                  if (isRealTrack) {
-                    const isPlaying = status === 'playing';
-                    setCurrentTrack((prev) => ({
-                      ...prev,
-                      isPlaying: isPlaying,
-                      currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
-                      duration: typeof trackData.duration === 'number' && trackData.duration > 0 ? trackData.duration : prev.duration,
-                    }));
-                    setHasActiveMedia(true);
-                  } else {
-                    setHasActiveMedia(false);
-                  }
+                  const isPlaying = status === 'playing';
+                  setCurrentTrack((prev) => ({
+                    ...prev,
+                    isPlaying: isPlaying,
+                    currentTime: typeof trackData.position === 'number' ? trackData.position : prev.currentTime,
+                    duration: typeof trackData.duration === 'number' && trackData.duration > 0 ? trackData.duration : prev.duration,
+                  }));
+                  setHasActiveMedia(true);
                 }
               }
             }
