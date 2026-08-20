@@ -85,6 +85,7 @@ class DBusBluetoothListener:
         self.active_call_path: Optional[str] = None
         self.active_call_state = CallState(state="idle")
         self.active_player_path: Optional[str] = None
+        self._player_removal_task: Optional[asyncio.Task] = None
         self.current_track = TrackMetadata(
             title="No Track Playing",
             artist="Connect Bluetooth to Stream",
@@ -290,6 +291,10 @@ class DBusBluetoothListener:
                             asyncio.create_task(handle_device_conn_change(bool(connected_val)))
 
                     elif iface == 'org.bluez.MediaPlayer1':
+                        if self._player_removal_task:
+                            self._player_removal_task.cancel()
+                            self._player_removal_task = None
+
                         self.active_player_path = msg.path
                         track_val = changed.get('Track', {})
                         pos_ms = changed.get('Position')
@@ -313,7 +318,7 @@ class DBusBluetoothListener:
                                 album = str(track_val.get('Album', ''))
                                 duration = int(track_val.get('Duration', 0)) // 1000
                                 position = self.current_track.position
-                                current_status = str(status_val) if status_val is not None else 'playing'
+                                current_status = str(status_val) if status_val is not None else self.current_track.status or 'playing'
                                 self.current_track.status = current_status
                                 asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, current_status))
                             elif status_val == 'playing' and (not self.current_track.title or self.current_track.title == 'No Track Playing'):
@@ -334,6 +339,10 @@ class DBusBluetoothListener:
                     obj_path, interfaces_raw = msg.body
                     interfaces = unwrap_variant(interfaces_raw)
                     if 'org.bluez.MediaPlayer1' in interfaces:
+                        if self._player_removal_task:
+                            self._player_removal_task.cancel()
+                            self._player_removal_task = None
+
                         self.active_player_path = obj_path
                         props = interfaces['org.bluez.MediaPlayer1']
                         track_val = props.get('Track', {})
@@ -359,19 +368,30 @@ class DBusBluetoothListener:
                     obj_path, interfaces_raw = msg.body
                     interfaces = unwrap_variant(interfaces_raw)
                     if 'org.bluez.MediaPlayer1' in interfaces or obj_path == self.active_player_path:
-                        logger.info(f"[BlueZ] Media player closed: {obj_path}")
-                        self.active_player_path = None
-                        self.current_track = TrackMetadata(
-                            title="No Track Playing",
-                            artist="Connect Bluetooth to Stream",
-                            album="",
-                            duration=0,
-                            position=0,
-                            status="stopped",
-                            artwork_url=None
-                        )
-                        asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
-                        asyncio.create_task(ws_manager.broadcast("media:track_changed", self.current_track.model_dump()))
+                        logger.info(f"[BlueZ] Media player detach event: {obj_path} (debouncing teardown)")
+                        
+                        async def delayed_player_cleanup():
+                            try:
+                                await asyncio.sleep(2.5)
+                                logger.info(f"[BlueZ] Media player teardown confirmed: {obj_path}")
+                                self.active_player_path = None
+                                self.current_track = TrackMetadata(
+                                    title="No Track Playing",
+                                    artist="Connect Bluetooth to Stream",
+                                    album="",
+                                    duration=0,
+                                    position=0,
+                                    status="stopped",
+                                    artwork_url=None
+                                )
+                                await ws_manager.broadcast("media:playback_state", self.current_track.model_dump())
+                                await ws_manager.broadcast("media:track_changed", self.current_track.model_dump())
+                            except asyncio.CancelledError:
+                                pass
+
+                        if self._player_removal_task:
+                            self._player_removal_task.cancel()
+                        self._player_removal_task = asyncio.create_task(delayed_player_cleanup())
 
                 # 4. oFono Manager.ModemAdded
                 elif msg.member == 'ModemAdded' and msg.interface == 'org.ofono.Manager':
