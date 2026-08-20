@@ -182,70 +182,102 @@ export const NavDockedViewport: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Bottom Floating Route Preview Card (Before Starting Driving Follow) */}
-      {navStatus === 'preview' && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col items-center space-y-2 pointer-events-none z-30">
-          {/* Multi-Stop Action Strip */}
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsAddStopMode(true);
-                setIsSearchOpen(true);
-              }}
-              className="pointer-events-auto rounded-full bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-4 py-2 flex items-center space-x-2 text-sm font-bold text-white/90 hover:text-white hover:border-white/40 transition-all font-sf active:scale-95"
-              title="Add a stop along route"
-            >
-              <Plus className="w-4 h-4 text-sky-400" />
-              <span>Add Stop</span>
-            </button>
-          </div>
+      {/* 3. Bottom Floating Route Preview / Active Navigation Live ETA Card */}
+      {(navStatus === 'preview' || navStatus === 'navigating') && (
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center space-y-2 pointer-events-none z-30">
+          {/* Multi-Stop Action Strip (in preview mode) */}
+          {navStatus === 'preview' && (
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsAddStopMode(true);
+                  setIsSearchOpen(true);
+                }}
+                className="pointer-events-auto rounded-full bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-4 py-2 flex items-center space-x-2 text-sm font-bold text-white/90 hover:text-white hover:border-white/40 transition-all font-sf active:scale-95"
+                title="Add a stop along route"
+              >
+                <Plus className="w-4 h-4 text-sky-400" />
+                <span>Add Stop</span>
+              </button>
+            </div>
+          )}
 
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-6 py-4 flex items-center justify-between font-sf select-none w-full max-w-[520px]"
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-3 flex items-center justify-between font-sf select-none w-full max-w-[500px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Route Summary & Google Maps Style Traffic-Colored ETA */}
-            <div className="flex flex-col min-w-0 mr-4">
-              <span className="text-xs text-white/50 truncate font-semibold">
-                {waypoints.length > 0 ? `${destinationName} (${waypoints.length + 1} stops)` : destinationName}
-              </span>
-              <div className="flex items-baseline space-x-4 mt-0.5 whitespace-nowrap">
-                <span className={`text-3xl font-bold font-sf-display tabular-nums tracking-tight whitespace-nowrap ${trafficColorClass}`}>
-                  {eta.duration}
+            <div className="flex flex-col min-w-0 mr-3">
+              <div className="flex items-baseline space-x-2.5 whitespace-nowrap">
+                <span className={`text-2xl sm:text-3xl font-bold font-sf-display tabular-nums tracking-tight ${trafficColorClass}`}>
+                  {eta.duration || '0 min'}
                 </span>
-                <span className="text-2xl font-bold font-sf-display text-white/90 tabular-nums whitespace-nowrap">
-                  {eta.distance}
+                <span className="text-base sm:text-lg font-bold font-sf-display text-white/80 tabular-nums">
+                  {eta.distance || '0 km'}
                 </span>
-                <span className="text-xl font-bold font-sf-display text-white/60 tabular-nums whitespace-nowrap">
-                  {eta.arrival}
+                <span className="text-sm sm:text-base font-bold font-sf-display text-white/50 tabular-nums">
+                  {eta.arrival || '--:--'}
                 </span>
               </div>
+              <span className="text-xs text-white/45 truncate font-medium mt-0.5">
+                {waypoints.length > 0 ? `${destinationName} (${waypoints.length + 1} stops)` : destinationName}
+              </span>
             </div>
 
-            {/* Cancel & Start Navigation Action Buttons */}
-            <div className="flex items-center space-x-3 flex-shrink-0">
-              <button
-                type="button"
-                onClick={endNavigation}
-                aria-label="Cancel Route Preview"
-                className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white flex items-center justify-center transition-all active:scale-90"
-                title="Cancel Route"
-              >
-                <X className="w-5 h-5" />
-              </button>
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-2.5 flex-shrink-0">
+              {navStatus === 'preview' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={endNavigation}
+                    aria-label="Cancel Route Preview"
+                    className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white flex items-center justify-center transition-all active:scale-90"
+                    title="Cancel Route"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
 
-              <button
-                type="button"
-                onClick={startNavigation}
-                aria-label="Start Turn-by-Turn Navigation"
-                className="h-12 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-base flex items-center space-x-2 shadow-2xl transition-all active:scale-95"
-              >
-                <Play className="w-5 h-5 fill-black" />
-                <span>Start</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={startNavigation}
+                    aria-label="Start Turn-by-Turn Navigation"
+                    className="h-11 px-5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-base flex items-center space-x-2 shadow-2xl transition-all active:scale-95"
+                  >
+                    <Play className="w-5 h-5 fill-black" />
+                    <span>Start</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAddStopMode(true);
+                      setIsSearchOpen(true);
+                    }}
+                    className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white flex items-center justify-center transition-all active:scale-90"
+                    title="Add a stop along route"
+                    aria-label="Add Stop"
+                  >
+                    <Plus className="w-5 h-5 text-sky-400" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={endNavigation}
+                    aria-label="End Navigation"
+                    className="w-11 h-11 rounded-full bg-red-500/20 hover:bg-red-500 border border-red-500/40 text-red-300 hover:text-white flex items-center justify-center transition-all active:scale-90 shadow-lg"
+                    title="End Navigation"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
