@@ -10,8 +10,6 @@ import { WidgetStackCard, type WidgetItem } from '../components/common/WidgetSta
 import { useNav } from '../context/NavContext';
 import { useMedia } from '../context/MediaContext';
 import { useCall } from '../context/CallContext';
-import { useRadio } from '../context/RadioContext';
-import { RadioDockedCard } from '../components/media/RadioDockedCard';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -29,26 +27,23 @@ export const DashboardView: React.FC = () => {
     prevTrack,
   } = useMedia();
 
-  const { isRadioPlaying } = useRadio();
   const { callStatus } = useCall();
-
-  const isAudioActive = hasActiveMedia || isRadioPlaying;
 
   // Dynamic Layout Rule:
   // - When a call is incoming/active and Nav is idle -> Expand to split view so Call card is prominent.
   // - When Nav is idle, no call, and media is OFF -> Expanded full-bleed navigation map is default.
-  // - When Nav is idle and media is ON -> Resizes to split view (Date + Media/Radio).
+  // - When Nav is idle and media is ON -> Resizes to split view (Date + Media).
   useEffect(() => {
     if (navStatus === 'idle') {
       if (callStatus !== 'idle') {
         setIsNavExpanded(false);
-      } else if (!isAudioActive) {
+      } else if (!hasActiveMedia) {
         setIsNavExpanded(true);
       } else {
         setIsNavExpanded(false);
       }
     }
-  }, [isAudioActive, navStatus, callStatus, setIsNavExpanded]);
+  }, [hasActiveMedia, navStatus, callStatus, setIsNavExpanded]);
 
   // Bluetooth Media Widget
   const bluetoothMediaWidget: WidgetItem = {
@@ -64,14 +59,7 @@ export const DashboardView: React.FC = () => {
     ),
   };
 
-  // FM Radio Widget
-  const radioWidget: WidgetItem = {
-    id: 'radio_player',
-    label: 'FM Radio',
-    content: <RadioDockedCard />,
-  };
-
-  // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media (if active) -> Radio)
+  // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media (if active))
   const navWidgets: WidgetItem[] = [
     ...(callStatus !== 'idle'
       ? [
@@ -88,10 +76,9 @@ export const DashboardView: React.FC = () => {
       content: <UpcomingManeuversCard />,
     },
     ...(hasActiveMedia ? [bluetoothMediaWidget] : []),
-    radioWidget,
   ];
 
-  // Stackable Widgets for Idle Mode (Call -> Media (if active) -> Radio)
+  // Stackable Widgets for Idle Mode (Call -> Media (if active))
   const idleWidgets: WidgetItem[] = [
     ...(callStatus !== 'idle'
       ? [
@@ -103,7 +90,6 @@ export const DashboardView: React.FC = () => {
         ]
       : []),
     ...(hasActiveMedia ? [bluetoothMediaWidget] : []),
-    radioWidget,
   ];
 
   return (
@@ -138,7 +124,7 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Call <-> Upcoming Steps <-> Media <-> Radio) */}
+          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Call <-> Upcoming Steps <-> Media) */}
           <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden relative">
             {navStatus !== 'idle' ? (
               <WidgetStackCard
@@ -146,13 +132,13 @@ export const DashboardView: React.FC = () => {
                 defaultIndex={0}
                 className="w-full h-full"
               />
-            ) : (
+            ) : idleWidgets.length > 0 ? (
               <WidgetStackCard
                 widgets={idleWidgets}
                 defaultIndex={0}
                 className="w-full h-full"
               />
-            )}
+            ) : null}
           </div>
         </div>
       </div>

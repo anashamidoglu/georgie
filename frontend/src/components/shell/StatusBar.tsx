@@ -18,7 +18,6 @@ import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
 import { useMedia } from '../../context/MediaContext';
 import { useCall } from '../../context/CallContext';
-import { useRadio } from '../../context/RadioContext';
 import type { ConnectivityStatus } from '../../types';
 
 interface StatusBarProps {
@@ -56,16 +55,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     nextTrack,
     prevTrack,
   } = useMedia();
-
-  const {
-    activeSource,
-    currentStation,
-    isRadioPlaying,
-    isRadioBuffering,
-    toggleRadioPlayPause,
-    nextStation,
-    prevStation,
-  } = useRadio();
 
   const { simulateIncomingCall } = useCall();
 
@@ -120,12 +109,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   const shouldShowMediaPill =
     (isNavExpanded || navStatus !== 'idle') &&
-    (activeSource === 'radio'
-      ? isRadioPlaying || isRadioBuffering
-      : hasActiveMedia && Boolean(currentTrack.title && currentTrack.title !== 'No Track Playing'));
-
-  const pillTitle = activeSource === 'radio' ? currentStation.name : currentTrack.title || 'No Media';
-  const pillSubtitle = activeSource === 'radio' ? `${currentStation.frequency} MHz` : currentTrack.artist || 'Unknown';
+    hasActiveMedia &&
+    Boolean(currentTrack.title && currentTrack.title !== 'No Track Playing');
 
   return (
     <header className="w-full h-14 px-5 flex items-center justify-between border-b border-white/[0.08] bg-[#09090b] select-none z-40 font-sf relative">
@@ -212,12 +197,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               }`}
               title="Quick Media Controls"
             >
-              {/* Album / Radio Thumbnail */}
-              {activeSource === 'radio' ? (
-                <div className="w-6 h-6 rounded-lg bg-white/15 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                  <Music className="w-3.5 h-3.5" />
-                </div>
-              ) : currentTrack.artworkUrl ? (
+              {/* Album Thumbnail */}
+              {currentTrack.artworkUrl ? (
                 <img
                   src={currentTrack.artworkUrl}
                   alt="Art"
@@ -229,13 +210,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                 </div>
               )}
 
-              {/* Title & Subtitle */}
+              {/* Title & Artist */}
               <div className="flex flex-col text-left max-w-[130px] min-w-0 font-sf">
                 <span className="text-xs font-bold text-white truncate leading-tight">
-                  {pillTitle}
+                  {currentTrack.title || 'No Media'}
                 </span>
                 <span className="text-[10px] text-white/60 font-medium truncate leading-tight">
-                  {pillSubtitle}
+                  {currentTrack.artist || 'Unknown'}
                 </span>
               </div>
             </button>
@@ -251,16 +232,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                   padding="md"
                   className="rounded-3xl border border-white/20 shadow-2xl bg-[#090a0f]/95 backdrop-blur-2xl p-5 font-sf flex flex-col items-center text-center select-none space-y-3.5"
                 >
-                  {/* Top: Artwork / Radio Frequency Emblem */}
-                  <div className="w-24 h-24 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex flex-col items-center justify-center shadow-2xl mt-0.5">
-                    {activeSource === 'radio' ? (
-                      <div className="w-full h-full bg-[#15161e] flex flex-col items-center justify-center p-2">
-                        <span className="text-2xl font-bold font-sf-display text-white tabular-nums leading-none">
-                          {currentStation.frequency}
-                        </span>
-                        <span className="text-[11px] font-bold text-white/40 mt-0.5">MHz</span>
-                      </div>
-                    ) : currentTrack.artworkUrl ? (
+                  {/* Top: Album Artwork with Audio Icon fallback */}
+                  <div className="w-24 h-24 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-0.5">
+                    {currentTrack.artworkUrl ? (
                       <img
                         src={currentTrack.artworkUrl}
                         alt={currentTrack.title}
@@ -273,18 +247,18 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                     )}
                   </div>
 
-                  {/* Middle: Title & Artist / Station Details */}
+                  {/* Middle: Title & Artist */}
                   <div className="flex flex-col items-center justify-center w-full px-2">
                     <span className="text-lg font-bold text-white tracking-tight leading-tight truncate max-w-full">
-                      {activeSource === 'radio' ? currentStation.name : currentTrack.title || 'Not Playing'}
+                      {currentTrack.title || 'Not Playing'}
                     </span>
                     <span className="text-sm text-white/60 font-medium mt-0.5 truncate max-w-full">
-                      {activeSource === 'radio' ? currentStation.category : currentTrack.artist || 'Unknown Artist'}
+                      {currentTrack.artist || 'Unknown Artist'}
                     </span>
                   </div>
 
-                  {/* Progress Bar & Timestamps (Bluetooth tracks only when duration exists) */}
-                  {activeSource === 'bluetooth' && currentTrack.duration > 0 && (
+                  {/* Progress Bar & Timestamps (Only if real duration exists) */}
+                  {currentTrack.duration > 0 && (
                     <div className="w-full px-1">
                       <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-1.5">
                         <div
@@ -303,8 +277,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                   <div className="w-full flex items-center justify-center space-x-7 pt-1 pb-0.5">
                     <button
                       type="button"
-                      onClick={activeSource === 'radio' ? prevStation : prevTrack}
-                      aria-label="Previous"
+                      onClick={prevTrack}
+                      aria-label="Previous Track"
                       className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                     >
                       <SkipBack className="w-6 h-6 fill-white/80" />
@@ -312,19 +286,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
                     <button
                       type="button"
-                      onClick={activeSource === 'radio' ? toggleRadioPlayPause : togglePlayPause}
-                      aria-label="Play/Pause"
+                      onClick={togglePlayPause}
+                      aria-label={currentTrack.isPlaying ? 'Pause' : 'Play'}
                       className="text-white hover:text-white transition-transform active:scale-90 p-1.5"
                     >
-                      {activeSource === 'radio' ? (
-                        isRadioBuffering ? (
-                          <span className="text-xs font-bold text-white/70">...</span>
-                        ) : isRadioPlaying ? (
-                          <Pause className="w-7 h-7 fill-white" />
-                        ) : (
-                          <Play className="w-7 h-7 fill-white translate-x-0.5" />
-                        )
-                      ) : currentTrack.isPlaying ? (
+                      {currentTrack.isPlaying ? (
                         <Pause className="w-7 h-7 fill-white" />
                       ) : (
                         <Play className="w-7 h-7 fill-white translate-x-0.5" />
@@ -333,8 +299,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
                     <button
                       type="button"
-                      onClick={activeSource === 'radio' ? nextStation : nextTrack}
-                      aria-label="Next"
+                      onClick={nextTrack}
+                      aria-label="Next Track"
                       className="text-white/70 hover:text-white transition-transform active:scale-90 p-1.5"
                     >
                       <SkipForward className="w-6 h-6 fill-white/80" />
@@ -361,13 +327,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
         <div className="h-4 w-[1px] bg-white/15" />
 
-        {/* Live SF Pro Clock */}
-        <div className="flex items-center space-x-2.5 font-sf">
-          <span className="text-xs font-bold text-white/50 tracking-wider">
-            {dateStr || 'WED 19'}
+        {/* Time & Date Display */}
+        <div className="flex flex-col items-end leading-none font-sf">
+          <span className="text-sm font-bold text-white tracking-tight tabular-nums">
+            {timeStr}
           </span>
-          <span className="text-base font-bold font-sf-display text-white tabular-nums tracking-tight">
-            {timeStr || '12:00 PM'}
+          <span className="text-[10px] font-semibold text-white/60 mt-0.5 tracking-tight">
+            {dateStr}
           </span>
         </div>
       </div>
