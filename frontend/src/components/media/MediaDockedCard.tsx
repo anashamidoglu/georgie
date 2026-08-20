@@ -80,9 +80,9 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              /* Sleek YouTube Player Emblem */
+              /* Sleek Flat YouTube Player Emblem */
               <div className="w-full h-full bg-[#181922] flex flex-col items-center justify-center p-3 shadow-inner">
-                <div className="w-14 h-10 rounded-xl bg-[#FF0000] flex items-center justify-center shadow-[0_4px_16px_rgba(255,0,0,0.35)]">
+                <div className="w-14 h-10 rounded-xl bg-[#FF0000] flex items-center justify-center">
                   <svg className="w-5 h-5 text-white fill-white ml-0.5" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z" />
                   </svg>
@@ -106,30 +106,22 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
           />
         </div>
 
-        {/* Progress Bar with Elapsed & Remaining Time */}
-        <div className="w-full px-2 mb-2 mt-auto flex-shrink-0">
-          <div className="w-full h-2 bg-white/15 rounded-full overflow-hidden mb-1.5">
-            <div
-              className={`h-full rounded-full transition-all duration-300 ${
-                !track.artworkUrl ? 'bg-red-500' : 'bg-white'
-              }`}
-              style={{ width: track.duration > 0 ? `${progressPercent}%` : track.isPlaying ? '100%' : '0%' }}
-            />
-          </div>
+        {/* Progress Bar (Only visible when track has a real positive duration) */}
+        {track.duration > 0 && (
+          <div className="w-full px-2 mb-2 mt-auto flex-shrink-0">
+            <div className="w-full h-2 bg-white/15 rounded-full overflow-hidden mb-1.5">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
 
-          <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
-            <span>{formatTime(track.currentTime)}</span>
-            <span>
-              {track.duration > 0 ? (
-                `-${formatTime(remainingSeconds)}`
-              ) : track.isPlaying ? (
-                <span className="text-red-400 font-bold">Audio Stream</span>
-              ) : (
-                '0:00'
-              )}
-            </span>
+            <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
+              <span>{formatTime(track.currentTime)}</span>
+              <span>-{formatTime(remainingSeconds)}</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Big Centralized In-Car Transport Controls */}
         <div className="w-full flex items-center justify-center space-x-8 pt-1 pb-1 flex-shrink-0">

@@ -12,6 +12,7 @@ import {
   RotateCcw,
   MapPin,
   Phone,
+  Music,
 } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { useNav } from '../../context/NavContext';
@@ -231,7 +232,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                   padding="md"
                   className="rounded-3xl border border-white/20 shadow-2xl bg-[#090a0f]/95 backdrop-blur-2xl p-5 font-sf flex flex-col items-center text-center select-none space-y-3.5"
                 >
-                  {/* Top: Album Artwork with 🐻 fallback */}
+                  {/* Top: Album Artwork with Audio Icon fallback */}
                   <div className="w-24 h-24 rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xl mt-0.5">
                     {currentTrack.artworkUrl ? (
                       <img
@@ -241,7 +242,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                       />
                     ) : (
                       <div className="w-full h-full bg-[#181920] flex flex-col items-center justify-center p-2">
-                        <span className="text-4xl leading-none">🐻</span>
+                        <Music className="w-10 h-10 text-white/50" />
                       </div>
                     )}
                   </div>
@@ -256,19 +257,21 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                     </span>
                   </div>
 
-                  {/* Progress Bar & Timestamps */}
-                  <div className="w-full px-1">
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-1.5">
-                      <div
-                        className="h-full bg-white rounded-full transition-all duration-300"
-                        style={{ width: `${progressPercent}%` }}
-                      />
+                  {/* Progress Bar & Timestamps (Only if real duration exists) */}
+                  {currentTrack.duration > 0 && (
+                    <div className="w-full px-1">
+                      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-1.5">
+                        <div
+                          className="h-full bg-white rounded-full transition-all duration-300"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
+                        <span>{formatTime(currentTrack.currentTime)}</span>
+                        <span>-{formatTime(remainingSeconds)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
-                      <span>{formatTime(currentTrack.currentTime)}</span>
-                      <span>{currentTrack.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Bottom: Tactile Transport Controls */}
                   <div className="w-full flex items-center justify-center space-x-7 pt-1 pb-0.5">
