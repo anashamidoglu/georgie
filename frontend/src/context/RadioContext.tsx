@@ -27,7 +27,7 @@ export const RadioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeSource, setActiveSource] = useState<AudioSource>('bluetooth');
   const [stations, setStations] = useState<RadioStation[]>(() => {
     try {
-      const saved = localStorage.getItem('georgie_radio_stations');
+      const saved = localStorage.getItem('georgie_radio_stations_v2');
       if (saved) return JSON.parse(saved);
     } catch {}
     return DEFAULT_RADIO_STATIONS;
@@ -39,8 +39,13 @@ export const RadioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fallbackIndexRef = useRef<number>(0);
   const wasPlayingBeforeCallRef = useRef<boolean>(false);
+  const bufferTimeoutRef = useRef<number | null>(null);
 
   const { callStatus } = useCall();
+
+  const getProxiedUrl = (rawUrl: string) => {
+    return `/api/radio/proxy?url=${encodeURIComponent(rawUrl)}`;
+  };
 
   // Initialize persistent HTML5 Audio element
   useEffect(() => {
@@ -48,24 +53,35 @@ export const RadioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.preload = 'none';
 
     audio.onwaiting = () => setIsRadioBuffering(true);
+    audio.oncanplay = () => setIsRadioBuffering(false);
+    audio.onloadeddata = () => setIsRadioBuffering(false);
+
     audio.onplaying = () => {
       setIsRadioBuffering(false);
       setIsRadioPlaying(true);
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+        bufferTimeoutRef.current = null;
+      }
     };
+
+    audio.onplay = () => {
+      setIsRadioPlaying(true);
+    };
+
     audio.onpause = () => {
       setIsRadioPlaying(false);
       setIsRadioBuffering(false);
     };
+
     audio.onerror = () => {
-      console.warn(`[Radio] Stream error on ${currentStation.name}, trying fallback...`);
-      setIsRadioBuffering(true);
+      console.warn(`[Radio] Stream error on ${currentStation.name}, trying direct or fallback...`);
       
-      // Try fallback URL if available
       const fallbacks = currentStation.fallbackUrls || [];
       if (fallbackIndexRef.current < fallbacks.length) {
         const nextUrl = fallbacks[fallbackIndexRef.current];
         fallbackIndexRef.current += 1;
-        audio.src = nextUrl;
+        audio.src = getProxiedUrl(nextUrl);
         audio.play().catch((err) => console.warn('[Radio] Fallback play error:', err));
       } else {
         setIsRadioBuffering(false);
@@ -79,13 +95,14 @@ export const RadioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.pause();
       audio.src = '';
       audioRef.current = null;
+      if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
     };
-  }, []);
+  }, [currentStation]);
 
   // Save station customizations to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('georgie_radio_stations', JSON.stringify(stations));
+      localStorage.setItem('georgie_radio_stations_v2', JSON.stringify(stations));
     } catch {}
   }, [stations]);
 
@@ -117,9 +134,15 @@ export const RadioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.src = station.streamUrl;
+      audioRef.current.src = getProxiedUrl(station.streamUrl);
       audioRef.current.load();
       setIsRadioBuffering(true);
+
+      if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
+      bufferTimeoutRef.current = window.setTimeout(() => {
+        setIsRadioBuffering(false);
+      }, 5000);
+
       audioRef.current.play().catch((err) => {
         console.warn(`[Radio] Playback error on ${station.name}:`, err);
         setIsRadioBuffering(false);
@@ -135,14 +158,22 @@ export const RadioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audioRef.current.pause();
     } else {
       setActiveSource('radio');
-      if (!audioRef.current.src || audioRef.current.src === '' || audioRef.current.src !== currentStation.streamUrl) {
-        audioRef.current.src = currentStation.streamUrl;
+      const targetSrc = getProxiedUrl(currentStation.streamUrl);
+      if (!audioRef.current.src || !audioRef.current.src.includes(encodeURIComponent(currentStation.streamUrl))) {
+        audioRef.current.src = targetSrc;
         audioRef.current.load();
       }
       setIsRadioBuffering(true);
+
+      if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
+      bufferTimeoutRef.current = window.setTimeout(() => {
+        setIsRadioBuffering(false);
+      }, 5000);
+
       audioRef.current.play().catch((err) => {
         console.warn('[Radio] Play toggle error:', err);
         setIsRadioBuffering(false);
+        setIsRadioPlaying(false);
       });
     }
   };

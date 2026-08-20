@@ -7,7 +7,7 @@ import os
 
 from .config import settings
 from .database import init_db
-from .routers import ws, nav, media, calls, system, bluetooth
+from .routers import ws, nav, media, calls, system, bluetooth, radio
 from .services.bluetooth.mock_listener import mock_bt_listener
 from .services.bluetooth.dbus_listener import dbus_listener
 
@@ -56,6 +56,7 @@ app.include_router(media.router)
 app.include_router(calls.router)
 app.include_router(system.router)
 app.include_router(bluetooth.router)
+app.include_router(radio.router)
 
 @app.get("/health")
 async def health_check():
