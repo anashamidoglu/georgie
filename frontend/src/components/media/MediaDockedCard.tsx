@@ -71,7 +71,7 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
         {showArtwork && (
           <div
             style={{ width: `${currentArtSize}px`, height: `${currentArtSize}px` }}
-            className="aspect-square rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl transition-all duration-200 mt-1"
+            className="aspect-square rounded-2xl bg-[#15161e] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl transition-all duration-200 mt-1"
           >
             {track.artworkUrl ? (
               <img
@@ -80,8 +80,13 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-[#181920] flex flex-col items-center justify-center p-2">
-                <span className="text-3xl leading-none">🐻</span>
+              /* Sleek YouTube Player Emblem */
+              <div className="w-full h-full bg-[#181922] flex flex-col items-center justify-center p-3 shadow-inner">
+                <div className="w-14 h-10 rounded-xl bg-[#FF0000] flex items-center justify-center shadow-[0_4px_16px_rgba(255,0,0,0.35)]">
+                  <svg className="w-5 h-5 text-white fill-white ml-0.5" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
               </div>
             )}
           </div>
@@ -105,14 +110,24 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
         <div className="w-full px-2 mb-2 mt-auto flex-shrink-0">
           <div className="w-full h-2 bg-white/15 rounded-full overflow-hidden mb-1.5">
             <div
-              className="h-full bg-white rounded-full transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
+              className={`h-full rounded-full transition-all duration-300 ${
+                !track.artworkUrl ? 'bg-red-500' : 'bg-white'
+              }`}
+              style={{ width: track.duration > 0 ? `${progressPercent}%` : track.isPlaying ? '100%' : '0%' }}
             />
           </div>
 
           <div className="flex justify-between items-center text-xs font-bold font-sf tabular-nums text-white/50">
             <span>{formatTime(track.currentTime)}</span>
-            <span>{track.duration > 0 ? `-${formatTime(remainingSeconds)}` : '0:00'}</span>
+            <span>
+              {track.duration > 0 ? (
+                `-${formatTime(remainingSeconds)}`
+              ) : track.isPlaying ? (
+                <span className="text-red-400 font-bold">Audio Stream</span>
+              ) : (
+                '0:00'
+              )}
+            </span>
           </div>
         </div>
 

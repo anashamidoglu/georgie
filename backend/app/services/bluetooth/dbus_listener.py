@@ -308,14 +308,24 @@ class DBusBluetoothListener:
                             raw_title = track_val.get('Title')
                             if raw_title and str(raw_title).strip() and str(raw_title) != 'Unknown Track':
                                 title = str(raw_title)
-                                artist = str(track_val.get('Artist', 'Unknown Artist'))
+                                raw_artist = str(track_val.get('Artist', '')).strip()
+                                artist = raw_artist if raw_artist and raw_artist != 'Unknown Artist' else 'YouTube'
                                 album = str(track_val.get('Album', ''))
                                 duration = int(track_val.get('Duration', 0)) // 1000
                                 position = self.current_track.position
-                                # If Status was explicitly provided, use it; otherwise default to playing on track change
                                 current_status = str(status_val) if status_val is not None else 'playing'
                                 self.current_track.status = current_status
                                 asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, current_status))
+                            elif status_val == 'playing' and (not self.current_track.title or self.current_track.title == 'No Track Playing'):
+                                self.current_track.title = "YouTube Audio"
+                                self.current_track.artist = "Playing from Phone"
+                                self.current_track.status = "playing"
+                                asyncio.create_task(ws_manager.broadcast("media:track_changed", self.current_track.model_dump()))
+                        elif status_val == 'playing' and (not self.current_track.title or self.current_track.title == 'No Track Playing'):
+                            self.current_track.title = "YouTube Audio"
+                            self.current_track.artist = "Playing from Phone"
+                            self.current_track.status = "playing"
+                            asyncio.create_task(ws_manager.broadcast("media:track_changed", self.current_track.model_dump()))
                         elif has_update:
                             asyncio.create_task(ws_manager.broadcast("media:playback_state", self.current_track.model_dump()))
 
@@ -334,10 +344,15 @@ class DBusBluetoothListener:
                             raw_title = track_val.get('Title')
                             if raw_title and str(raw_title).strip() and str(raw_title) != 'Unknown Track':
                                 title = str(raw_title)
-                                artist = str(track_val.get('Artist', 'Unknown Artist'))
+                                raw_artist = str(track_val.get('Artist', '')).strip()
+                                artist = raw_artist if raw_artist and raw_artist != 'Unknown Artist' else 'YouTube'
                                 album = str(track_val.get('Album', ''))
                                 duration = int(track_val.get('Duration', 0)) // 1000
                                 asyncio.create_task(self._on_track_changed(title, artist, album, duration, position, status_val))
+                            else:
+                                title = "YouTube Audio"
+                                artist = "Playing from Phone"
+                                asyncio.create_task(self._on_track_changed(title, artist, "", 0, position, status_val))
 
                 # 3. InterfacesRemoved (e.g. music app closed on phone)
                 elif msg.member == 'InterfacesRemoved' and msg.interface == 'org.freedesktop.DBus.ObjectManager':
