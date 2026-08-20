@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Smartphone, Radio } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { MarqueeText } from '../common/MarqueeText';
 import type { MediaTrack } from '../../types';
@@ -9,6 +9,7 @@ interface MediaDockedCardProps {
   onPlayPause?: () => void;
   onNext?: () => void;
   onPrev?: () => void;
+  onSwitchToRadio?: () => void;
 }
 
 export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
@@ -23,6 +24,7 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
   onPlayPause,
   onNext,
   onPrev,
+  onSwitchToRadio,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerHeight, setContainerHeight] = useState<number>(360);
@@ -48,16 +50,15 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = track.duration > 0
-    ? Math.min(100, (track.currentTime / track.duration) * 100)
-    : 0;
+  const progressPercent =
+    track.duration > 0 ? Math.min(100, (track.currentTime / track.duration) * 100) : 0;
   const remainingSeconds = Math.max(0, track.duration - track.currentTime);
 
-  // Original base idle size is 112px (w-28 h-28).
-  // Fixed UI content (padding, text, scrubber, controls) takes ~190px.
+  // Base artwork hero size in full idle view is 112px (w-28 h-28).
+  // Threshold rule: If available height scales artwork below 50% (< 56px), hide completely.
   const BASE_ART_SIZE = 112;
-  const MIN_ART_THRESHOLD = 56; // 50% of 112px
-  const availableArtHeight = containerHeight - 190;
+  const MIN_ART_THRESHOLD = 56;
+  const availableArtHeight = containerHeight - 210;
   const showArtwork = availableArtHeight >= MIN_ART_THRESHOLD;
   const currentArtSize = Math.min(BASE_ART_SIZE, Math.max(MIN_ART_THRESHOLD, availableArtHeight));
 
@@ -67,6 +68,27 @@ export const MediaDockedCard: React.FC<MediaDockedCardProps> = ({
         padding="none"
         className="w-full h-full p-4 sm:p-5 flex flex-col justify-between items-center text-center select-none font-sf overflow-hidden"
       >
+        {/* Top: Source Switcher */}
+        <div className="w-full flex items-center justify-between flex-shrink-0 px-1 mb-1">
+          <div className="inline-flex items-center p-1 rounded-full bg-white/[0.08] border border-white/10">
+            <button
+              type="button"
+              className="px-3 py-1 rounded-full text-xs font-bold bg-white text-black transition-all flex items-center space-x-1.5 shadow-md"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Bluetooth</span>
+            </button>
+            <button
+              type="button"
+              onClick={onSwitchToRadio}
+              className="px-3 py-1 rounded-full text-xs font-semibold text-white/50 hover:text-white transition-colors flex items-center space-x-1.5 active:scale-95"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>Radio</span>
+            </button>
+          </div>
+        </div>
+
         {/* Dynamic Album Artwork (Shrinks gracefully, hides if < 50% of idle size) */}
         {showArtwork && (
           <div

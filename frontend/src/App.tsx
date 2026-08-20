@@ -6,6 +6,7 @@ import { SettingsView } from './views/SettingsView';
 import { NavProvider, useNav } from './context/NavContext';
 import { MediaProvider } from './context/MediaContext';
 import { CallProvider, useCall } from './context/CallContext';
+import { RadioProvider } from './context/RadioContext';
 import { CallInterruptBanner } from './components/calls/CallInterruptBanner';
 
 const AppShell: React.FC = () => {
@@ -61,13 +62,15 @@ const AppShell: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <MediaProvider>
-      <CallProvider>
-        <NavProvider>
-          <AppShell />
-        </NavProvider>
-      </CallProvider>
-    </MediaProvider>
+    <CallProvider>
+      <RadioProvider>
+        <MediaProvider>
+          <NavProvider>
+            <AppShell />
+          </NavProvider>
+        </MediaProvider>
+      </RadioProvider>
+    </CallProvider>
   );
 };
 

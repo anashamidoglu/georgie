@@ -7,11 +7,11 @@ import { MediaDockedCard } from '../components/media/MediaDockedCard';
 import { CallDockedCard } from '../components/calls/CallDockedCard';
 import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
 import { WidgetStackCard, type WidgetItem } from '../components/common/WidgetStackCard';
-import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
-import { Music, PlusCircle } from 'lucide-react';
 import { useNav } from '../context/NavContext';
 import { useMedia } from '../context/MediaContext';
 import { useCall } from '../context/CallContext';
+import { useRadio } from '../context/RadioContext';
+import { RadioDockedCard } from '../components/media/RadioDockedCard';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -23,62 +23,52 @@ export const DashboardView: React.FC = () => {
 
   const {
     hasActiveMedia,
-    setHasActiveMedia,
     currentTrack,
     togglePlayPause,
     nextTrack,
     prevTrack,
   } = useMedia();
 
+  const { activeSource, setActiveSource, isRadioPlaying } = useRadio();
   const { callStatus } = useCall();
+
+  const isAudioStackActive = hasActiveMedia || activeSource === 'radio' || isRadioPlaying;
 
   // Dynamic Layout Rule:
   // - When a call is incoming/active and Nav is idle -> Expand to split view so Call card is prominent.
   // - When Nav is idle, no call, and media is OFF -> Expanded full-bleed navigation map is default.
-  // - When Nav is idle and media is ON -> Resizes to split view (Date + Media).
+  // - When Nav is idle and media is ON -> Resizes to split view (Date + Media/Radio).
   useEffect(() => {
     if (navStatus === 'idle') {
       if (callStatus !== 'idle') {
         setIsNavExpanded(false);
-      } else if (!hasActiveMedia) {
+      } else if (!isAudioStackActive) {
         setIsNavExpanded(true);
       } else {
         setIsNavExpanded(false);
       }
     }
-  }, [hasActiveMedia, navStatus, callStatus, setIsNavExpanded]);
+  }, [isAudioStackActive, navStatus, callStatus, setIsNavExpanded]);
 
-  // Media Player Card Element (shared across widget stack & idle views)
-  const mediaCardContent = hasActiveMedia ? (
+  // Media / Radio Player Card Element
+  const mediaCardContent = activeSource === 'radio' ? (
+    <RadioDockedCard onSwitchToBluetooth={() => setActiveSource('bluetooth')} />
+  ) : hasActiveMedia ? (
     <MediaDockedCard
       track={currentTrack}
       onPlayPause={togglePlayPause}
       onNext={nextTrack}
       onPrev={prevTrack}
+      onSwitchToRadio={() => setActiveSource('radio')}
     />
   ) : (
-    <LiquidGlassCard
-      padding="lg"
-      className="w-full h-full flex flex-col items-center justify-center text-center border-dashed border-white/10"
-    >
-      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white/40">
-        <Music className="w-6 h-6" />
-      </div>
-      <span className="text-sm font-semibold text-white/80 font-sf">
-        No Media Playing
-      </span>
-      <span className="text-xs text-white/40 mt-1">
-        Connect Bluetooth to stream audio
-      </span>
-      <button
-        type="button"
-        onClick={() => setHasActiveMedia(true)}
-        className="mt-4 inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white/80 transition-colors"
-      >
-        <PlusCircle className="w-3.5 h-3.5" />
-        <span>Connect Audio</span>
-      </button>
-    </LiquidGlassCard>
+    <MediaDockedCard
+      track={currentTrack}
+      onPlayPause={togglePlayPause}
+      onNext={nextTrack}
+      onPrev={prevTrack}
+      onSwitchToRadio={() => setActiveSource('radio')}
+    />
   );
 
   // Stackable Widgets for Navigation / Route Preview Mode (Call -> Upcoming Steps -> Media)
@@ -97,11 +87,11 @@ export const DashboardView: React.FC = () => {
       label: 'Upcoming Steps',
       content: <UpcomingManeuversCard />,
     },
-    ...(hasActiveMedia
+    ...(isAudioStackActive
       ? [
           {
             id: 'media_player',
-            label: 'Media Player',
+            label: activeSource === 'radio' ? 'Radio' : 'Media Player',
             content: mediaCardContent,
           },
         ]
@@ -119,11 +109,11 @@ export const DashboardView: React.FC = () => {
           },
         ]
       : []),
-    ...(hasActiveMedia
+    ...(isAudioStackActive
       ? [
           {
             id: 'media_player',
-            label: 'Media Player',
+            label: activeSource === 'radio' ? 'Radio' : 'Media Player',
             content: mediaCardContent,
           },
         ]
