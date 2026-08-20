@@ -195,7 +195,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDash }) => {
           {/* Discoverable Hint */}
           {isPairable && (
             <div className="p-2.5 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-xs text-sky-200 flex-shrink-0 mb-2.5 flex items-center justify-between">
-              <span>Broadcasting as <strong className="text-white font-bold">Georgie Dash</strong></span>
+              <span>Broadcasting as <strong className="text-white font-bold">Georgie</strong></span>
               <span className="text-xs text-sky-300 font-sf tabular-nums font-bold">{pairableCountdown}s</span>
             </div>
           )}

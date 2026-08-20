@@ -126,12 +126,12 @@ class DBusBluetoothListener:
 
     async def _setup_bluetooth_agent_and_alias(self):
         """
-        Sets the Bluetooth broadcast name to 'Georgie Dash' and registers the auto-pairing agent.
+        Sets the Bluetooth broadcast name to 'Georgie' and registers the auto-pairing agent.
         """
         try:
             from dbus_next import Message, Variant
 
-            # Set adapter alias to "Georgie Dash"
+            # Set adapter alias to "Georgie"
             await self.bus.call(
                 Message(
                     destination='org.bluez',
@@ -139,10 +139,10 @@ class DBusBluetoothListener:
                     interface='org.freedesktop.DBus.Properties',
                     member='Set',
                     signature='ssv',
-                    body=['org.bluez.Adapter1', 'Alias', Variant('s', 'Georgie Dash')]
+                    body=['org.bluez.Adapter1', 'Alias', Variant('s', 'Georgie')]
                 )
             )
-            logger.info("[BlueZ] Set Bluetooth broadcast name to 'Georgie Dash'")
+            logger.info("[BlueZ] Set Bluetooth broadcast name to 'Georgie'")
 
             # Export and register auto-pairing agent
             if BlueZPairingAgent:

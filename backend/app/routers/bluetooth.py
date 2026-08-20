@@ -102,7 +102,7 @@ async def get_bluetooth_status():
 
         bus.disconnect()
         return BluetoothStatus(
-            adapter_name="Georgie Dash",
+            adapter_name="Georgie",
             powered=adapter_powered,
             pairable=adapter_pairable,
             discoverable=adapter_pairable,
