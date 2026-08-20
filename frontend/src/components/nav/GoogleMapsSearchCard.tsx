@@ -83,7 +83,6 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
     const timer = setTimeout(async () => {
       try {
         const places = await searchPlaces(trimmed, activeCoords, MAPBOX_TOKEN, controller.signal);
-        // Check saved state for each place
         const withSavedStatus = places.map((p) => ({
           ...p,
           isSaved: savedPlaces.some((s) => s.name.toLowerCase() === p.name.toLowerCase()),
@@ -136,7 +135,6 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
   if (!isOpen) return null;
 
   const handleSelectPlace = async (place: { coordinates: [number, number]; name: string; address?: string }) => {
-    // Record to SQLite Recent Destinations
     await recordRecentPlaceToDb({
       name: place.name,
       address: place.address || 'United Arab Emirates',
@@ -157,11 +155,9 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
     const existingSaved = savedPlaces.find((s) => s.name.toLowerCase() === place.name.toLowerCase());
 
     if (existingSaved) {
-      // Unfavorite
       await deleteSavedPlaceFromDb(existingSaved.id);
       setSavedPlaces((prev) => prev.filter((s) => s.id !== existingSaved.id));
     } else {
-      // Favorite
       const newPlace = {
         name: place.name,
         address: place.address,
@@ -191,24 +187,24 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
       ref={cardRef}
       className={`absolute z-30 pointer-events-auto select-none font-sf transition-all duration-200 ${
         isNavExpanded
-          ? 'top-3.5 left-3.5 w-[390px] max-h-[calc(100%-28px)]'
-          : 'top-3.5 left-3.5 right-3.5 max-h-[calc(100%-28px)]'
+          ? 'top-4 left-4 w-[440px] sm:w-[460px] max-h-[calc(100%-32px)]'
+          : 'top-4 left-4 right-4 max-h-[calc(100%-32px)]'
       }`}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
     >
-      <div className="w-full rounded-2xl bg-[#13141a]/95 backdrop-blur-xl border border-white/20 shadow-[0_12px_40px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden">
-        {/* Search Bar Header */}
-        <div className="flex items-center px-3 py-2.5 border-b border-white/10 flex-shrink-0 bg-white/[0.04]">
+      <div className="w-full rounded-3xl bg-[#13141a]/95 backdrop-blur-2xl border border-white/20 shadow-[0_16px_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
+        {/* Scaled-Up Search Bar Header */}
+        <div className="flex items-center px-4 py-3.5 border-b border-white/15 flex-shrink-0 bg-white/[0.05]">
           <button
             type="button"
             onClick={handleClose}
-            className="w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors mr-1 flex-shrink-0"
+            className="w-11 h-11 rounded-full text-white/80 hover:text-white hover:bg-white/15 flex items-center justify-center transition-colors mr-2 flex-shrink-0 active:scale-90"
             aria-label="Back"
             title="Back"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
 
           <input
@@ -217,40 +213,40 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={isAddStopMode ? 'Add a stop along route...' : 'Search places, streets, or POIs...'}
-            className="flex-1 bg-transparent text-white placeholder-white/45 text-sm font-medium focus:outline-none px-1"
+            className="flex-1 bg-transparent text-white placeholder-white/40 text-base sm:text-lg font-bold focus:outline-none px-2"
           />
 
-          <div className="flex items-center space-x-1.5 ml-2 flex-shrink-0">
+          <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
             {query ? (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="w-8 h-8 rounded-full text-white/50 hover:text-white flex items-center justify-center transition-colors"
+                className="w-11 h-11 rounded-full text-white/60 hover:text-white hover:bg-white/15 flex items-center justify-center transition-colors active:scale-90"
                 aria-label="Clear query"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => inputRef.current?.focus()}
-                className="w-8 h-8 rounded-full text-white/70 hover:text-white flex items-center justify-center transition-colors"
+                className="w-11 h-11 rounded-full text-white/80 hover:text-white hover:bg-white/15 flex items-center justify-center transition-colors active:scale-90"
                 aria-label="Search"
               >
-                <Search className="w-4 h-4 text-white" />
+                <Search className="w-5 h-5 text-white" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto max-h-[380px] divide-y divide-white/[0.06] scrollbar-thin scrollbar-thumb-white/15">
+        {/* Scaled-Up Dropdown Content Area */}
+        <div className="flex-1 min-h-0 overflow-y-auto max-h-[420px] divide-y divide-white/[0.08] scrollbar-thin scrollbar-thumb-white/20">
           {query.trim() ? (
             /* Autocomplete Results */
             isLoading ? (
-              <div className="py-8 flex items-center justify-center space-x-2 text-white/50">
-                <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
-                <span className="text-xs font-medium">Searching UAE knowledge base...</span>
+              <div className="py-10 flex items-center justify-center space-x-3 text-white/60">
+                <Loader2 className="w-5 h-5 animate-spin text-sky-400" />
+                <span className="text-sm font-bold">Searching UAE knowledge base...</span>
               </div>
             ) : results.length > 0 ? (
               <div className="py-1">
@@ -263,46 +259,46 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                     <div
                       key={place.id}
                       onClick={() => handleSelectPlace(place)}
-                      className="w-full text-left px-3.5 py-2.5 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors flex items-center space-x-3 group cursor-pointer"
+                      className="w-full text-left px-4 py-3.5 hover:bg-white/[0.08] active:bg-white/[0.15] transition-colors flex items-center space-x-3.5 group cursor-pointer"
                     >
-                      <div className="flex-shrink-0 text-sky-400 group-hover:scale-110 transition-transform">
-                        <MapPin className="w-4 h-4" />
+                      <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 text-sky-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
+                        <MapPin className="w-6 h-6" />
                       </div>
 
                       <div className="flex flex-col min-w-0 flex-1">
-                        <span className="text-sm font-semibold text-white group-hover:text-sky-300 transition-colors truncate">
+                        <span className="text-base sm:text-lg font-bold text-white group-hover:text-sky-300 transition-colors truncate">
                           {place.name}
                         </span>
-                        <span className="text-xs text-white/45 truncate mt-0.5">
+                        <span className="text-sm text-white/55 truncate mt-0.5">
                           {place.address}
                         </span>
                       </div>
 
                       {typeof place.distanceKm === 'number' && (
-                        <span className="text-[11px] font-semibold text-white/50 group-hover:text-white/80 tabular-nums px-2 py-0.5 rounded-full bg-white/[0.06] flex-shrink-0 ml-1">
+                        <span className="text-xs font-bold text-white/80 tabular-nums px-3 py-1 rounded-full bg-white/10 border border-white/15 flex-shrink-0 ml-1">
                           {place.distanceKm} km
                         </span>
                       )}
 
-                      {/* Favorite / Bookmark Toggle Button */}
+                      {/* Scaled Favorite Button */}
                       <button
                         type="button"
                         onClick={(e) => handleToggleFavorite(e, place)}
-                        className={`p-1.5 rounded-full transition-colors flex-shrink-0 ${
+                        className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0 active:scale-90 ${
                           isSaved
-                            ? 'text-amber-400 bg-amber-400/15 hover:bg-amber-400/25'
-                            : 'text-white/30 hover:text-white hover:bg-white/10'
+                            ? 'text-amber-400 bg-amber-400/20 hover:bg-amber-400/30'
+                            : 'text-white/40 hover:text-white hover:bg-white/15'
                         }`}
                         title={isSaved ? 'Remove from Saved' : 'Save to Favorites'}
                       >
-                        <Star className={`w-3.5 h-3.5 ${isSaved ? 'fill-amber-400' : ''}`} />
+                        <Star className={`w-5 h-5 ${isSaved ? 'fill-amber-400' : ''}`} />
                       </button>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="py-8 text-center text-white/40 text-xs font-medium">
+              <div className="py-10 text-center text-white/45 text-sm font-semibold">
                 No matching places found
               </div>
             )
@@ -310,18 +306,18 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
             /* Saved Places Shortcuts + Recents History List */
             <div className="py-1">
               {/* Saved Places Section */}
-              <div className="px-3.5 pt-2 pb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-white/40">
+              <div className="px-4 pt-3.5 pb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/50">
                 <span>Saved Places</span>
-                <span className="text-sky-400 text-[10px] font-semibold lowercase">
+                <span className="text-sky-400 text-xs font-bold lowercase">
                   {savedPlaces.length} saved
                 </span>
               </div>
 
-              <div className="space-y-0.5 mb-1.5">
+              <div className="space-y-1 mb-2">
                 {savedPlaces.map((saved) => (
                   <div
                     key={saved.id}
-                    className="px-3.5 py-2 flex items-center justify-between hover:bg-white/[0.06] transition-colors group cursor-pointer"
+                    className="px-4 py-3 hover:bg-white/[0.08] active:bg-white/[0.15] transition-colors flex items-center justify-between group cursor-pointer"
                     onClick={() =>
                       handleSelectPlace({
                         coordinates: saved.coordinates,
@@ -330,21 +326,21 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                       })
                     }
                   >
-                    <div className="flex items-center space-x-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
+                    <div className="flex items-center space-x-3.5 min-w-0">
+                      <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-300 flex-shrink-0 shadow-md">
                         {saved.category === 'home' ? (
-                          <Home className="w-4 h-4" />
+                          <Home className="w-6 h-6" />
                         ) : saved.category === 'uni' ? (
-                          <GraduationCap className="w-4 h-4" />
+                          <GraduationCap className="w-6 h-6" />
                         ) : (
-                          <Star className="w-4 h-4 fill-sky-400 text-sky-400" />
+                          <Star className="w-6 h-6 fill-sky-400 text-sky-400" />
                         )}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
+                        <span className="text-base sm:text-lg font-bold text-white group-hover:text-sky-300 transition-colors">
                           {saved.name}
                         </span>
-                        <span className="text-xs text-white/45 truncate">
+                        <span className="text-sm text-white/55 truncate">
                           {saved.address}
                         </span>
                       </div>
@@ -360,20 +356,20 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                             setSavedPlaces((prev) => prev.filter((p) => p.id !== saved.id));
                           });
                         }}
-                        className="p-1.5 text-white/30 hover:text-red-400 rounded-full hover:bg-white/10 transition-colors ml-2"
+                        className="w-11 h-11 text-white/40 hover:text-red-400 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors ml-2 active:scale-90"
                         title="Remove Saved Place"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     )}
                   </div>
                 ))}
               </div>
 
-              <div className="h-[1px] bg-white/10 my-1 mx-3" />
+              <div className="h-[1px] bg-white/15 my-1.5 mx-4" />
 
               {/* Recents History Section */}
-              <div className="px-3.5 pt-2 pb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-white/40">
+              <div className="px-4 pt-3.5 pb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/50">
                 <span>Recent Destinations</span>
               </div>
 
@@ -387,55 +383,55 @@ export const GoogleMapsSearchCard: React.FC<GoogleMapsSearchCardProps> = ({ isOp
                     <div
                       key={recent.id}
                       onClick={() => handleSelectPlace(recent)}
-                      className="w-full text-left px-3.5 py-2.5 hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors flex items-center space-x-3 group cursor-pointer"
+                      className="w-full text-left px-4 py-3.5 hover:bg-white/[0.08] active:bg-white/[0.15] transition-colors flex items-center space-x-3.5 group cursor-pointer"
                     >
-                      <div className="flex-shrink-0 text-white/40 group-hover:text-white transition-colors">
-                        <Clock className="w-4 h-4" />
+                      <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 text-white/50 flex items-center justify-center flex-shrink-0 group-hover:text-white transition-colors shadow-md">
+                        <Clock className="w-6 h-6" />
                       </div>
 
                       <div className="flex flex-col min-w-0 flex-1">
-                        <span className="text-sm font-semibold text-white group-hover:text-sky-300 transition-colors truncate">
+                        <span className="text-base sm:text-lg font-bold text-white group-hover:text-sky-300 transition-colors truncate">
                           {recent.name}
                         </span>
-                        <span className="text-xs text-white/45 truncate mt-0.5">
+                        <span className="text-sm text-white/55 truncate mt-0.5">
                           {recent.address}
                         </span>
                       </div>
 
                       {typeof recent.distanceKm === 'number' && (
-                        <span className="text-[11px] font-semibold text-white/50 group-hover:text-white/80 tabular-nums px-2 py-0.5 rounded-full bg-white/[0.06] flex-shrink-0 ml-1">
+                        <span className="text-xs font-bold text-white/80 tabular-nums px-3 py-1 rounded-full bg-white/10 border border-white/15 flex-shrink-0 ml-1">
                           {recent.distanceKm} km
                         </span>
                       )}
 
-                      {/* Favorite Button */}
+                      {/* Scaled Favorite Button */}
                       <button
                         type="button"
                         onClick={(e) => handleToggleFavorite(e, recent)}
-                        className={`p-1.5 rounded-full transition-colors flex-shrink-0 ${
+                        className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0 active:scale-90 ${
                           isSaved
-                            ? 'text-amber-400 bg-amber-400/15 hover:bg-amber-400/25'
-                            : 'text-white/30 hover:text-white hover:bg-white/10'
+                            ? 'text-amber-400 bg-amber-400/20 hover:bg-amber-400/30'
+                            : 'text-white/40 hover:text-white hover:bg-white/15'
                         }`}
                         title={isSaved ? 'Remove from Saved' : 'Save to Favorites'}
                       >
-                        <Star className={`w-3.5 h-3.5 ${isSaved ? 'fill-amber-400' : ''}`} />
+                        <Star className={`w-5 h-5 ${isSaved ? 'fill-amber-400' : ''}`} />
                       </button>
 
-                      {/* Delete from Recents Button */}
+                      {/* Scaled Delete from Recents Button */}
                       <button
                         type="button"
                         onClick={(e) => handleDeleteRecent(e, recent.id)}
-                        className="p-1.5 text-white/30 hover:text-red-400 rounded-full hover:bg-white/10 transition-colors flex-shrink-0"
+                        className="w-11 h-11 text-white/40 hover:text-red-400 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors flex-shrink-0 active:scale-90"
                         title="Delete from Recents"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-5 h-5" />
                       </button>
                     </div>
                   );
                 })
               ) : (
-                <div className="py-4 text-center text-white/30 text-xs font-medium">
+                <div className="py-6 text-center text-white/40 text-sm font-semibold">
                   No recent destinations yet
                 </div>
               )}
