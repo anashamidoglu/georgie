@@ -56,7 +56,18 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     );
   }
 
-  // 3. Roundabout / Rotary
+  // 3a. Roundabout Exit
+  if (t === 'roundabout-exit' || instr.includes('take the exit') || instr.includes('take exit') || (t.includes('exit') && instr.includes('exit'))) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
+        <path d="M12 21A9 9 0 1 1 21 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M12 12L21 3M21 3H15M21 3V9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="12" r="2" fill="currentColor" />
+      </svg>
+    );
+  }
+
+  // 3b. Roundabout / Rotary
   if (t.includes('roundabout') || t.includes('rotary') || instr.includes('roundabout') || instr.includes('rotary')) {
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
