@@ -19,6 +19,12 @@ export default defineConfig(({ mode }) => {
       host: true,
       port: 5173,
       proxy: {
+        '/google-places': {
+          target: 'https://places.googleapis.com',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/google-places/, ''),
+        },
         '/api': {
           target,
           changeOrigin: true,

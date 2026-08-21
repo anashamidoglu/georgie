@@ -313,6 +313,11 @@ const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
   { id: 'emarat-airport-rd', name: 'Emarat Petrol Station - Airport Rd', address: 'Airport Road (D89), Garhoud, Dubai', coordinates: [55.3588, 25.2492], category: 'fuel' },
 ];
 
+function isInsideUae(coords: [number, number]): boolean {
+  const [lng, lat] = coords;
+  return lng >= 51.0 && lng <= 57.0 && lat >= 22.0 && lat <= 26.8;
+}
+
 export async function searchPlaces(
   query: string,
   userCoords: [number, number] = [55.419909, 25.362693],
@@ -342,11 +347,11 @@ export async function searchPlaces(
     distanceKm: calculateDistance(userCoords, p.coordinates),
   }));
 
-  // 3. Primary: Direct Google Places API (New) Search with proximity biasing
+  // 3. Primary: Google Places API (New) via local Vite dev proxy & backend
   const effectiveGoogleKey = GOOGLE_API_KEY;
   if (effectiveGoogleKey) {
     try {
-      const gUrl = 'https://places.googleapis.com/v1/places:searchText';
+      const gUrl = '/google-places/v1/places:searchText';
       const gResp = await fetch(gUrl, {
         method: 'POST',
         headers: {
@@ -357,10 +362,11 @@ export async function searchPlaces(
         },
         body: JSON.stringify({
           textQuery: trimmed,
+          regionCode: 'AE',
           locationBias: {
             circle: {
               center: { latitude: userCoords[1] || 25.2048, longitude: userCoords[0] || 55.2708 },
-              radius: 60000.0,
+              radius: 50000.0,
             },
           },
           maxResultCount: 10,
@@ -398,12 +404,57 @@ export async function searchPlaces(
                 distanceKm: calculateDistance(userCoords, coords),
                 isHistory: false,
               };
+            })
+            .filter((p: PlaceResult) => isInsideUae(p.coordinates));
+
+          if (googleResults.length > 0) {
+            const combined: PlaceResult[] = [...localMatches];
+            googleResults.forEach((gr) => {
+              if (!combined.some((c) => c.name.toLowerCase() === gr.name.toLowerCase())) {
+                combined.push(gr);
+              }
             });
 
+            combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+            setCachedResults(trimmed, combined.slice(0, 10));
+            return combined.slice(0, 10);
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+      console.warn('Google Places Vite proxy error, trying backend endpoint:', err);
+    }
+  }
+
+  // 4. Secondary: Backend Places Proxy (/api/nav/places/search)
+  try {
+    const searchUrl = `/api/nav/places/search?query=${encodeURIComponent(trimmed)}&lat=${userCoords[1]}&lng=${userCoords[0]}`;
+    const res = await fetch(searchUrl, { signal });
+    if (res.ok) {
+      const data = await res.json();
+      const rawPlaces = data.places || [];
+      if (Array.isArray(rawPlaces) && rawPlaces.length > 0) {
+        const placesWithDistance: PlaceResult[] = rawPlaces
+          .map((p: any) => {
+            const coords: [number, number] = p.coordinates || [0, 0];
+            return {
+              id: p.id || `plc-${coords[0]}-${coords[1]}`,
+              name: p.name || 'Location',
+              address: p.address || 'United Arab Emirates',
+              category: p.category || 'place',
+              coordinates: coords,
+              distanceKm: calculateDistance(userCoords, coords),
+              isHistory: false,
+            };
+          })
+          .filter((p: PlaceResult) => isInsideUae(p.coordinates));
+
+        if (placesWithDistance.length > 0) {
           const combined: PlaceResult[] = [...localMatches];
-          googleResults.forEach((gr) => {
-            if (!combined.some((c) => c.name.toLowerCase() === gr.name.toLowerCase())) {
-              combined.push(gr);
+          placesWithDistance.forEach((remote) => {
+            if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
+              combined.push(remote);
             }
           });
 
@@ -412,95 +463,12 @@ export async function searchPlaces(
           return combined.slice(0, 10);
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') throw err;
-      console.warn('Direct Google Places search error, trying backend proxy:', err);
-    }
-  }
-
-  // 4. Backend Places Proxy
-  try {
-    const searchUrl = `/api/nav/places/search?query=${encodeURIComponent(trimmed)}&lat=${userCoords[1]}&lng=${userCoords[0]}`;
-    const res = await fetch(searchUrl, { signal });
-    if (res.ok) {
-      const data = await res.json();
-      const rawPlaces = data.places || [];
-      if (Array.isArray(rawPlaces) && rawPlaces.length > 0) {
-        const placesWithDistance: PlaceResult[] = rawPlaces.map((p: any) => {
-          const coords: [number, number] = p.coordinates || [0, 0];
-          return {
-            id: p.id || `plc-${coords[0]}-${coords[1]}`,
-            name: p.name || 'Location',
-            address: p.address || 'United Arab Emirates',
-            category: p.category || 'place',
-            coordinates: coords,
-            distanceKm: calculateDistance(userCoords, coords),
-            isHistory: false,
-          };
-        });
-
-        const combined: PlaceResult[] = [...localMatches];
-        placesWithDistance.forEach((remote) => {
-          if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
-            combined.push(remote);
-          }
-        });
-
-        combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
-        setCachedResults(trimmed, combined.slice(0, 10));
-        return combined.slice(0, 10);
-      }
     }
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
   }
 
-  // 5. OpenStreetMap Photon Geocoder (Free worldwide full POI coverage fallback)
-  try {
-    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&lat=${userCoords[1] || 25.2}&lon=${userCoords[0] || 55.4}&limit=8`;
-    const pResp = await fetch(photonUrl, { signal });
-    if (pResp.ok) {
-      const pData = await pResp.json();
-      const pFeatures = pData.features || [];
-      if (pFeatures.length > 0) {
-        const photonResults: PlaceResult[] = pFeatures
-          .filter((f: any) => f.geometry?.coordinates)
-          .map((f: any) => {
-            const coords: [number, number] = f.geometry.coordinates;
-            const props = f.properties || {};
-            const name = props.name || props.street || 'Location';
-            const city = props.city || props.district || props.state || 'UAE';
-            const country = props.country || 'United Arab Emirates';
-            const addr = [props.street, props.district, city, country].filter(Boolean).join(', ');
-
-            return {
-              id: `osm-${props.osm_id || Math.random()}`,
-              name,
-              address: addr,
-              category: 'place',
-              coordinates: coords,
-              distanceKm: calculateDistance(userCoords, coords),
-              isHistory: false,
-            };
-          });
-
-        const combined: PlaceResult[] = [...localMatches];
-        photonResults.forEach((pr) => {
-          if (!combined.some((c) => c.name.toLowerCase() === pr.name.toLowerCase())) {
-            combined.push(pr);
-          }
-        });
-
-        combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
-        setCachedResults(trimmed, combined.slice(0, 8));
-        return combined.slice(0, 8);
-      }
-    }
-  } catch (err: any) {
-    if (err.name === 'AbortError') throw err;
-  }
-
-  // 6. Mapbox Forward Geocoding Fallback
+  // 5. Mapbox Forward Geocoding Fallback (strictly UAE country=ae)
   const effectiveMapboxToken = accessToken || MAPBOX_TOKEN;
   if (effectiveMapboxToken) {
     try {
@@ -512,29 +480,33 @@ export async function searchPlaces(
       if (response.ok) {
         const data = await response.json();
         if (data.features && data.features.length > 0) {
-          const remoteResults: PlaceResult[] = data.features.map((f: any) => {
-            const coords: [number, number] = f.center || [0, 0];
-            return {
-              id: f.id,
-              name: f.text || f.place_name?.split(',')[0] || 'Location',
-              address: f.place_name || f.properties?.address || 'United Arab Emirates',
-              category: 'place',
-              coordinates: coords,
-              distanceKm: calculateDistance(userCoords, coords),
-              isHistory: false,
-            };
-          });
+          const remoteResults: PlaceResult[] = data.features
+            .map((f: any) => {
+              const coords: [number, number] = f.center || [0, 0];
+              return {
+                id: f.id,
+                name: f.text || f.place_name?.split(',')[0] || 'Location',
+                address: f.place_name || f.properties?.address || 'United Arab Emirates',
+                category: 'place' as const,
+                coordinates: coords,
+                distanceKm: calculateDistance(userCoords, coords),
+                isHistory: false,
+              };
+            })
+            .filter((p: PlaceResult) => isInsideUae(p.coordinates));
 
-          const combined: PlaceResult[] = [...localMatches];
-          remoteResults.forEach((remote) => {
-            if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
-              combined.push(remote);
-            }
-          });
+          if (remoteResults.length > 0) {
+            const combined: PlaceResult[] = [...localMatches];
+            remoteResults.forEach((remote) => {
+              if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
+                combined.push(remote);
+              }
+            });
 
-          combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
-          setCachedResults(trimmed, combined.slice(0, 8));
-          return combined.slice(0, 8);
+            combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+            setCachedResults(trimmed, combined.slice(0, 8));
+            return combined.slice(0, 8);
+          }
         }
       }
     } catch (err: any) {
