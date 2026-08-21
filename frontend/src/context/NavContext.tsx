@@ -358,7 +358,22 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             distanceMeters: tick.distanceToNextManeuver,
             distanceStr: distStr,
           });
-          setUpcomingSteps(steps.slice(targetStepIdx + 1));
+
+          // Dynamically compute real-time remaining distance from vehicle position to every upcoming step
+          const dynamicUpcoming = steps.slice(targetStepIdx + 1).map((step, sliceIdx) => {
+            const globalIdx = targetStepIdx + 1 + sliceIdx;
+            const targetCumDist =
+              tick.stepCumulativeDistances && tick.stepCumulativeDistances[globalIdx] !== undefined
+                ? tick.stepCumulativeDistances[globalIdx]
+                : currentRoute?.totalDistanceMeters ?? 0;
+            const remainingMeters = Math.max(0, Math.round(targetCumDist - tick.distanceAlongRoute));
+            return {
+              ...step,
+              distanceMeters: remainingMeters,
+              distanceStr: formatDistanceMetric(remainingMeters),
+            };
+          });
+          setUpcomingSteps(dynamicUpcoming);
 
           // 3. Dynamic Voice Milestone Prompts (5km, 3km, 1km, 500m, 250m, 100m, and ~25-35m immediate prompt)
           if (!isVoiceMuted && currentStep) {

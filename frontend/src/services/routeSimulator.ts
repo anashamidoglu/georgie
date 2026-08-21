@@ -22,6 +22,7 @@ export interface SimulatorTick {
   isReversing: boolean;
   activeStepIndex: number;
   distanceToNextManeuver: number;
+  stepCumulativeDistances: number[];
   isFinished: boolean;
 }
 
@@ -402,6 +403,7 @@ export class RouteKinematicsEngine {
       isReversing: this.isReversing,
       activeStepIndex: this.getActiveStepIndex(),
       distanceToNextManeuver: Math.round(this.getDistanceToNextManeuver()),
+      stepCumulativeDistances: this.stepCumulativeDistances,
       isFinished,
     };
   }
