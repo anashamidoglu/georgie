@@ -59,6 +59,7 @@ export interface RouteLegInfo {
   durationStr: string;
   destinationName: string;
   steps: ManeuverInfo[];
+  traffic?: TrafficInfo;
 }
 
 export interface RouteResult {
@@ -107,10 +108,11 @@ function computeTraffic(congestion: string[] | undefined): TrafficInfo {
   }
 
   const total = congestion.length;
+  const severe = congestion.filter((c) => c === 'severe').length;
   const heavy = congestion.filter((c) => c === 'heavy' || c === 'severe').length;
   const moderate = congestion.filter((c) => c === 'moderate').length;
 
-  if (heavy / total > 0.08 || heavy >= 18) {
+  if (severe >= 1 || heavy >= 3 || heavy / total > 0.03) {
     return {
       condition: 'slow',
       colorClass: 'text-red-400',
@@ -119,7 +121,7 @@ function computeTraffic(congestion: string[] | undefined): TrafficInfo {
     };
   }
 
-  if (moderate / total > 0.12 || (moderate + heavy) / total > 0.14) {
+  if (moderate >= 3 || (moderate + heavy) / total > 0.05) {
     return {
       condition: 'moderate',
       colorClass: 'text-amber-400',
@@ -489,6 +491,7 @@ export async function fetchDirections(
                 durationStr: legDurStr,
                 destinationName: legDestName,
                 steps: legManeuvers,
+                traffic: computeTraffic(leg.annotation?.congestion || []),
               });
             });
 

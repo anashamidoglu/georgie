@@ -224,14 +224,14 @@ export const RouteSelectionCard: React.FC = () => {
                     {leg?.distanceStr || '-- km'}
                   </span>
                   <span className="text-xs text-white/30">•</span>
-                  <span className="text-xs font-semibold text-emerald-400">
-                    Typical traffic
+                  <span className={`text-xs font-semibold ${leg?.traffic?.colorClass || currentRoute.traffic.colorClass}`}>
+                    {leg?.traffic?.label || currentRoute.traffic.label}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col items-end flex-shrink-0">
-                <span className="text-2xl font-bold font-sf-display tabular-nums tracking-tight text-emerald-400">
+                <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${leg?.traffic?.colorClass || currentRoute.traffic.colorClass}`}>
                   {leg?.durationStr || '-- min'}
                 </span>
                 <span className="text-xs font-semibold text-white/40 tabular-nums">
@@ -282,14 +282,14 @@ export const RouteSelectionCard: React.FC = () => {
                 {finalLeg?.distanceStr || currentRoute?.distanceStr || '-- km'}
               </span>
               <span className="text-xs text-white/30">•</span>
-              <span className="text-xs font-semibold text-emerald-400">
-                Typical traffic
+              <span className={`text-xs font-semibold ${finalLeg?.traffic?.colorClass || currentRoute.traffic.colorClass}`}>
+                {finalLeg?.traffic?.label || currentRoute.traffic.label}
               </span>
             </div>
           </div>
 
           <div className="flex flex-col items-end flex-shrink-0">
-            <span className="text-2xl font-bold font-sf-display tabular-nums tracking-tight text-emerald-400">
+            <span className={`text-2xl font-bold font-sf-display tabular-nums tracking-tight ${finalLeg?.traffic?.colorClass || currentRoute.traffic.colorClass}`}>
               {finalLeg?.durationStr || currentRoute?.durationStr || '-- min'}
             </span>
             <span className="text-xs font-semibold text-white/40 tabular-nums">
