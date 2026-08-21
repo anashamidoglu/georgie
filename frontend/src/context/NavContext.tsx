@@ -352,9 +352,19 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const currentStep = steps[targetStepIdx];
           const distStr = formatDistanceMetric(tick.distanceToNextManeuver);
 
+          // Google Maps-style dynamic roundabout instruction when inside the circle
+          let activeInstruction = currentStep.instruction;
+          if (currentStep.type === 'roundabout' && tick.isInsideRoundabout) {
+            const raw = currentStep.instruction;
+            activeInstruction = raw.toLowerCase().includes('exit')
+              ? raw.replace(/^At the roundabout,\s*/i, '').replace(/^[a-z]/, (m) => m.toUpperCase())
+              : `Take the exit onto ${currentStep.roadName || 'road'}`;
+          }
+
           setActiveStepIndex(targetStepIdx);
           setPrimaryManeuver({
             ...currentStep,
+            instruction: activeInstruction,
             distanceMeters: tick.distanceToNextManeuver,
             distanceStr: distStr,
           });
@@ -369,40 +379,51 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const milestones = announcedMilestonesRef.current[stepId];
             const d = tick.distanceToNextManeuver;
 
-            // 1. 5 km prompt
-            if (d <= 5150 && d > 4800 && !milestones.p5km) {
-              milestones.p5km = true;
-              speakTurn(formatSpokenInstruction(currentStep, '5 kilometers'));
-            }
-            // 2. 3 km prompt
-            else if (d <= 3150 && d > 2800 && !milestones.p3km) {
-              milestones.p3km = true;
-              speakTurn(formatSpokenInstruction(currentStep, '3 kilometers'));
-            }
-            // 3. 1 km prompt
-            else if (d <= 1080 && d > 920 && !milestones.p1km) {
-              milestones.p1km = true;
-              speakTurn(formatSpokenInstruction(currentStep, '1 kilometer'));
-            }
-            // 4. 500 m prompt
-            else if (d <= 530 && d > 450 && !milestones.p500m) {
-              milestones.p500m = true;
-              speakTurn(formatSpokenInstruction(currentStep, '500 meters'));
-            }
-            // 5. 250 m prompt
-            else if (d <= 270 && d > 210 && !milestones.p250m) {
-              milestones.p250m = true;
-              speakTurn(formatSpokenInstruction(currentStep, '250 meters'));
-            }
-            // 6. 100 m prompt
-            else if (d <= 115 && d > 75 && !milestones.p100m) {
-              milestones.p100m = true;
-              speakTurn(formatSpokenInstruction(currentStep, '100 meters'));
-            }
-            // 7. Immediate execution prompt (right before turn/exit/roundabout: 25-35m)
-            else if (d <= 35 && d > 6 && !milestones.now) {
-              milestones.now = true;
-              speakTurn(formatSpokenInstruction(currentStep));
+            // Two-Phase Roundabout Exit Voice Prompt inside the circle
+            if (currentStep.type === 'roundabout' && tick.isInsideRoundabout) {
+              if (d <= 35 && d > 6 && !milestones.roundaboutExit) {
+                milestones.roundaboutExit = true;
+                const exitText = currentStep.instruction.toLowerCase().includes('exit')
+                  ? currentStep.instruction.replace(/^At the roundabout,\s*/i, '')
+                  : `Take the exit onto ${currentStep.roadName || 'the road'}`;
+                speakTurn(exitText);
+              }
+            } else {
+              // 1. 5 km prompt
+              if (d <= 5150 && d > 4800 && !milestones.p5km) {
+                milestones.p5km = true;
+                speakTurn(formatSpokenInstruction(currentStep, '5 kilometers'));
+              }
+              // 2. 3 km prompt
+              else if (d <= 3150 && d > 2800 && !milestones.p3km) {
+                milestones.p3km = true;
+                speakTurn(formatSpokenInstruction(currentStep, '3 kilometers'));
+              }
+              // 3. 1 km prompt
+              else if (d <= 1080 && d > 920 && !milestones.p1km) {
+                milestones.p1km = true;
+                speakTurn(formatSpokenInstruction(currentStep, '1 kilometer'));
+              }
+              // 4. 500 m prompt
+              else if (d <= 530 && d > 450 && !milestones.p500m) {
+                milestones.p500m = true;
+                speakTurn(formatSpokenInstruction(currentStep, '500 meters'));
+              }
+              // 5. 250 m prompt
+              else if (d <= 270 && d > 210 && !milestones.p250m) {
+                milestones.p250m = true;
+                speakTurn(formatSpokenInstruction(currentStep, '250 meters'));
+              }
+              // 6. 100 m prompt
+              else if (d <= 115 && d > 75 && !milestones.p100m) {
+                milestones.p100m = true;
+                speakTurn(formatSpokenInstruction(currentStep, '100 meters'));
+              }
+              // 7. Immediate execution prompt (right before turn/exit/roundabout: 25-35m)
+              else if (d <= 35 && d > 6 && !milestones.now) {
+                milestones.now = true;
+                speakTurn(formatSpokenInstruction(currentStep));
+              }
             }
           }
 

@@ -1,7 +1,7 @@
 /**
  * Georgie Carputer - Dev-Mode Route & Vehicle Kinematics Simulator (Option 3 Hybrid)
  * Supports realistic driver acceleration, braking, cruise control, polyline tracking,
- * and clean road-confined detour / wrong turn divergence for seamless auto-rerouting.
+ * clean road-confined detour divergence, and two-phase Google Maps-style roundabout guidance.
  */
 
 import type { RouteResult, ManeuverInfo } from './navService';
@@ -22,6 +22,7 @@ export interface SimulatorTick {
   isReversing: boolean;
   activeStepIndex: number;
   distanceToNextManeuver: number;
+  isInsideRoundabout: boolean;
   isFinished: boolean;
 }
 
@@ -54,7 +55,8 @@ export class RouteKinematicsEngine {
   private listeners: Set<SimulatorListener> = new Set();
   private polyline: [number, number][] = [];
   private cumulativeDistances: number[] = [];
-  private stepCumulativeDistances: number[] = [];
+  private stepEntranceDistances: number[] = [];
+  private stepExitDistances: number[] = [];
   private allSteps: ManeuverInfo[] = [];
 
   // Vehicle Kinematic State
@@ -123,8 +125,8 @@ export class RouteKinematicsEngine {
     }
     this.totalDistanceMeters = total;
 
-    // Map each step's location to cumulative distance along the polyline
-    this.stepCumulativeDistances = this.allSteps.map((step) => {
+    // Map each step's entrance and exit locations along polyline
+    this.stepEntranceDistances = this.allSteps.map((step) => {
       if (!step.location) return 0;
       let closestDist = 0;
       let minDeviation = Infinity;
@@ -136,6 +138,15 @@ export class RouteKinematicsEngine {
         }
       }
       return closestDist;
+    });
+
+    this.stepExitDistances = this.allSteps.map((step, idx) => {
+      const entrance = this.stepEntranceDistances[idx] || 0;
+      if (step.type === 'roundabout') {
+        // Roundabout step remains active until the vehicle travels through the circle to the exit
+        return entrance + Math.max(25, step.distanceMeters || 45);
+      }
+      return entrance;
     });
 
     this.distanceAlongRoute = 0;
@@ -239,17 +250,16 @@ export class RouteKinematicsEngine {
 
   public jumpBeforeStep(stepIndex: number, metersBefore: number = 100) {
     if (stepIndex < 0 || stepIndex >= this.allSteps.length) return;
-    const stepTargetDist = this.stepCumulativeDistances[stepIndex] || 0;
+    const stepTargetDist = this.stepEntranceDistances[stepIndex] || 0;
     const seekTo = Math.max(0, stepTargetDist - metersBefore);
     this.seekDistance(seekTo);
   }
 
-  // Turn into an intersecting road or drive straight past a junction
   public takeWrongTurn(angleDeg: number = 90) {
     this.isFreeSteering = true;
     this.heading = (this.heading + angleDeg + 360) % 360;
     if (this.speedMps < 5) {
-      this.speedMps = (45 * 1000) / 3600; // 45 km/h driving down the deviating road
+      this.speedMps = (45 * 1000) / 3600;
     }
     this.notify();
   }
@@ -361,20 +371,35 @@ export class RouteKinematicsEngine {
   }
 
   private getActiveStepIndex(): number {
-    if (this.stepCumulativeDistances.length === 0) return 0;
+    if (this.stepExitDistances.length === 0) return 0;
     const currentDist = this.distanceAlongRoute;
-    for (let i = 0; i < this.stepCumulativeDistances.length; i++) {
-      if (currentDist < this.stepCumulativeDistances[i] - 15) {
+    for (let i = 0; i < this.stepExitDistances.length; i++) {
+      const step = this.allSteps[i];
+      const exitDist = this.stepExitDistances[i];
+      const threshold = step?.type === 'roundabout' ? exitDist - 8 : exitDist - 15;
+      if (currentDist < threshold) {
         return i;
       }
     }
-    return Math.max(0, this.stepCumulativeDistances.length - 1);
+    return Math.max(0, this.stepExitDistances.length - 1);
   }
 
   private getDistanceToNextManeuver(): number {
     const activeIdx = this.getActiveStepIndex();
-    const nextStepDist = this.stepCumulativeDistances[activeIdx] ?? this.totalDistanceMeters;
-    return Math.max(0, nextStepDist - this.distanceAlongRoute);
+    const step = this.allSteps[activeIdx];
+    const entranceDist = this.stepEntranceDistances[activeIdx] ?? this.totalDistanceMeters;
+    const exitDist = this.stepExitDistances[activeIdx] ?? this.totalDistanceMeters;
+
+    if (step?.type === 'roundabout') {
+      if (this.distanceAlongRoute < entranceDist) {
+        // Approaching entrance of roundabout
+        return Math.max(0, entranceDist - this.distanceAlongRoute);
+      } else {
+        // Inside roundabout, counting down distance to exit
+        return Math.max(0, exitDist - this.distanceAlongRoute);
+      }
+    }
+    return Math.max(0, entranceDist - this.distanceAlongRoute);
   }
 
   public getSnapshot(): SimulatorTick {
@@ -385,6 +410,13 @@ export class RouteKinematicsEngine {
       this.totalDistanceMeters > 0 &&
       this.distanceAlongRoute >= this.totalDistanceMeters - 5 &&
       !this.isFreeSteering;
+
+    const activeIdx = this.getActiveStepIndex();
+    const activeStep = this.allSteps[activeIdx];
+    const entranceDist = this.stepEntranceDistances[activeIdx] || 0;
+    const isInsideRoundabout = Boolean(
+      activeStep?.type === 'roundabout' && this.distanceAlongRoute >= entranceDist - 5
+    );
 
     return {
       coords: this.coords,
@@ -400,8 +432,9 @@ export class RouteKinematicsEngine {
       throttle: this.throttleInput,
       brake: this.brakeInput,
       isReversing: this.isReversing,
-      activeStepIndex: this.getActiveStepIndex(),
+      activeStepIndex: activeIdx,
       distanceToNextManeuver: Math.round(this.getDistanceToNextManeuver()),
+      isInsideRoundabout,
       isFinished,
     };
   }
