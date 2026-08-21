@@ -25,8 +25,8 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     else if (instr.includes('sharp left')) m = 'sharp left';
     else if (instr.includes('slight right') || instr.includes('bear right') || instr.includes('keep right')) m = 'slight right';
     else if (instr.includes('slight left') || instr.includes('bear left') || instr.includes('keep left')) m = 'slight left';
-    else if (instr.includes('turn right') || instr.includes('right')) m = 'right';
-    else if (instr.includes('turn left') || instr.includes('left')) m = 'left';
+    else if (instr.includes('turn right') || instr.startsWith('turn right') || instr.includes('right onto') || instr.includes('take the right')) m = 'right';
+    else if (instr.includes('turn left') || instr.startsWith('turn left') || instr.includes('left onto') || instr.includes('take the left')) m = 'left';
     else if (instr.includes('u-turn') || instr.includes('uturn')) m = 'uturn';
   }
 
@@ -57,9 +57,31 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
   }
 
   // 3. Roundabout / Rotary
-  if (t.includes('roundabout') || t.includes('rotary') || instr.includes('roundabout') || instr.includes('rotary')) {
-    // 3a. Roundabout Turn Right / 1st Exit
-    if (m.includes('right') || instr.includes('1st exit') || instr.includes('first exit')) {
+  if (t.includes('roundabout') || t.includes('rotary') || instr.includes('roundabout') || instr.includes('rotary') || instr.includes('دوار') || instr.includes('ساحة')) {
+    const isFirstExit =
+      instr.includes('1st exit') ||
+      instr.includes('first exit') ||
+      instr.includes('take exit 1') ||
+      instr.includes('take the 1st') ||
+      (m === 'right' && !instr.includes('2nd') && !instr.includes('3rd') && !instr.includes('4th') && !instr.includes('exit'));
+
+    const isThirdExit =
+      instr.includes('3rd exit') ||
+      instr.includes('third exit') ||
+      instr.includes('take exit 3') ||
+      instr.includes('take the 3rd') ||
+      (m === 'left' && !instr.includes('2nd') && !instr.includes('1st') && !instr.includes('4th')) ||
+      m === 'sharp left';
+
+    const isFourthExit =
+      instr.includes('4th exit') ||
+      instr.includes('fourth exit') ||
+      instr.includes('take exit 4') ||
+      instr.includes('take the 4th') ||
+      m === 'uturn';
+
+    // 3a. Roundabout 1st Exit / Turn Right
+    if (isFirstExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
           <path d="M12 5.5A6.5 6.5 0 1 0 18.5 12" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
@@ -69,8 +91,8 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
       );
     }
 
-    // 3b. Roundabout Turn Left / 3rd Exit
-    if (m.includes('left') || instr.includes('3rd exit') || instr.includes('third exit')) {
+    // 3b. Roundabout 3rd Exit / Turn Left
+    if (isThirdExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
           <path d="M18.5 12A6.5 6.5 0 0 0 12 5.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
@@ -80,11 +102,21 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
       );
     }
 
-    // 3c. Roundabout Straight / 2nd Exit / Default
+    // 3c. Roundabout 4th Exit / Full Loop U-Turn
+    if (isFourthExit) {
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+          <path d="M14 21V17C14 17 6.5 16 6.5 12C6.5 7.5 12 6.5 12 6.5C16.5 6.5 17.5 11 17.5 13C17.5 16.5 14.5 18.5 10 18.5V21M10 21L6 17.5M10 21L14 17.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    // 3d. Roundabout 2nd Exit / Straight / Forward Flow / Default
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
         <path d="M12 5.5C15.6 5.5 18.5 8.4 18.5 12C18.5 15.6 15.6 18.5 12 18.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
-        <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+        <circle cx="12" cy="11.5" r="2.5" fill="currentColor" />
         <path d="M12 21V17.5C12 17.5 6.5 16 6.5 12C6.5 8 12 6.5 12 6.5V3M12 3L7.5 7.5M12 3L16.5 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
