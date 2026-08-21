@@ -182,7 +182,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Option 3: Kinematic Driver Simulation State
   const [simTick, setSimTick] = useState<SimulatorTick>(() => routeSimulator.getSnapshot());
-  const announcedMilestonesRef = useRef<{ [stepId: number]: { prep500: boolean; alert100: boolean; now: boolean } }>({});
+  const announcedMilestonesRef = useRef<{ [stepId: number]: Record<string, boolean> }>({});
   const arrivalAnnouncedRef = useRef<boolean>(false);
 
   // Active vehicle coordinates (prioritizes real GPS when idle, uses simulator during navigation)
@@ -360,29 +360,49 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           setUpcomingSteps(steps.slice(targetStepIdx + 1));
 
-          // 3. Dynamic Voice Milestone Prompts (Tied directly to active banner without queue lag)
+          // 3. Dynamic Voice Milestone Prompts (5km, 3km, 1km, 500m, 250m, 100m, and ~25-35m immediate prompt)
           if (!isVoiceMuted && currentStep) {
             const stepId = currentStep.id ?? targetStepIdx;
             if (!announcedMilestonesRef.current[stepId]) {
-              announcedMilestonesRef.current[stepId] = { prep500: false, alert100: false, now: false };
+              announcedMilestonesRef.current[stepId] = {};
             }
             const milestones = announcedMilestonesRef.current[stepId];
             const d = tick.distanceToNextManeuver;
 
-            // Advance alert (only if step is far away > 300m)
-            if (d <= 500 && d > 250 && !milestones.prep500) {
-              milestones.prep500 = true;
-              const spoken = formatSpokenInstruction(currentStep, '500 meters');
-              speakTurn(spoken);
+            // 1. 5 km prompt
+            if (d <= 5150 && d > 4800 && !milestones.p5km) {
+              milestones.p5km = true;
+              speakTurn(formatSpokenInstruction(currentStep, '5 kilometers'));
             }
-            // Action turn alert (when approaching the intersection 20m - 100m)
-            else if (d <= 100 && d > 15 && !milestones.alert100) {
-              milestones.alert100 = true;
-              // If prep was already spoken, speak direct action; otherwise prefix distance
-              const spoken = milestones.prep500
-                ? formatSpokenInstruction(currentStep)
-                : formatSpokenInstruction(currentStep, formatDistanceMetric(d));
-              speakTurn(spoken);
+            // 2. 3 km prompt
+            else if (d <= 3150 && d > 2800 && !milestones.p3km) {
+              milestones.p3km = true;
+              speakTurn(formatSpokenInstruction(currentStep, '3 kilometers'));
+            }
+            // 3. 1 km prompt
+            else if (d <= 1080 && d > 920 && !milestones.p1km) {
+              milestones.p1km = true;
+              speakTurn(formatSpokenInstruction(currentStep, '1 kilometer'));
+            }
+            // 4. 500 m prompt
+            else if (d <= 530 && d > 450 && !milestones.p500m) {
+              milestones.p500m = true;
+              speakTurn(formatSpokenInstruction(currentStep, '500 meters'));
+            }
+            // 5. 250 m prompt
+            else if (d <= 270 && d > 210 && !milestones.p250m) {
+              milestones.p250m = true;
+              speakTurn(formatSpokenInstruction(currentStep, '250 meters'));
+            }
+            // 6. 100 m prompt
+            else if (d <= 115 && d > 75 && !milestones.p100m) {
+              milestones.p100m = true;
+              speakTurn(formatSpokenInstruction(currentStep, '100 meters'));
+            }
+            // 7. Immediate execution prompt (right before turn/exit/roundabout: 25-35m)
+            else if (d <= 35 && d > 6 && !milestones.now) {
+              milestones.now = true;
+              speakTurn(formatSpokenInstruction(currentStep));
             }
           }
 
