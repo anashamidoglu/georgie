@@ -196,20 +196,20 @@ export const NavDockedViewport: React.FC = () => {
 
       {/* 3. Bottom Floating Controls (Street View Step Controls OR Navigation ETA Banner) */}
       {isStreetViewOpen ? (
-        /* Street View Bottom Bar: < Prev, Step X of Y, Next >, Back to Map */
+        /* Street View Bottom Bar: < Prev, Step X of Y, Next >, Back to Map (Exact ETA Banner Dimensions & Grey Styling) */
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center space-y-2 pointer-events-none z-30">
           <div 
-            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[520px]"
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-3 flex items-center justify-between font-sf select-none w-full max-w-[500px]"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Step Switcher Controls */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2.5 min-w-0 mr-3">
               <button
                 type="button"
                 onClick={prevInspectedStep}
                 disabled={stepIdx <= 0}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:pointer-events-none text-white flex items-center justify-center transition-all active:scale-90 border border-white/15"
+                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:pointer-events-none text-white flex items-center justify-center transition-all active:scale-90 border border-white/15 flex-shrink-0"
                 title="Previous step"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -219,27 +219,27 @@ export const NavDockedViewport: React.FC = () => {
                 type="button"
                 onClick={nextInspectedStep}
                 disabled={stepIdx >= allSteps.length - 1}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:pointer-events-none text-white flex items-center justify-center transition-all active:scale-90 border border-white/15"
+                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:pointer-events-none text-white flex items-center justify-center transition-all active:scale-90 border border-white/15 flex-shrink-0"
                 title="Next step"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
 
-              <div className="flex flex-col ml-2">
-                <span className="text-xs font-bold text-sky-400 font-sf tabular-nums">
+              <div className="flex flex-col min-w-0 ml-1">
+                <span className="text-sm font-bold font-sf-display text-white tabular-nums">
                   Step {stepIdx + 1} of {allSteps.length}
                 </span>
-                <span className="text-[11px] text-white/50 truncate max-w-[200px] font-medium">
+                <span className="text-xs text-white/45 truncate font-medium mt-0.5">
                   {currentStep?.instruction || 'Maneuver point'}
                 </span>
               </div>
             </div>
 
-            {/* Back to Map / Exit Street View Button */}
+            {/* Back to Map / Exit Street View Button (Matched Grey Styling) */}
             <button
               type="button"
               onClick={closeStreetView}
-              className="h-10 px-4 rounded-full bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xl transition-all active:scale-95 border border-sky-400"
+              className="h-11 px-5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white font-bold text-sm flex items-center space-x-2 transition-all active:scale-90 flex-shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Map</span>

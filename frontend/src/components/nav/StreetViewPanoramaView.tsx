@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, Navigation, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface StreetViewPanoramaViewProps {
   coordinates: [number, number]; // [lng, lat]
@@ -12,7 +12,6 @@ const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY || '';
 export const StreetViewPanoramaView: React.FC<StreetViewPanoramaViewProps> = ({
   coordinates,
   heading = 0,
-  stepName = 'Step Preview',
 }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
@@ -30,30 +29,32 @@ export const StreetViewPanoramaView: React.FC<StreetViewPanoramaViewProps> = ({
 
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2000);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [lat, lng, roundedHeading]);
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-[#090a0f] select-none flex flex-col">
-      {/* 1. Interactive 360° Google Street View Embed Iframe */}
+      {/* 1. Interactive 360° Google Street View Embed Iframe (Cropped at top to remove Google info bar) */}
       {GOOGLE_API_KEY ? (
-        <iframe
-          ref={iframeRef}
-          key={`${lat.toFixed(5)}_${lng.toFixed(5)}_${roundedHeading}`}
-          title="Google Street View"
-          src={embedUrl}
-          className="w-full h-full border-0"
-          style={{ filter: 'brightness(0.95) contrast(1.05)' }}
-          loading="eager"
-          allow="accelerometer; gyroscope; magnetometer"
-          onLoad={() => setIsLoading(false)}
-          onError={() => {
-            setIsLoading(false);
-            setHasError(true);
-          }}
-        />
+        <div className="w-full h-full overflow-hidden relative">
+          <iframe
+            ref={iframeRef}
+            key={`${lat.toFixed(5)}_${lng.toFixed(5)}_${roundedHeading}`}
+            title="Google Street View"
+            src={embedUrl}
+            className="w-full h-[calc(100%+54px)] -mt-[54px] border-0"
+            style={{ filter: 'brightness(0.95) contrast(1.05)' }}
+            loading="eager"
+            allow="accelerometer; gyroscope; magnetometer"
+            onLoad={() => setIsLoading(false)}
+            onError={() => {
+              setIsLoading(false);
+              setHasError(true);
+            }}
+          />
+        </div>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center font-sf bg-[#0c0e14]">
           <AlertCircle className="w-10 h-10 text-amber-400 mb-3" />
@@ -66,20 +67,7 @@ export const StreetViewPanoramaView: React.FC<StreetViewPanoramaViewProps> = ({
         </div>
       )}
 
-      {/* 2. Top Floating Heading & Step Info Badge */}
-      <div className="absolute top-4 left-4 z-10 pointer-events-none flex items-center space-x-2.5">
-        <div className="px-3.5 py-1.5 rounded-full bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex items-center space-x-2 text-white">
-          <Navigation className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />
-          <span className="text-xs font-bold font-sf truncate max-w-[280px]">
-            {stepName}
-          </span>
-          <span className="text-[10px] text-white/50 font-bold tabular-nums">
-            {roundedHeading}°
-          </span>
-        </div>
-      </div>
-
-      {/* 3. Sleek Loading Overlay */}
+      {/* 2. Sleek Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-20 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center space-y-3 font-sf transition-opacity duration-200 pointer-events-none">
           <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />

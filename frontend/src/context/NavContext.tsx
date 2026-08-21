@@ -192,10 +192,17 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const announcedMilestonesRef = useRef<{ [stepId: number]: Record<string, boolean> }>({});
   const arrivalAnnouncedRef = useRef<boolean>(false);
 
-  // Active vehicle coordinates (prioritizes real GPS when idle, uses simulator during navigation)
-  const isSimulationActive = navStatus !== 'idle' && simulatedCoords !== null;
-  const vehicleCoords = isSimulationActive ? simulatedCoords : position.coords;
-  const vehicleHeading = isSimulationActive
+  // Active vehicle coordinates (prioritizes inspected step in preview/St.View mode, simulator during driving, real GPS when idle)
+  const isInspectingStep = inspectedStep !== null && Array.isArray(inspectedStep.location) && inspectedStep.location.length === 2;
+  const isNavigating = navStatus === 'navigating' && simulatedCoords !== null;
+  const vehicleCoords = isInspectingStep
+    ? inspectedStep.location
+    : isNavigating
+    ? simulatedCoords
+    : position.coords;
+  const vehicleHeading = isInspectingStep
+    ? (simulatedHeading || 0)
+    : isNavigating
     ? (simulatedHeading || position.heading || 0)
     : (position.heading || 0);
 
@@ -315,7 +322,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = routeSimulator.subscribe((tick) => {
       setSimTick(tick);
-      if (navStatus !== 'idle') {
+      if (navStatus === 'navigating') {
         setSimulatedCoords(tick.coords);
         setSimulatedHeading(tick.heading);
       }
