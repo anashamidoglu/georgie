@@ -58,11 +58,34 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
 
   // 3. Roundabout / Rotary
   if (t.includes('roundabout') || t.includes('rotary') || instr.includes('roundabout') || instr.includes('rotary')) {
+    // 3a. Roundabout Turn Right / 1st Exit
+    if (m.includes('right') || instr.includes('1st exit') || instr.includes('first exit')) {
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
+          <path d="M12 5.5A6.5 6.5 0 1 0 18.5 12" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+          <path d="M12 21V16.5C12 14 14 12 16.5 12H21M21 12L16.5 7.5M21 12L16.5 16.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    // 3b. Roundabout Turn Left / 3rd Exit
+    if (m.includes('left') || instr.includes('3rd exit') || instr.includes('third exit')) {
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
+          <path d="M18.5 12A6.5 6.5 0 0 0 12 5.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+          <path d="M12 21V17C12 17 6.5 16 6.5 12C6.5 8 12 6.5 12 6.5C15.5 6.5 17.5 9 17.5 12C17.5 14.5 15.5 16.5 12 16.5H4M4 16.5L8.5 12M4 16.5L8.5 21" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    // 3c. Roundabout Straight / 2nd Exit / Default
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-        <path d="M12 2V6M12 6L9 4M12 6L15 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M20 12A8 8 0 1 1 12 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="12" cy="12" r="2" fill="currentColor" />
+        <path d="M12 5.5C15.6 5.5 18.5 8.4 18.5 12C18.5 15.6 15.6 18.5 12 18.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
+        <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+        <path d="M12 21V17.5C12 17.5 6.5 16 6.5 12C6.5 8 12 6.5 12 6.5V3M12 3L7.5 7.5M12 3L16.5 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
