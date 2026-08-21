@@ -321,8 +321,20 @@ export const MapboxCanvas: React.FC = () => {
         markerRef.current.setLngLat(vehicleCoords);
         markerRef.current.setRotation(vehicleHeading || 0);
       }
+
+      // Smooth 3D Camera Follow during active driving navigation
+      if (navStatus === 'navigating' && !inspectedStep) {
+        map.easeTo({
+          center: vehicleCoords,
+          bearing: vehicleHeading || 0,
+          pitch: 62,
+          zoom: 18.0,
+          duration: 180,
+          easing: (t) => t,
+        });
+      }
     }
-  }, [vehicleCoords, coords, vehicleHeading, mapLoaded]);
+  }, [vehicleCoords, coords, vehicleHeading, mapLoaded, navStatus, inspectedStep]);
 
   // Update Destination Pin Marker (Google Maps Red Pin)
   useEffect(() => {

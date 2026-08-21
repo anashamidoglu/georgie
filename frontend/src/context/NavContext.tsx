@@ -3,6 +3,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCurrentPosition } from '../hooks/useCurrentPosition';
 import { fetchDirections, checkOffRouteStatus } from '../services/navService';
 import type { RouteResult, ManeuverInfo } from '../services/navService';
+import { routeSimulator, type SimulatorTick } from '../services/routeSimulator';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
@@ -45,6 +46,13 @@ function calculateBearing(c1: [number, number] | undefined, c2: [number, number]
   const brng = (Math.atan2(y, x) * 180) / Math.PI;
   const res = (brng + 360) % 360;
   return isNaN(res) ? 0 : res;
+}
+
+function formatDistanceMetric(meters: number): string {
+  if (meters <= 0) return 'Now';
+  if (meters < 100) return `${Math.max(0, Math.round(meters))} m`;
+  if (meters < 1000) return `${Math.round(meters / 10) * 10} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
 }
 
 interface NavContextType {
@@ -101,6 +109,31 @@ interface NavContextType {
   isVoiceMuted: boolean;
   toggleVoiceMute: () => void;
   speakTurn: (text: string, priority?: string) => Promise<void>;
+
+  // Option 3: Full Driver Telemetry & Kinematics Simulator
+  simSpeedKmh: number;
+  simThrottle: number;
+  simBrake: number;
+  simIsCruising: boolean;
+  simCruiseSpeedKmh: number;
+  simIsFreeSteering: boolean;
+  simProgressRatio: number;
+  simDistanceAlongRoute: number;
+  simTotalDistance: number;
+  simDistanceToNextManeuver: number;
+  simIsReversing: boolean;
+  setSimulatorThrottle: (val: number) => void;
+  setSimulatorBrake: (val: number) => void;
+  setSimulatorSteering: (val: number) => void;
+  setSimulatorReversing: (val: boolean) => void;
+  toggleSimulatorCruise: (targetKmh?: number) => void;
+  setSimulatorCruiseSpeed: (kmh: number) => void;
+  toggleSimulatorFreeSteer: () => void;
+  snapSimulatorToRoute: () => void;
+  seekSimulatorPercent: (pct: number) => void;
+  jumpBeforeSimulatorStep: (stepIdx: number, metersBefore?: number) => void;
+  simulateWrongTurn: (angleDeg?: number) => void;
+  emergencyStopSimulator: () => void;
 }
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
@@ -143,7 +176,12 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const positionRef = useRef(position);
   positionRef.current = position;
 
-  // Active vehicle coordinates (falls back to real GPS, advances with simulation/inspection)
+  // Option 3: Kinematic Driver Simulation State
+  const [simTick, setSimTick] = useState<SimulatorTick>(() => routeSimulator.getSnapshot());
+  const announcedMilestonesRef = useRef<{ [stepId: number]: { prep500: boolean; alert100: boolean; now: boolean } }>({});
+  const arrivalAnnouncedRef = useRef<boolean>(false);
+
+  // Active vehicle coordinates (falls back to real GPS, advances with continuous simulator)
   const vehicleCoords = simulatedCoords || position.coords;
   const vehicleHeading = simulatedHeading || position.heading || 0;
 
@@ -162,8 +200,6 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
   });
-
-  const lastAnnouncedStepIdRef = useRef<number | null>(null);
 
   const toggleVoiceMute = () => {
     setIsVoiceMuted((prev) => {
@@ -202,7 +238,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!maneuver) return '';
     let instr = maneuver.instruction || maneuver.roadName || 'Continue on route';
 
-    // 1. Handle multi-part slashes preserving route codes (e.g. "Al Asayel St / شارع الأصايل / S128" -> "Al Asayel St, S 128")
+    // 1. Handle multi-part slashes preserving route codes
     if (instr.includes('/')) {
       const rawParts = instr.split('/').map((p) => p.trim()).filter(Boolean);
       const processed: string[] = [];
@@ -224,7 +260,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       instr = processed.length > 0 ? processed.join(', ') : rawParts[0];
     }
 
-    // 2. Expand metric distance abbreviations (e.g. "500 m" -> "500 meters")
+    // 2. Expand metric distance abbreviations
     let cleanDist = prefixDistance;
     if (cleanDist) {
       cleanDist = cleanDist
@@ -251,19 +287,77 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return instr;
   };
 
-  // Automatic spoken turn announcements when entering steps or advancing maneuvers
+  // Continuous Kinematic Simulator Telemetry Subscription
   useEffect(() => {
-    if (navStatus === 'navigating' && primaryManeuver && !isVoiceMuted) {
-      if (lastAnnouncedStepIdRef.current !== primaryManeuver.id) {
-        lastAnnouncedStepIdRef.current = primaryManeuver.id;
-        const spokenText = formatSpokenInstruction(
-          primaryManeuver,
-          primaryManeuver.distanceStr ? primaryManeuver.distanceStr : undefined
-        );
-        speakTurn(spokenText);
+    const unsubscribe = routeSimulator.subscribe((tick) => {
+      setSimTick(tick);
+      setSimulatedCoords(tick.coords);
+      setSimulatedHeading(tick.heading);
+
+      if (navStatus === 'navigating' && allSteps.length > 0) {
+        // 1. Dynamic Step Transition
+        if (tick.activeStepIndex !== activeStepIndex) {
+          setActiveStepIndex(tick.activeStepIndex);
+          const currentStep = allSteps[tick.activeStepIndex];
+          if (currentStep) {
+            setPrimaryManeuver({
+              ...currentStep,
+              distanceMeters: tick.distanceToNextManeuver,
+              distanceStr: formatDistanceMetric(tick.distanceToNextManeuver),
+            });
+            setUpcomingSteps(allSteps.slice(tick.activeStepIndex + 1));
+          }
+        } else if (primaryManeuver) {
+          // 2. Dynamic Distance Countdown on Primary Maneuver
+          const distStr = formatDistanceMetric(tick.distanceToNextManeuver);
+          if (primaryManeuver.distanceStr !== distStr) {
+            setPrimaryManeuver((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    distanceMeters: tick.distanceToNextManeuver,
+                    distanceStr: distStr,
+                  }
+                : null
+            );
+          }
+        }
+
+        // 3. Dynamic Voice Milestone Announcements
+        const currentStep = allSteps[tick.activeStepIndex];
+        if (currentStep && !isVoiceMuted) {
+          const stepId = currentStep.id ?? tick.activeStepIndex;
+          if (!announcedMilestonesRef.current[stepId]) {
+            announcedMilestonesRef.current[stepId] = { prep500: false, alert100: false, now: false };
+          }
+          const milestones = announcedMilestonesRef.current[stepId];
+          const d = tick.distanceToNextManeuver;
+
+          if (d <= 550 && d > 350 && !milestones.prep500) {
+            milestones.prep500 = true;
+            const spoken = formatSpokenInstruction(currentStep, '500 meters');
+            speakTurn(spoken);
+          } else if (d <= 140 && d > 40 && !milestones.alert100) {
+            milestones.alert100 = true;
+            const spoken = formatSpokenInstruction(currentStep, '100 meters');
+            speakTurn(spoken);
+          } else if (d <= 25 && !milestones.now) {
+            milestones.now = true;
+            const spoken = formatSpokenInstruction(currentStep);
+            speakTurn(spoken);
+          }
+        }
+
+        // 4. Destination Arrival Trigger
+        if (tick.isFinished && !arrivalAnnouncedRef.current) {
+          arrivalAnnouncedRef.current = true;
+          speakTurn(`You have reached your destination: ${destinationName || 'your destination'}`);
+        }
       }
-    }
-  }, [navStatus, primaryManeuver?.id, isVoiceMuted]);
+    });
+
+    return () => unsubscribe();
+  }, [navStatus, activeStepIndex, allSteps, isVoiceMuted, destinationName, primaryManeuver]);
 
   // Internal routing calculation for a given destination + waypoints
   const calculateRoute = async (
@@ -302,6 +396,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setAllSteps(res.activeRoute.allSteps);
       setPrimaryManeuver(res.activeRoute.primaryManeuver);
       setUpcomingSteps(res.activeRoute.upcomingSteps);
+
+      // Load active route into kinematic driving simulator
+      routeSimulator.loadRoute(res.activeRoute, currentCoords);
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         console.error('Routing calculation error:', e);
@@ -324,6 +421,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSimulatedCoords(null);
     setSimulatedHeading(0);
     setSelectedRouteIndex(0);
+    arrivalAnnouncedRef.current = false;
+    announcedMilestonesRef.current = {};
 
     await calculateRoute(destCoords, [], name);
   };
@@ -388,7 +487,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await calculateRoute(targetWp.coordinates, newWaypoints, targetWp.name);
   };
 
-  // Multi-Stop: Reorder any stop across the entire itinerary (including final destination)
+  // Multi-Stop: Reorder any stop across the entire itinerary
   const reorderStop = async (fromIdx: number, toIdx: number) => {
     if (!destination) return;
     const allStops: Array<{ id: string; name: string; coordinates: [number, number] }> = [
@@ -444,6 +543,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUpcomingSteps(targetRoute.upcomingSteps);
     setInspectedStep(null);
     setActiveStepIndex(0);
+
+    routeSimulator.loadRoute(targetRoute, vehicleCoords);
   };
 
   // Automatic Off-Route Dynamic Reroute Engine
@@ -478,6 +579,10 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPrimaryManeuver(updated.primaryManeuver);
         setUpcomingSteps(updated.upcomingSteps);
         setActiveStepIndex(0);
+        announcedMilestonesRef.current = {};
+
+        // Seamlessly reload simulator on the new rerouted path from current vehicle location
+        routeSimulator.loadRoute(updated, currentPos);
       }
     } catch (e) {
       console.warn('Off-route dynamic auto-reroute failed:', e);
@@ -547,10 +652,14 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNavStatus('navigating');
     setInspectedStep(null);
     setActiveStepIndex(0);
+    arrivalAnnouncedRef.current = false;
+    announcedMilestonesRef.current = {};
+
     if (activeRoute) {
       setAllSteps(activeRoute.allSteps);
       setPrimaryManeuver(activeRoute.primaryManeuver);
       setUpcomingSteps(activeRoute.upcomingSteps);
+      routeSimulator.loadRoute(activeRoute, vehicleCoords);
     }
     if (wasExpandedBeforePreviewRef.current) {
       setIsNavExpanded(true);
@@ -658,69 +767,17 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Simulation controls: Move vehicle puck along the route
+  // Step Controls (Manual Stepping Fallback)
   const nextSimulationStep = () => {
     if (allSteps.length === 0) return;
     const nextIdx = Math.min(allSteps.length - 1, activeStepIndex + 1);
-    setActiveStepIndex(nextIdx);
-    setPrimaryManeuver(allSteps[nextIdx]);
-    setUpcomingSteps(allSteps.slice(nextIdx + 1));
-
-    const step = allSteps[nextIdx];
-    const stepLoc = step?.location;
-    if (stepLoc) {
-      setSimulatedCoords(stepLoc);
-      const nextStepLoc = allSteps[nextIdx + 1]?.location || destination;
-      const bearing =
-        typeof step?.bearingAfter === 'number'
-          ? step.bearingAfter
-          : nextStepLoc
-          ? calculateBearing(stepLoc, nextStepLoc)
-          : vehicleHeading;
-      setSimulatedHeading(bearing);
-
-      if (mapInstance) {
-        mapInstance.easeTo({
-          center: stepLoc,
-          zoom: 18.0,
-          pitch: 62,
-          bearing: bearing,
-          duration: 600,
-        });
-      }
-    }
+    routeSimulator.jumpBeforeStep(nextIdx, 50);
   };
 
   const prevSimulationStep = () => {
     if (allSteps.length === 0) return;
     const prevIdx = Math.max(0, activeStepIndex - 1);
-    setActiveStepIndex(prevIdx);
-    setPrimaryManeuver(allSteps[prevIdx]);
-    setUpcomingSteps(allSteps.slice(prevIdx + 1));
-
-    const step = allSteps[prevIdx];
-    const stepLoc = step?.location;
-    if (stepLoc) {
-      setSimulatedCoords(stepLoc);
-      const nextStepLoc = allSteps[prevIdx + 1]?.location || destination;
-      const bearing =
-        typeof step?.bearingAfter === 'number'
-          ? step.bearingAfter
-          : nextStepLoc
-          ? calculateBearing(stepLoc, nextStepLoc)
-          : vehicleHeading;
-      setSimulatedHeading(bearing);
-
-      if (mapInstance) {
-        mapInstance.easeTo({
-          center: stepLoc,
-          zoom: 18.0,
-          pitch: 62,
-          bearing: bearing,
-          duration: 600,
-        });
-      }
-    }
+    routeSimulator.jumpBeforeStep(prevIdx, 50);
   };
 
   // End or cancel navigation back to idle
@@ -728,6 +785,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    routeSimulator.emergencyStop();
     setDestination(null);
     setDestinationName('');
     setWaypoints([]);
@@ -745,6 +803,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsRerouting(false);
     consecutiveOffRouteCountRef.current = 0;
     isReroutingRef.current = false;
+    arrivalAnnouncedRef.current = false;
+    announcedMilestonesRef.current = {};
 
     if (wasExpandedBeforePreviewRef.current) {
       setIsNavExpanded(true);
@@ -795,45 +855,28 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Dev Testing Helper: Make vehicle puck actually drive down the wrong road / straight past the turn
   const simulateOffRoute = () => {
-    if (!vehicleCoords || vehicleCoords[0] === 0) return;
-
-    // Use current road bearing and advance the vehicle 90m down the wrong road
-    const currentHeading = vehicleHeading || positionRef.current.heading || 0;
-    const headingRad = currentHeading * (Math.PI / 180);
-    const distanceMeters = 90;
-
-    const dLat = (distanceMeters * Math.cos(headingRad)) / 111320;
-    const dLng =
-      (distanceMeters * Math.sin(headingRad)) /
-      (111320 * Math.cos(vehicleCoords[1] * (Math.PI / 180)));
-
-    const wrongTurnCoords: [number, number] = [
-      vehicleCoords[0] + dLng,
-      vehicleCoords[1] + dLat,
-    ];
-
-    setSimulatedCoords(wrongTurnCoords);
-
-    if (mapInstance) {
-      mapInstance.easeTo({
-        center: wrongTurnCoords,
-        zoom: 18.0,
-        pitch: 62,
-        bearing: currentHeading,
-        duration: 600,
-      });
-    }
+    routeSimulator.takeWrongTurn(90);
   };
 
   const resetSimulatedPosition = () => {
-    if (allSteps.length > 0 && allSteps[activeStepIndex]?.location) {
-      setSimulatedCoords(allSteps[activeStepIndex].location);
-    } else {
-      setSimulatedCoords(null);
-    }
+    routeSimulator.snapBackToRoute();
   };
+
+  // Option 3 Simulator Controls
+  const setSimulatorThrottle = (val: number) => routeSimulator.setThrottle(val);
+  const setSimulatorBrake = (val: number) => routeSimulator.setBrake(val);
+  const setSimulatorSteering = (val: number) => routeSimulator.setSteering(val);
+  const setSimulatorReversing = (val: boolean) => routeSimulator.setReversing(val);
+  const toggleSimulatorCruise = (targetKmh?: number) => routeSimulator.toggleCruise(targetKmh);
+  const setSimulatorCruiseSpeed = (kmh: number) => routeSimulator.setCruiseSpeed(kmh);
+  const toggleSimulatorFreeSteer = () => routeSimulator.setFreeSteering(!simTick.isFreeSteering);
+  const snapSimulatorToRoute = () => routeSimulator.snapBackToRoute();
+  const seekSimulatorPercent = (pct: number) => routeSimulator.seekPercent(pct);
+  const jumpBeforeSimulatorStep = (stepIdx: number, metersBefore?: number) =>
+    routeSimulator.jumpBeforeStep(stepIdx, metersBefore);
+  const simulateWrongTurn = (angleDeg?: number) => routeSimulator.takeWrongTurn(angleDeg);
+  const emergencyStopSimulator = () => routeSimulator.emergencyStop();
 
   return (
     <NavContext.Provider
@@ -860,7 +903,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         swapWaypointWithDestination,
         reorderStop,
         clearWaypoints,
-        speed: position.speed,
+        speed: simTick.speedMps > 0.1 ? simTick.speedMps : position.speed,
         mapInstance,
         setMapInstance,
         eta,
@@ -891,6 +934,31 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isVoiceMuted,
         toggleVoiceMute,
         speakTurn,
+
+        // Option 3 Simulator
+        simSpeedKmh: simTick.speedKmh,
+        simThrottle: simTick.throttle,
+        simBrake: simTick.brake,
+        simIsCruising: simTick.isCruising,
+        simCruiseSpeedKmh: simTick.targetCruiseSpeedKmh,
+        simIsFreeSteering: simTick.isFreeSteering,
+        simProgressRatio: simTick.progressRatio,
+        simDistanceAlongRoute: simTick.distanceAlongRoute,
+        simTotalDistance: simTick.totalDistanceMeters,
+        simDistanceToNextManeuver: simTick.distanceToNextManeuver,
+        simIsReversing: simTick.isReversing,
+        setSimulatorThrottle,
+        setSimulatorBrake,
+        setSimulatorSteering,
+        setSimulatorReversing,
+        toggleSimulatorCruise,
+        setSimulatorCruiseSpeed,
+        toggleSimulatorFreeSteer,
+        snapSimulatorToRoute,
+        seekSimulatorPercent,
+        jumpBeforeSimulatorStep,
+        simulateWrongTurn,
+        emergencyStopSimulator,
       }}
     >
       {children}

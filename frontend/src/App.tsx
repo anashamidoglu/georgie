@@ -7,6 +7,7 @@ import { NavProvider, useNav } from './context/NavContext';
 import { MediaProvider } from './context/MediaContext';
 import { CallProvider, useCall } from './context/CallContext';
 import { CallInterruptBanner } from './components/calls/CallInterruptBanner';
+import { DevDrivingSidebar } from './components/dev/DevDrivingSidebar';
 
 const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'nav' | 'media' | 'settings'>('dashboard');
@@ -17,7 +18,7 @@ const AppShell: React.FC = () => {
   const showExpandedCallBanner = isNavExpanded && callStatus !== 'idle';
 
   return (
-    <main className="w-screen h-screen bg-black flex items-center justify-center overflow-hidden font-sf">
+    <main className="w-screen h-screen bg-black flex items-center justify-center overflow-hidden font-sf relative">
       {/* 1024x600 Fixed/Fluid Carputer Viewport Container */}
       <div 
         id="carputer-viewport"
@@ -55,6 +56,9 @@ const AppShell: React.FC = () => {
           onCollapseNav={() => setIsNavExpanded(false)}
         />
       </div>
+
+      {/* Off-screen Dev Driving Simulator Deck (Positioned in side margins outside carputer viewport) */}
+      <DevDrivingSidebar />
     </main>
   );
 };
