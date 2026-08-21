@@ -351,7 +351,7 @@ export async function searchPlaces(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // 1. Check Cache
+  // 1. Check Fast Cache
   const cached = getCachedResults(trimmed);
   if (cached && cached.length > 0) {
     return cached.map((p) => ({
@@ -371,60 +371,94 @@ export async function searchPlaces(
     distanceKm: calculateDistance(userCoords, p.coordinates),
   }));
 
-  if (!accessToken) {
-    localMatches.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
-    return localMatches;
-  }
-
-  // 3. Secondary Fallback: Mapbox Forward Geocoding
+  // 3. Primary: Backend Google Places Search Proxy (Full UAE POI dataset with location bias)
   try {
-    const encoded = encodeURIComponent(trimmed);
-    const proximity = `${userCoords[0]},${userCoords[1]}`;
-    const uaeBbox = '51.5,22.5,56.5,26.2';
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?proximity=${proximity}&bbox=${uaeBbox}&country=ae&types=poi,address,neighborhood,locality,place&limit=8&fuzzyMatch=true&autocomplete=true&access_token=${accessToken}`;
-
-    const response = await fetch(url, { signal });
-    if (response.ok) {
-      const data = await response.json();
-      if (data.features && data.features.length > 0) {
-        const remoteResults: PlaceResult[] = data.features.map((f: any) => {
-          const coords: [number, number] = f.center || [0, 0];
-          const distKm = calculateDistance(userCoords, coords);
-
-          let cat: PlaceResult['category'] = 'place';
-          const types = (f.properties?.category || '').toLowerCase();
-          if (types.includes('gas') || types.includes('fuel')) cat = 'fuel';
-          else if (types.includes('coffee') || types.includes('cafe')) cat = 'coffee';
-          else if (types.includes('parking')) cat = 'parking';
-          else if (types.includes('grocery') || types.includes('supermarket')) cat = 'grocery';
-          else if (types.includes('hospital') || types.includes('medical')) cat = 'hospital';
-          else if (types.includes('mall') || types.includes('shop')) cat = 'mall';
-
+    const searchUrl = `/api/nav/places/search?query=${encodeURIComponent(trimmed)}&lat=${userCoords[1]}&lng=${userCoords[0]}`;
+    const res = await fetch(searchUrl, { signal });
+    if (res.ok) {
+      const data = await res.json();
+      const rawPlaces = data.places || [];
+      if (Array.isArray(rawPlaces) && rawPlaces.length > 0) {
+        const placesWithDistance: PlaceResult[] = rawPlaces.map((p: any) => {
+          const coords: [number, number] = p.coordinates || [0, 0];
           return {
-            id: f.id,
-            name: f.text || f.place_name?.split(',')[0] || 'Location',
-            address: f.place_name || f.properties?.address || 'United Arab Emirates',
-            category: cat,
+            id: p.id || `plc-${coords[0]}-${coords[1]}`,
+            name: p.name || 'Location',
+            address: p.address || 'United Arab Emirates',
+            category: p.category || 'place',
             coordinates: coords,
-            distanceKm: distKm,
+            distanceKm: calculateDistance(userCoords, coords),
             isHistory: false,
           };
         });
 
         const combined: PlaceResult[] = [...localMatches];
-        remoteResults.forEach((remote) => {
+        placesWithDistance.forEach((remote) => {
           if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
             combined.push(remote);
           }
         });
 
         combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
-        setCachedResults(trimmed, combined.slice(0, 8));
-        return combined.slice(0, 8);
+        setCachedResults(trimmed, combined.slice(0, 10));
+        return combined.slice(0, 10);
       }
     }
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
+    console.warn('Backend places search error, trying client Mapbox fallback:', err);
+  }
+
+  // 4. Secondary Fallback: Mapbox Forward Geocoding
+  if (accessToken) {
+    try {
+      const encoded = encodeURIComponent(trimmed);
+      const proximity = `${userCoords[0]},${userCoords[1]}`;
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?proximity=${proximity}&country=ae&limit=8&fuzzyMatch=true&autocomplete=true&access_token=${accessToken}`;
+
+      const response = await fetch(url, { signal });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+          const remoteResults: PlaceResult[] = data.features.map((f: any) => {
+            const coords: [number, number] = f.center || [0, 0];
+            const distKm = calculateDistance(userCoords, coords);
+
+            let cat: PlaceResult['category'] = 'place';
+            const types = (f.properties?.category || '').toLowerCase();
+            if (types.includes('gas') || types.includes('fuel')) cat = 'fuel';
+            else if (types.includes('coffee') || types.includes('cafe')) cat = 'coffee';
+            else if (types.includes('parking')) cat = 'parking';
+            else if (types.includes('grocery') || types.includes('supermarket')) cat = 'grocery';
+            else if (types.includes('hospital') || types.includes('medical')) cat = 'hospital';
+            else if (types.includes('mall') || types.includes('shop')) cat = 'mall';
+
+            return {
+              id: f.id,
+              name: f.text || f.place_name?.split(',')[0] || 'Location',
+              address: f.place_name || f.properties?.address || 'United Arab Emirates',
+              category: cat,
+              coordinates: coords,
+              distanceKm: distKm,
+              isHistory: false,
+            };
+          });
+
+          const combined: PlaceResult[] = [...localMatches];
+          remoteResults.forEach((remote) => {
+            if (!combined.some((c) => c.name.toLowerCase() === remote.name.toLowerCase())) {
+              combined.push(remote);
+            }
+          });
+
+          combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+          setCachedResults(trimmed, combined.slice(0, 8));
+          return combined.slice(0, 8);
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+    }
   }
 
   localMatches.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));

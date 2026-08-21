@@ -90,36 +90,117 @@ async def get_directions(
         raise HTTPException(status_code=500, detail=f"Nav proxy error: {str(e)}")
 
 @router.get("/places/search")
-async def search_places(query: str = Query(...)):
+async def search_places(
+    query: str = Query(..., description="Search query string"),
+    lat: Optional[float] = Query(None, description="User latitude for proximity bias"),
+    lng: Optional[float] = Query(None, description="User longitude for proximity bias"),
+):
     """
-    Proxies Google Places API (New) Text Search with Pro-tier field mask.
+    Proxies Google Places API (New) Text Search with UAE proximity bias and category classification.
     """
+    q = query.strip()
+    if not q:
+        return {"places": []}
+
+    center_lat = lat if lat is not None else 25.2048
+    center_lng = lng if lng is not None else 55.2708
+
     key = settings.GOOGLE_PLACES_API_KEY
-    if not key:
-        return {
-            "places": [
-                {"displayName": {"text": "The Dubai Mall"}, "formattedAddress": "Downtown Dubai, Dubai", "location": {"latitude": 25.1972, "longitude": 55.2744}},
-                {"displayName": {"text": "Burj Khalifa"}, "formattedAddress": "1 Sheikh Mohammed bin Rashid Blvd, Dubai", "location": {"latitude": 25.1972, "longitude": 55.2744}},
-                {"displayName": {"text": "Dubai International Airport (DXB)"}, "formattedAddress": "Garhoud, Dubai", "location": {"latitude": 25.2532, "longitude": 55.3657}},
-                {"displayName": {"text": "Mall of the Emirates"}, "formattedAddress": "Al Barsha 1, Dubai", "location": {"latitude": 25.1181, "longitude": 55.2007}},
-            ],
-            "mock": True
+    if key:
+        url = "https://places.googleapis.com/v1/places:searchText"
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": key,
+            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
+        }
+        payload = {
+            "textQuery": q,
+            "locationBias": {
+                "circle": {
+                    "center": {"latitude": center_lat, "longitude": center_lng},
+                    "radius": 60000.0
+                }
+            },
+            "maxResultCount": 10
         }
 
-    url = "https://places.googleapis.com/v1/places:searchText"
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location"
-    }
-    payload = {"textQuery": query}
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw_places = data.get("places", [])
+                    results = []
+                    for p in raw_places:
+                        loc = p.get("location", {})
+                        p_lat = loc.get("latitude")
+                        p_lng = loc.get("longitude")
+                        if p_lat is None or p_lng is None:
+                            continue
+                        
+                        name = p.get("displayName", {}).get("text") or "Location"
+                        addr = p.get("formattedAddress") or "United Arab Emirates"
+                        types = p.get("types", [])
+                        primary_type = (p.get("primaryType") or "").lower()
+                        all_types_str = " ".join(types).lower() + " " + primary_type
 
-    try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
-            resp = await client.post(url, headers=headers, json=payload)
-            return resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Places API proxy error: {str(e)}")
+                        cat = "place"
+                        if any(t in all_types_str for t in ["gas_station", "fuel"]):
+                            cat = "fuel"
+                        elif any(t in all_types_str for t in ["cafe", "coffee_shop", "coffee"]):
+                            cat = "coffee"
+                        elif any(t in all_types_str for t in ["shopping_mall", "department_store", "mall"]):
+                            cat = "mall"
+                        elif any(t in all_types_str for t in ["hospital", "medical_clinic", "doctor", "health"]):
+                            cat = "hospital"
+                        elif any(t in all_types_str for t in ["supermarket", "grocery_store", "hypermarket"]):
+                            cat = "grocery"
+                        elif any(t in all_types_str for t in ["university", "school", "college"]):
+                            cat = "uni"
+                        elif any(t in all_types_str for t in ["parking", "parking_lot"]):
+                            cat = "parking"
+
+                        results.append({
+                            "id": p.get("id") or f"g-{p_lat}-{p_lng}",
+                            "name": name,
+                            "address": addr,
+                            "category": cat,
+                            "coordinates": [p_lng, p_lat],
+                        })
+                    
+                    if results:
+                        return {"places": results, "source": "google"}
+        except Exception as e:
+            logger.warning(f"Google Places API request failed: {e}")
+
+    # Fallback to Mapbox Forward Geocoding if Google is unavailable or returned empty
+    mapbox_token = settings.MAPBOX_ACCESS_TOKEN
+    if mapbox_token:
+        try:
+            encoded = urllib.parse.quote(q)
+            proximity = f"{center_lng},{center_lat}"
+            mb_url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{encoded}.json?proximity={proximity}&country=ae&limit=8&fuzzyMatch=true&autocomplete=true&access_token={mapbox_token}"
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(mb_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    features = data.get("features", [])
+                    results = []
+                    for f in features:
+                        coords = f.get("center", [0, 0])
+                        results.append({
+                            "id": f.get("id"),
+                            "name": f.get("text") or f.get("place_name", "").split(",")[0] or "Location",
+                            "address": f.get("place_name") or "United Arab Emirates",
+                            "category": "place",
+                            "coordinates": coords,
+                        })
+                    if results:
+                        return {"places": results, "source": "mapbox"}
+        except Exception as e:
+            logger.warning(f"Mapbox Geocoding fallback failed: {e}")
+
+    return {"places": []}
 
 # ==============================================================================
 # Saved & Recent Places CRUD API
