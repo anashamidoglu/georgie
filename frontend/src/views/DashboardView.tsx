@@ -6,9 +6,11 @@ import { DateTimeCard } from '../components/common/DateTimeCard';
 import { MediaDockedCard } from '../components/media/MediaDockedCard';
 import { CallDockedCard } from '../components/calls/CallDockedCard';
 import { UpcomingManeuversCard } from '../components/nav/UpcomingManeuversCard';
+import { StreetViewPanoramaView } from '../components/nav/StreetViewPanoramaView';
 import { WidgetStackCard, type WidgetItem } from '../components/common/WidgetStackCard';
 import { LiquidGlassCard } from '../components/common/LiquidGlassCard';
 import { Music, PlusCircle } from 'lucide-react';
+import { calculateHeading } from '../services/streetViewService';
 import { useNav } from '../context/NavContext';
 import { useMedia } from '../context/MediaContext';
 import { useCall } from '../context/CallContext';
@@ -19,6 +21,9 @@ export const DashboardView: React.FC = () => {
     setIsNavExpanded,
     navStatus,
     inspectedStep,
+    isStreetViewOpen,
+    activeRoute,
+    allSteps,
   } = useNav();
 
   const {
@@ -143,45 +148,67 @@ export const DashboardView: React.FC = () => {
           <NavDockedViewport />
         </div>
 
-        {/* Right Column: Top Card (Turn/Route/Date) & Bottom Stackable Widget (Call <-> Steps <-> Media) */}
+        {/* Right Column: Interactive Street View Panorama (when active) OR Top Card + Bottom Stackable Widgets */}
         <div
-          className={`h-full min-h-0 max-h-full flex flex-col space-y-3.5 overflow-hidden transition-[width,opacity,transform,padding,margin] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+          className={`h-full min-h-0 max-h-full flex flex-col overflow-hidden transition-[width,opacity,transform,padding,margin] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
             isNavExpanded
               ? 'w-0 opacity-0 pointer-events-none ml-0 pl-0 scale-95'
               : 'w-[41.667%] opacity-100 flex-1 ml-3.5 scale-100'
           }`}
         >
-          {/* Top Right: Active Turn (Navigating OR Step Preview) OR Route Selection Dropdown OR Formatted Date/Time */}
-          <div className="flex-shrink-0">
-            {navStatus === 'navigating' || inspectedStep !== null ? (
-              <NavPreviewCard />
-            ) : navStatus === 'preview' ? (
-              <RouteSelectionCard />
-            ) : (
-              <DateTimeCard />
-            )}
-          </div>
+          {isStreetViewOpen ? (
+            /* Side-by-Side Right Pane: Interactive 360 Street View Panorama */
+            <div className="w-full h-full rounded-[24px] overflow-hidden border border-white/10 shadow-2xl bg-[#090a0f] flex flex-col">
+              <StreetViewPanoramaView
+                coordinates={inspectedStep?.location || activeRoute?.primaryManeuver?.location || [55.419909, 25.362693]}
+                heading={
+                  typeof inspectedStep?.bearingAfter === 'number'
+                    ? inspectedStep.bearingAfter
+                    : inspectedStep && allSteps[allSteps.findIndex((s) => s.id === inspectedStep.id) + 1]
+                    ? calculateHeading(
+                        inspectedStep.location,
+                        allSteps[allSteps.findIndex((s) => s.id === inspectedStep.id) + 1].location
+                      )
+                    : 0
+                }
+                stepName={inspectedStep?.instruction || 'Turn Intersection'}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Top Right: Active Turn (Navigating OR Step Preview) OR Route Selection Dropdown OR Formatted Date/Time */}
+              <div className="flex-shrink-0">
+                {navStatus === 'navigating' || inspectedStep !== null ? (
+                  <NavPreviewCard />
+                ) : navStatus === 'preview' ? (
+                  <RouteSelectionCard />
+                ) : (
+                  <DateTimeCard />
+                )}
+              </div>
 
-          {/* Bottom Right: iOS-Style Swipeable Widget Stack (Call <-> Upcoming Steps <-> Media) */}
-          <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden relative">
-            {navStatus !== 'idle' ? (
-              <WidgetStackCard
-                widgets={navWidgets}
-                defaultIndex={0}
-                className="w-full h-full"
-              />
-            ) : idleWidgets.length > 1 ? (
-              <WidgetStackCard
-                widgets={idleWidgets}
-                defaultIndex={0}
-                className="w-full h-full"
-              />
-            ) : callStatus !== 'idle' ? (
-              <CallDockedCard />
-            ) : (
-              mediaCardContent
-            )}
-          </div>
+              {/* Bottom Right: iOS-Style Swipeable Widget Stack (Call <-> Upcoming Steps <-> Media) */}
+              <div className="flex-1 min-h-0 max-h-full flex flex-col overflow-hidden relative mt-3.5">
+                {navStatus !== 'idle' ? (
+                  <WidgetStackCard
+                    widgets={navWidgets}
+                    defaultIndex={0}
+                    className="w-full h-full"
+                  />
+                ) : idleWidgets.length > 1 ? (
+                  <WidgetStackCard
+                    widgets={idleWidgets}
+                    defaultIndex={0}
+                    className="w-full h-full"
+                  />
+                ) : callStatus !== 'idle' ? (
+                  <CallDockedCard />
+                ) : (
+                  mediaCardContent
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

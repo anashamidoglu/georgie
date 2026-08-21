@@ -15,12 +15,10 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
-import { StreetViewPanoramaView } from './StreetViewPanoramaView';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
 import { RoadShield, ExitShield } from './RoadShield';
 import { GoogleMapsSearchCard } from './GoogleMapsSearchCard';
-import { calculateHeading } from '../../services/streetViewService';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
@@ -52,32 +50,16 @@ export const NavDockedViewport: React.FC = () => {
 
   const trafficColorClass = activeRoute?.traffic?.colorClass || 'text-emerald-400';
 
-  // Active step for HUD and Street View
+  // Active step for HUD turn banner and step indicator
   const currentStep = inspectedStep || primaryManeuver || allSteps[0];
   const stepIdx = currentStep ? allSteps.findIndex((s) => s.id === currentStep.id) : 0;
-  const nextStep = allSteps[stepIdx + 1];
-  const currentStepCoords: [number, number] = currentStep?.location || [55.419909, 25.362693];
-  const currentStepHeading =
-    typeof currentStep?.bearingAfter === 'number'
-      ? currentStep.bearingAfter
-      : nextStep?.location
-      ? calculateHeading(currentStepCoords, nextStep.location)
-      : 0;
 
   return (
     <div
       className="w-full h-full relative rounded-[24px] overflow-hidden border border-white/10 shadow-2xl bg-[#090a0f] flex flex-col select-none"
     >
-      {/* 1. Base Canvas: Street View 360 Panorama OR Full-bleed Live Mapbox Canvas */}
-      {isStreetViewOpen ? (
-        <StreetViewPanoramaView
-          coordinates={currentStepCoords}
-          heading={currentStepHeading}
-          stepName={currentStep?.instruction || 'Step Preview'}
-        />
-      ) : (
-        <MapboxCanvas />
-      )}
+      {/* 1. Full-bleed Live Mapbox Canvas (Always Live) */}
+      <MapboxCanvas />
 
       {/* 2. Top Floating Overlays */}
       <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between pointer-events-none z-20">
@@ -135,8 +117,8 @@ export const NavDockedViewport: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : !isStreetViewOpen && !isNavExpanded && navStatus === 'idle' ? (
-            /* Scaled-Up Floating Search Trigger Button (Only in Idle Docked) */
+          ) : !isStreetViewOpen && (navStatus === 'idle' || isNavExpanded) ? (
+            /* Scaled-Up Floating Search Trigger Button (Available in Idle and Expanded Nav) */
             <button
               type="button"
               onClick={() => {
