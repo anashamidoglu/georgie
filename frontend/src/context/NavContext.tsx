@@ -230,59 +230,39 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const speakTurn = async (text: string, priority: string = 'normal') => {
     if (isVoiceMuted || !text || !text.trim()) return;
+
+    // 1. Immediate local browser speech synthesis for zero-latency, instantly interruptible speech
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Instantly cut off any previous speech
+      const utterance = new SpeechSynthesisUtterance(text.trim());
+      utterance.rate = 1.15; // Crisp, responsive speaking pace
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // 2. Dispatch to backend voice service (for Raspberry Pi / PipeWire audio ducking)
     try {
-      await fetch('/api/nav/voice/speak', {
+      fetch('/api/nav/voice/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text.trim(), priority }),
-      });
-    } catch {
-      // Browser Web Speech fallback in development
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.05;
-        window.speechSynthesis.speak(utterance);
-      }
-    }
+      }).catch(() => {});
+    } catch {}
   };
 
-  // Helper to format spoken navigation instructions
+  // Helper to format concise, natural spoken navigation instructions
   const formatSpokenInstruction = (maneuver: ManeuverInfo | null, prefixDistance?: string) => {
     if (!maneuver) return '';
     let instr = maneuver.instruction || maneuver.roadName || 'Continue on route';
 
-    // 1. Handle multi-part slashes preserving route codes
+    // 1. Simplify multi-part slash road names to primary English name or route code
     if (instr.includes('/')) {
       const rawParts = instr.split('/').map((p) => p.trim()).filter(Boolean);
-      const processed: string[] = [];
-      const seen = new Set<string>();
-
-      rawParts.forEach((p) => {
-        const isRouteCode = /^[A-Za-z]\d+$/.test(p);
-        const hasEnglish = /[a-zA-Z]/.test(p);
-        if (isRouteCode || hasEnglish) {
-          const key = p.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (!seen.has(key)) {
-            seen.add(key);
-            processed.push(p);
-          }
-        } else if (processed.length === 0) {
-          processed.push(p);
-        }
-      });
-      instr = processed.length > 0 ? processed.join(', ') : rawParts[0];
+      const primaryPart = rawParts.find((p) => /^[A-Za-z]\d+$/.test(p) || /[a-zA-Z]/.test(p)) || rawParts[0];
+      instr = primaryPart;
     }
 
-    // 2. Expand metric distance abbreviations
-    let cleanDist = prefixDistance;
-    if (cleanDist) {
-      cleanDist = cleanDist
-        .replace(/(\d+(?:\.\d+)?)\s*m\b/gi, '$1 meters')
-        .replace(/(\d+(?:\.\d+)?)\s*km\b/gi, '$1 kilometers');
-    }
-
-    // 3. Clean up road abbreviations for natural human speech
+    // 2. Clean up road abbreviations for crisp speech
     instr = instr
       .replace(/\bRd\b\.?/g, 'Road')
       .replace(/\bSt\b\.?/g, 'Street')
@@ -295,7 +275,11 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .replace(/\bExit\s*(\d+)/gi, 'Exit $1')
       .replace(/\b([ED])(\d+)\b/g, '$1 $2');
 
-    if (cleanDist) {
+    // 3. Prefix distance if provided
+    if (prefixDistance) {
+      const cleanDist = prefixDistance
+        .replace(/(\d+(?:\.\d+)?)\s*m\b/gi, '$1 meters')
+        .replace(/(\d+(?:\.\d+)?)\s*km\b/gi, '$1 kilometers');
       return `In ${cleanDist}, ${instr.charAt(0).toLowerCase() + instr.slice(1)}`;
     }
     return instr;
@@ -357,7 +341,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           setUpcomingSteps(steps.slice(targetStepIdx + 1));
 
-          // 3. Dynamic Voice Milestone Prompts (Prep -> Alert -> Turn Execution)
+          // 3. Dynamic Voice Milestone Prompts (Tied directly to active banner without queue lag)
           if (!isVoiceMuted && currentStep) {
             const stepId = currentStep.id ?? targetStepIdx;
             if (!announcedMilestonesRef.current[stepId]) {
@@ -366,17 +350,19 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const milestones = announcedMilestonesRef.current[stepId];
             const d = tick.distanceToNextManeuver;
 
-            if (d <= 550 && d > 350 && !milestones.prep500) {
+            // Advance alert (only if step is far away > 300m)
+            if (d <= 500 && d > 250 && !milestones.prep500) {
               milestones.prep500 = true;
               const spoken = formatSpokenInstruction(currentStep, '500 meters');
               speakTurn(spoken);
-            } else if (d <= 140 && d > 40 && !milestones.alert100) {
+            }
+            // Action turn alert (when approaching the intersection 20m - 100m)
+            else if (d <= 100 && d > 15 && !milestones.alert100) {
               milestones.alert100 = true;
-              const spoken = formatSpokenInstruction(currentStep, '100 meters');
-              speakTurn(spoken);
-            } else if (d <= 25 && !milestones.now) {
-              milestones.now = true;
-              const spoken = formatSpokenInstruction(currentStep);
+              // If prep was already spoken, speak direct action; otherwise prefix distance
+              const spoken = milestones.prep500
+                ? formatSpokenInstruction(currentStep)
+                : formatSpokenInstruction(currentStep, formatDistanceMetric(d));
               speakTurn(spoken);
             }
           }

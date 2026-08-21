@@ -181,6 +181,7 @@ class VoiceGuidanceService:
         self.voice: str = "en-US-JennyNeural"
         self._audio_cache: Dict[str, bytes] = {}
         self._lock = asyncio.Lock()
+        self._current_process: Optional[subprocess.Popen] = None
 
     async def generate_speech_bytes(self, text: str) -> Optional[bytes]:
         clean_text = normalize_road_text(text)
@@ -193,15 +194,14 @@ class VoiceGuidanceService:
 
         try:
             import edge_tts
-            communicate = edge_tts.Communicate(clean_text, self.voice, rate="+4%")
+            communicate = edge_tts.Communicate(clean_text, self.voice, rate="+8%")
             audio_buffer = io.BytesIO()
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     audio_buffer.write(chunk["data"])
             
             data = audio_buffer.getvalue()
-            # Cache up to 30 recent phrases
-            if len(self._audio_cache) > 30:
+            if len(self._audio_cache) > 40:
                 self._audio_cache.clear()
             self._audio_cache[clean_text] = data
             return data
@@ -214,7 +214,7 @@ class VoiceGuidanceService:
 
     async def speak(self, text: str, priority: str = "normal") -> bool:
         """
-        Synthesizes and speaks turn-by-turn prompts using Microsoft Neural Voice with automatic ducking.
+        Synthesizes and speaks turn-by-turn prompts using Microsoft Neural Voice with automatic ducking and instant interruption.
         """
         if not text or not text.strip():
             return False
@@ -222,10 +222,13 @@ class VoiceGuidanceService:
         clean_text = normalize_road_text(text)
         now = time.time()
 
-        # Deduplication: Avoid repeating within 25 seconds
+        # Deduplication: Avoid repeating within 15 seconds
         if priority != "high" and clean_text.lower() == self.last_spoken_text.lower():
-            if now - self.last_spoken_time < 25.0:
+            if now - self.last_spoken_time < 15.0:
                 return False
+
+        # Instantly interrupt any prior running speech process
+        self.stop()
 
         async with self._lock:
             self.last_spoken_text = clean_text
@@ -234,7 +237,7 @@ class VoiceGuidanceService:
 
             logger.info(f"[Voice Neural] Speaking: '{clean_text}'")
 
-            # 1. Duck background media volume to 25% of current volume
+            # 1. Duck background media volume
             await audio_ducker.duck(duck_ratio=0.25)
 
             try:
@@ -244,37 +247,48 @@ class VoiceGuidanceService:
                         f.write(audio_bytes)
                         temp_path = f.name
 
-                    loop = asyncio.get_running_loop()
-                    # Play through Linux/PipeWire audio player
                     cmd = (
                         f'pw-play "{temp_path}" 2>/dev/null || '
                         f'paplay "{temp_path}" 2>/dev/null || '
                         f'mpv --no-video --really-quiet "{temp_path}" 2>/dev/null || '
                         f'ffplay -nodisp -autoexit -loglevel quiet "{temp_path}" 2>/dev/null'
                     )
-                    await loop.run_in_executor(None, lambda: subprocess.run(cmd, shell=True, timeout=8))
 
                     try:
-                        os.remove(temp_path)
-                    except Exception:
-                        pass
+                        self._current_process = subprocess.Popen(cmd, shell=True)
+                        loop = asyncio.get_running_loop()
+                        await loop.run_in_executor(None, self._current_process.wait)
+                    finally:
+                        self._current_process = None
+                        try:
+                            os.remove(temp_path)
+                        except Exception:
+                            pass
                 else:
-                    # Fallback to local synthesizer if offline / no internet
-                    loop = asyncio.get_running_loop()
-                    cmd = f'spd-say -r -10 "{clean_text}" 2>/dev/null || espeak-ng -v en-us "{clean_text}" 2>/dev/null'
-                    await loop.run_in_executor(None, lambda: subprocess.run(cmd, shell=True, timeout=8))
+                    cmd = f'spd-say -r -5 "{clean_text}" 2>/dev/null || espeak-ng -v en-us "{clean_text}" 2>/dev/null'
+                    try:
+                        self._current_process = subprocess.Popen(cmd, shell=True)
+                        loop = asyncio.get_running_loop()
+                        await loop.run_in_executor(None, self._current_process.wait)
+                    finally:
+                        self._current_process = None
 
             except Exception as e:
                 logger.warning(f"[Voice] Speech synthesis error: {e}")
             finally:
                 self.is_speaking = False
-                # 2. Restore background media volume
                 await audio_ducker.restore()
 
         return True
 
     def stop(self):
         self.is_speaking = False
+        if self._current_process:
+            try:
+                self._current_process.terminate()
+            except Exception:
+                pass
+            self._current_process = None
         asyncio.create_task(audio_ducker.restore())
 
 voice_service = VoiceGuidanceService()
