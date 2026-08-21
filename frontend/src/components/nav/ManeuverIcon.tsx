@@ -84,10 +84,9 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     if (isFirstExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-          <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
-          <circle cx="12" cy="12" r="2" fill="currentColor" />
-          <path d="M12 21.5V18.5 A6.5 6.5 0 0 0 18.5 12 H21.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M17.5 8L21.5 12L17.5 16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" opacity="0.35" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+          <path d="M12 21V14C12 11.5 13.5 10 16 10H21M17 6L21 10L17 14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     }
@@ -96,10 +95,9 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     if (isThirdExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-          <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
-          <circle cx="12" cy="12" r="2" fill="currentColor" />
-          <path d="M12 21.5V18.5 A6.5 6.5 0 1 0 5.5 12 H2.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M6.5 8L2.5 12L6.5 16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" opacity="0.35" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+          <path d="M12 21V14C12 11.5 10.5 10 8 10H3M7 6L3 10L7 14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     }
@@ -108,10 +106,9 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     if (isFourthExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-          <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
-          <circle cx="12" cy="12" r="2" fill="currentColor" />
-          <path d="M13.5 21.5V18.3 A6.5 6.5 0 1 0 10.5 18.3 V21.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M6.5 17.5L10.5 21.5L14.5 17.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" opacity="0.35" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+          <path d="M17 21V12C17 8 14 5 10.5 5C7 5 5 8 5 12V21M9 17.5L5 21.5L1 17.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     }
@@ -119,10 +116,9 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     // 3d. Roundabout 2nd Exit / Straight / Forward Flow / Default
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-        <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
-        <circle cx="12" cy="12" r="2" fill="currentColor" />
-        <path d="M12 21.5V18.5 A6.5 6.5 0 0 0 12 5.5 V2.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M8 6.5L12 2.5L16 6.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" opacity="0.35" />
+        <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+        <path d="M12 21V3M7.5 7.5L12 3L16.5 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
