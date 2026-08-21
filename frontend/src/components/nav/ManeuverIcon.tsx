@@ -84,9 +84,10 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     if (isFirstExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-          <path d="M12 5.5A6.5 6.5 0 1 0 18.5 12" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
-          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-          <path d="M12 21V16.5C12 14 14 12 16.5 12H21M21 12L16.5 7.5M21 12L16.5 16.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+          <path d="M12 21.5V18.5 A6.5 6.5 0 0 0 18.5 12 H21.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M17.5 8L21.5 12L17.5 16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     }
@@ -95,9 +96,10 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     if (isThirdExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-          <path d="M18.5 12A6.5 6.5 0 0 0 12 5.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
-          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-          <path d="M12 21V17C12 17 6.5 16 6.5 12C6.5 8 12 6.5 12 6.5C15.5 6.5 17.5 9 17.5 12C17.5 14.5 15.5 16.5 12 16.5H4M4 16.5L8.5 12M4 16.5L8.5 21" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+          <path d="M12 21.5V18.5 A6.5 6.5 0 1 0 5.5 12 H2.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6.5 8L2.5 12L6.5 16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     }
@@ -106,8 +108,10 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     if (isFourthExit) {
       return (
         <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-          <path d="M14 21V17C14 17 6.5 16 6.5 12C6.5 7.5 12 6.5 12 6.5C16.5 6.5 17.5 11 17.5 13C17.5 16.5 14.5 18.5 10 18.5V21M10 21L6 17.5M10 21L14 17.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+          <path d="M13.5 21.5V18.3 A6.5 6.5 0 1 0 10.5 18.3 V21.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6.5 17.5L10.5 21.5L14.5 17.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     }
@@ -115,9 +119,10 @@ export const ManeuverIcon: React.FC<ManeuverIconProps> = ({
     // 3d. Roundabout 2nd Exit / Straight / Forward Flow / Default
     return (
       <svg viewBox="0 0 24 24" fill="none" className={`${dimensions} ${className}`}>
-        <path d="M12 5.5C15.6 5.5 18.5 8.4 18.5 12C18.5 15.6 15.6 18.5 12 18.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.35" />
-        <circle cx="12" cy="11.5" r="2.5" fill="currentColor" />
-        <path d="M12 21V17.5C12 17.5 6.5 16 6.5 12C6.5 8 12 6.5 12 6.5V3M12 3L7.5 7.5M12 3L16.5 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" strokeDasharray="2.5 2.5" opacity="0.3" />
+        <circle cx="12" cy="12" r="2" fill="currentColor" />
+        <path d="M12 21.5V18.5 A6.5 6.5 0 0 0 12 5.5 V2.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M8 6.5L12 2.5L16 6.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
