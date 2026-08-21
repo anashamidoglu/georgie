@@ -24,8 +24,24 @@ export interface SavedPlace {
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY || '';
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
-const CACHE_PREFIX = 'georgie_places_v2_';
+const CACHE_PREFIX = 'georgie_places_v5_';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days cache
+
+// Auto-purge obsolete cache versions
+try {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('georgie_places_') && !k.startsWith(CACHE_PREFIX)) {
+      localStorage.removeItem(k);
+    }
+  }
+} catch {}
+
+function isInsideUae(coords: [number, number]): boolean {
+  if (!coords || coords.length < 2) return false;
+  const [lng, lat] = coords;
+  return lng >= 51.0 && lng <= 57.0 && lat >= 22.0 && lat <= 26.8;
+}
 
 export function calculateDistance(c1: [number, number], c2: [number, number]): number {
   const R = 6371; // Earth radius in km
@@ -47,16 +63,20 @@ function getCachedResults(key: string): PlaceResult[] | null {
 
   const inMem = memoryCache.get(normalizedKey);
   if (inMem && Date.now() - inMem.timestamp < CACHE_TTL_MS) {
-    return inMem.data;
+    const valid = inMem.data.filter((p) => isInsideUae(p.coordinates));
+    if (valid.length > 0) return valid;
   }
 
   try {
     const itemStr = localStorage.getItem(`${CACHE_PREFIX}${normalizedKey}`);
     if (itemStr) {
       const parsed = JSON.parse(itemStr);
-      if (parsed && Date.now() - parsed.timestamp < CACHE_TTL_MS) {
-        memoryCache.set(normalizedKey, parsed);
-        return parsed.data;
+      if (parsed && Date.now() - parsed.timestamp < CACHE_TTL_MS && Array.isArray(parsed.data)) {
+        const valid = parsed.data.filter((p: PlaceResult) => isInsideUae(p.coordinates));
+        if (valid.length > 0) {
+          memoryCache.set(normalizedKey, { ...parsed, data: valid });
+          return valid;
+        }
       }
     }
   } catch {}
@@ -313,11 +333,6 @@ const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
   { id: 'emarat-airport-rd', name: 'Emarat Petrol Station - Airport Rd', address: 'Airport Road (D89), Garhoud, Dubai', coordinates: [55.3588, 25.2492], category: 'fuel' },
 ];
 
-function isInsideUae(coords: [number, number]): boolean {
-  const [lng, lat] = coords;
-  return lng >= 51.0 && lng <= 57.0 && lat >= 22.0 && lat <= 26.8;
-}
-
 export async function searchPlaces(
   query: string,
   userCoords: [number, number] = [55.419909, 25.362693],
@@ -474,7 +489,7 @@ export async function searchPlaces(
     try {
       const encoded = encodeURIComponent(trimmed);
       const proximity = `${userCoords[0]},${userCoords[1]}`;
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?proximity=${proximity}&country=ae&limit=8&fuzzyMatch=true&autocomplete=true&access_token=${effectiveMapboxToken}`;
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?proximity=${proximity}&bbox=51.0,22.0,57.0,26.8&country=ae&limit=8&fuzzyMatch=true&autocomplete=true&access_token=${effectiveMapboxToken}`;
 
       const response = await fetch(url, { signal });
       if (response.ok) {
