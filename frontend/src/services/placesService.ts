@@ -21,9 +21,10 @@ export interface SavedPlace {
   icon?: string;
 }
 
-// Hard Daily Budget Safety Limit (Maximum 100 remote Google API calls per day to guarantee $0.00 bill)
-const DAILY_MAX_GOOGLE_REQUESTS = 100;
-const CACHE_PREFIX = 'georgie_places_v1_';
+const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY || '';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+
+const CACHE_PREFIX = 'georgie_places_v2_';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days cache
 
 export function calculateDistance(c1: [number, number], c2: [number, number]): number {
@@ -44,13 +45,11 @@ const memoryCache = new Map<string, { data: PlaceResult[]; timestamp: number }>(
 function getCachedResults(key: string): PlaceResult[] | null {
   const normalizedKey = key.trim().toLowerCase();
 
-  // 1. Check RAM cache
   const inMem = memoryCache.get(normalizedKey);
   if (inMem && Date.now() - inMem.timestamp < CACHE_TTL_MS) {
     return inMem.data;
   }
 
-  // 2. Check localStorage
   try {
     const itemStr = localStorage.getItem(`${CACHE_PREFIX}${normalizedKey}`);
     if (itemStr) {
@@ -73,25 +72,6 @@ function setCachedResults(key: string, data: PlaceResult[]) {
   try {
     localStorage.setItem(`${CACHE_PREFIX}${normalizedKey}`, JSON.stringify(entry));
   } catch {}
-}
-
-// Daily Circuit Breaker: Track daily request count
-export function checkAndIncrementDailyQuota(): boolean {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const key = `georgie_google_calls_${today}`;
-    const currentCount = parseInt(localStorage.getItem(key) || '0', 10);
-
-    if (currentCount >= DAILY_MAX_GOOGLE_REQUESTS) {
-      console.warn(`[SAFETY] Daily Google Places API quota reached (${DAILY_MAX_GOOGLE_REQUESTS} calls). Using local knowledge base to prevent any billing.`);
-      return false;
-    }
-
-    localStorage.setItem(key, (currentCount + 1).toString());
-    return true;
-  } catch {
-    return true;
-  }
 }
 
 // ==============================================================================
@@ -167,7 +147,6 @@ export async function savePlaceToDb(place: {
     console.warn('Failed to sync saved place to backend:', e);
   }
 
-  // Update local cache
   try {
     const current = await fetchSavedPlaces();
     const existingIndex = current.findIndex((p) => p.name.toLowerCase() === place.name.toLowerCase());
@@ -266,7 +245,6 @@ export async function recordRecentPlaceToDb(place: {
     console.warn('Failed to record recent place to backend:', e);
   }
 
-  // Update local cache
   try {
     const current = await fetchRecentPlaces();
     const filtered = current.filter((p) => p.name.toLowerCase() !== place.name.toLowerCase());
@@ -301,7 +279,6 @@ export async function deleteRecentPlaceFromDb(placeId: string): Promise<void> {
 
 // Curated UAE Knowledge Base
 const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
-  // Malls & Shopping
   { id: 'mcc', name: 'Mirdif City Centre', address: 'Sheikh Mohammed Bin Zayed Rd, Mirdif, Dubai', coordinates: [55.4077, 25.2155], category: 'mall' },
   { id: 'city-centre-mirdif', name: 'City Centre Mirdif', address: 'Sheikh Mohammed Bin Zayed Rd - Mirdif - Dubai', coordinates: [55.4077, 25.2155], category: 'mall' },
   { id: 'carrefour-mirdif', name: 'Carrefour | City Center Mirdif', address: 'City Center - Mirdif, Dubai', coordinates: [55.4085, 25.216], category: 'grocery' },
@@ -318,23 +295,17 @@ const UAE_KNOWLEDGE_BASE: PlaceResult[] = [
   { id: 'dubai-hills-mall', name: 'Dubai Hills Mall', address: 'Dubai Hills Estate, Dubai', coordinates: [55.2427, 25.1018], category: 'mall' },
   { id: 'dubai-festival-city', name: 'Dubai Festival City Mall', address: 'Crescent Rd, Dubai Festival City', coordinates: [55.3526, 25.2224], category: 'mall' },
   { id: 'ibn-battuta', name: 'Ibn Battuta Mall', address: 'Sheikh Zayed Rd, Jebel Ali Village, Dubai', coordinates: [55.1206, 25.0442], category: 'mall' },
-
-  // Universities & Education
   { id: 'uos-med', name: 'University of Sharjah - Medical Campus', address: 'University City, Sharjah', coordinates: [55.4855, 25.2917], category: 'uni' },
   { id: 'uos-main', name: 'University of Sharjah (Main Campus)', address: 'University City, Sharjah', coordinates: [55.4744, 25.2862], category: 'uni' },
   { id: 'aus', name: 'American University of Sharjah (AUS)', address: 'University City, Sharjah', coordinates: [55.4912, 25.3111], category: 'uni' },
   { id: 'hct-sharjah-men', name: 'Higher Colleges of Technology (Sharjah Men)', address: 'University City, Sharjah', coordinates: [55.4678, 25.3056], category: 'uni' },
   { id: 'hct-sharjah-women', name: 'Higher Colleges of Technology (Sharjah Women)', address: 'University City, Sharjah', coordinates: [55.4712, 25.3012], category: 'uni' },
   { id: 'skyline-uni', name: 'Skyline University College', address: 'University City, Sharjah', coordinates: [55.4801, 25.2954], category: 'uni' },
-
-  // Hospitals & Healthcare
   { id: 'uhs', name: 'University Hospital Sharjah', address: 'University City Rd, Sharjah', coordinates: [55.4822, 25.2891], category: 'hospital' },
   { id: 'zulekha-shj', name: 'Zulekha Hospital Sharjah', address: 'Al Nasserya, Sharjah', coordinates: [55.4089, 25.3612], category: 'hospital' },
   { id: 'qassimi-hosp', name: 'Al Qassimi Hospital', address: 'Wasit St, Al Khezamia, Sharjah', coordinates: [55.4215, 25.3488], category: 'hospital' },
   { id: 'medcare-mirdif', name: 'Medcare Medical Centre Mirdif', address: 'Uptown Mirdif, Dubai', coordinates: [55.4162, 25.2205], category: 'hospital' },
   { id: 'aster-al-nahda', name: 'Aster Hospital Al Nahda', address: 'Al Nahda 1, Dubai', coordinates: [55.3678, 25.2891], category: 'hospital' },
-
-  // Fuel Stations
   { id: 'enoc-ittihad-1018', name: 'ENOC Service Station 1018', address: 'Al Ittihad Road (E11), Sharjah', coordinates: [55.378, 25.312], category: 'fuel' },
   { id: 'enoc-mirdif-311', name: 'ENOC Service Station - E311 Mirdif', address: 'Sheikh Mohammed Bin Zayed Rd, Mirdif', coordinates: [55.4095, 25.218], category: 'fuel' },
   { id: 'adnoc-wahda', name: 'ADNOC Oasis Service Station', address: 'Al Wahda Street, Sharjah', coordinates: [55.395, 25.334], category: 'fuel' },
@@ -360,7 +331,7 @@ export async function searchPlaces(
     }));
   }
 
-  // 2. Local UAE Knowledge Base Fast Search
+  // 2. Local UAE Knowledge Base Fast Match
   const lowerTrimmed = trimmed.toLowerCase();
   const localMatches = UAE_KNOWLEDGE_BASE.filter((p) => {
     const nameMatch = p.name.toLowerCase().includes(lowerTrimmed);
@@ -371,7 +342,83 @@ export async function searchPlaces(
     distanceKm: calculateDistance(userCoords, p.coordinates),
   }));
 
-  // 3. Primary: Backend Google Places Search Proxy (Full UAE POI dataset with location bias)
+  // 3. Primary: Direct Google Places API (New) Search with proximity biasing
+  const effectiveGoogleKey = GOOGLE_API_KEY;
+  if (effectiveGoogleKey) {
+    try {
+      const gUrl = 'https://places.googleapis.com/v1/places:searchText';
+      const gResp = await fetch(gUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': effectiveGoogleKey,
+          'X-Goog-FieldMask':
+            'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType',
+        },
+        body: JSON.stringify({
+          textQuery: trimmed,
+          locationBias: {
+            circle: {
+              center: { latitude: userCoords[1] || 25.2048, longitude: userCoords[0] || 55.2708 },
+              radius: 60000.0,
+            },
+          },
+          maxResultCount: 10,
+        }),
+        signal,
+      });
+
+      if (gResp.ok) {
+        const gData = await gResp.json();
+        const rawPlaces = gData.places || [];
+        if (Array.isArray(rawPlaces) && rawPlaces.length > 0) {
+          const googleResults: PlaceResult[] = rawPlaces
+            .filter((p: any) => p.location?.latitude !== undefined && p.location?.longitude !== undefined)
+            .map((p: any) => {
+              const coords: [number, number] = [p.location.longitude, p.location.latitude];
+              const types = p.types || [];
+              const primaryType = (p.primaryType || '').toLowerCase();
+              const allTypesStr = types.join(' ').toLowerCase() + ' ' + primaryType;
+
+              let cat: PlaceResult['category'] = 'place';
+              if (allTypesStr.includes('gas_station') || allTypesStr.includes('fuel')) cat = 'fuel';
+              else if (allTypesStr.includes('cafe') || allTypesStr.includes('coffee')) cat = 'coffee';
+              else if (allTypesStr.includes('mall') || allTypesStr.includes('shopping')) cat = 'mall';
+              else if (allTypesStr.includes('hospital') || allTypesStr.includes('medical') || allTypesStr.includes('health')) cat = 'hospital';
+              else if (allTypesStr.includes('supermarket') || allTypesStr.includes('grocery')) cat = 'grocery';
+              else if (allTypesStr.includes('university') || allTypesStr.includes('school')) cat = 'uni';
+              else if (allTypesStr.includes('parking')) cat = 'parking';
+
+              return {
+                id: p.id || `g-${coords[0]}-${coords[1]}`,
+                name: p.displayName?.text || 'Location',
+                address: p.formattedAddress || 'United Arab Emirates',
+                category: cat,
+                coordinates: coords,
+                distanceKm: calculateDistance(userCoords, coords),
+                isHistory: false,
+              };
+            });
+
+          const combined: PlaceResult[] = [...localMatches];
+          googleResults.forEach((gr) => {
+            if (!combined.some((c) => c.name.toLowerCase() === gr.name.toLowerCase())) {
+              combined.push(gr);
+            }
+          });
+
+          combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+          setCachedResults(trimmed, combined.slice(0, 10));
+          return combined.slice(0, 10);
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+      console.warn('Direct Google Places search error, trying backend proxy:', err);
+    }
+  }
+
+  // 4. Backend Places Proxy
   try {
     const searchUrl = `/api/nav/places/search?query=${encodeURIComponent(trimmed)}&lat=${userCoords[1]}&lng=${userCoords[0]}`;
     const res = await fetch(searchUrl, { signal });
@@ -406,15 +453,60 @@ export async function searchPlaces(
     }
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
-    console.warn('Backend places search error, trying client Mapbox fallback:', err);
   }
 
-  // 4. Secondary Fallback: Mapbox Forward Geocoding
-  if (accessToken) {
+  // 5. OpenStreetMap Photon Geocoder (Free worldwide full POI coverage fallback)
+  try {
+    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&lat=${userCoords[1] || 25.2}&lon=${userCoords[0] || 55.4}&limit=8`;
+    const pResp = await fetch(photonUrl, { signal });
+    if (pResp.ok) {
+      const pData = await pResp.json();
+      const pFeatures = pData.features || [];
+      if (pFeatures.length > 0) {
+        const photonResults: PlaceResult[] = pFeatures
+          .filter((f: any) => f.geometry?.coordinates)
+          .map((f: any) => {
+            const coords: [number, number] = f.geometry.coordinates;
+            const props = f.properties || {};
+            const name = props.name || props.street || 'Location';
+            const city = props.city || props.district || props.state || 'UAE';
+            const country = props.country || 'United Arab Emirates';
+            const addr = [props.street, props.district, city, country].filter(Boolean).join(', ');
+
+            return {
+              id: `osm-${props.osm_id || Math.random()}`,
+              name,
+              address: addr,
+              category: 'place',
+              coordinates: coords,
+              distanceKm: calculateDistance(userCoords, coords),
+              isHistory: false,
+            };
+          });
+
+        const combined: PlaceResult[] = [...localMatches];
+        photonResults.forEach((pr) => {
+          if (!combined.some((c) => c.name.toLowerCase() === pr.name.toLowerCase())) {
+            combined.push(pr);
+          }
+        });
+
+        combined.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
+        setCachedResults(trimmed, combined.slice(0, 8));
+        return combined.slice(0, 8);
+      }
+    }
+  } catch (err: any) {
+    if (err.name === 'AbortError') throw err;
+  }
+
+  // 6. Mapbox Forward Geocoding Fallback
+  const effectiveMapboxToken = accessToken || MAPBOX_TOKEN;
+  if (effectiveMapboxToken) {
     try {
       const encoded = encodeURIComponent(trimmed);
       const proximity = `${userCoords[0]},${userCoords[1]}`;
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?proximity=${proximity}&country=ae&limit=8&fuzzyMatch=true&autocomplete=true&access_token=${accessToken}`;
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?proximity=${proximity}&country=ae&limit=8&fuzzyMatch=true&autocomplete=true&access_token=${effectiveMapboxToken}`;
 
       const response = await fetch(url, { signal });
       if (response.ok) {
@@ -422,24 +514,13 @@ export async function searchPlaces(
         if (data.features && data.features.length > 0) {
           const remoteResults: PlaceResult[] = data.features.map((f: any) => {
             const coords: [number, number] = f.center || [0, 0];
-            const distKm = calculateDistance(userCoords, coords);
-
-            let cat: PlaceResult['category'] = 'place';
-            const types = (f.properties?.category || '').toLowerCase();
-            if (types.includes('gas') || types.includes('fuel')) cat = 'fuel';
-            else if (types.includes('coffee') || types.includes('cafe')) cat = 'coffee';
-            else if (types.includes('parking')) cat = 'parking';
-            else if (types.includes('grocery') || types.includes('supermarket')) cat = 'grocery';
-            else if (types.includes('hospital') || types.includes('medical')) cat = 'hospital';
-            else if (types.includes('mall') || types.includes('shop')) cat = 'mall';
-
             return {
               id: f.id,
               name: f.text || f.place_name?.split(',')[0] || 'Location',
               address: f.place_name || f.properties?.address || 'United Arab Emirates',
-              category: cat,
+              category: 'place',
               coordinates: coords,
-              distanceKm: distKm,
+              distanceKm: calculateDistance(userCoords, coords),
               isHistory: false,
             };
           });
