@@ -92,6 +92,12 @@ interface NavContextType {
   inspectedStep: ManeuverInfo | null;
   inspectStep: (step: ManeuverInfo) => void;
   clearInspectedStep: () => void;
+  isStreetViewOpen: boolean;
+  setIsStreetViewOpen: (open: boolean) => void;
+  openStreetView: () => void;
+  closeStreetView: () => void;
+  nextInspectedStep: () => void;
+  prevInspectedStep: () => void;
   activeStepIndex: number;
   nextSimulationStep: () => void;
   prevSimulationStep: () => void;
@@ -151,6 +157,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [availableRoutes, setAvailableRoutes] = useState<RouteResult[]>([]);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
   const [inspectedStep, setInspectedStep] = useState<ManeuverInfo | null>(null);
+  const [isStreetViewOpen, setIsStreetViewOpen] = useState<boolean>(false);
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const [simulatedCoords, setSimulatedCoords] = useState<[number, number] | null>(null);
   const [simulatedHeading, setSimulatedHeading] = useState<number>(0);
@@ -767,8 +774,43 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const openStreetView = () => {
+    setIsStreetViewOpen(true);
+  };
+
+  const closeStreetView = () => {
+    setIsStreetViewOpen(false);
+  };
+
+  const nextInspectedStep = () => {
+    const list = allStepsRef.current;
+    if (list.length === 0) return;
+    const currentIdx = inspectedStep
+      ? list.findIndex((s) => s.id === inspectedStep.id)
+      : activeStepIndex;
+    const nextIdx = Math.min(list.length - 1, (currentIdx >= 0 ? currentIdx : 0) + 1);
+    const targetStep = list[nextIdx];
+    if (targetStep) {
+      inspectStep(targetStep);
+    }
+  };
+
+  const prevInspectedStep = () => {
+    const list = allStepsRef.current;
+    if (list.length === 0) return;
+    const currentIdx = inspectedStep
+      ? list.findIndex((s) => s.id === inspectedStep.id)
+      : activeStepIndex;
+    const prevIdx = Math.max(0, (currentIdx >= 0 ? currentIdx : 0) - 1);
+    const targetStep = list[prevIdx];
+    if (targetStep) {
+      inspectStep(targetStep);
+    }
+  };
+
   // Return from inspected step back to full route overview or driver follow
   const clearInspectedStep = () => {
+    setIsStreetViewOpen(false);
     setInspectedStep(null);
     setSimulatedCoords(null);
     setSimulatedHeading(0);
@@ -983,6 +1025,12 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         inspectedStep,
         inspectStep,
         clearInspectedStep,
+        isStreetViewOpen,
+        setIsStreetViewOpen,
+        openStreetView,
+        closeStreetView,
+        nextInspectedStep,
+        prevInspectedStep,
         activeStepIndex,
         nextSimulationStep,
         prevSimulationStep,

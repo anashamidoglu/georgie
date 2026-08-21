@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, Map } from 'lucide-react';
 import { LiquidGlassCard } from '../common/LiquidGlassCard';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
@@ -11,6 +11,9 @@ export const NavPreviewCard: React.FC = () => {
     primaryManeuver,
     inspectedStep,
     clearInspectedStep,
+    isStreetViewOpen,
+    openStreetView,
+    closeStreetView,
   } = useNav();
 
   // If a specific step is being inspected from the list, display that step
@@ -33,14 +36,28 @@ export const NavPreviewCard: React.FC = () => {
           <span className="text-xs font-bold text-sky-400 font-sf">
             Step {inspectedStep.id + 1} Preview
           </span>
-          <button
-            type="button"
-            onClick={clearInspectedStep}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all active:scale-95 shadow-md border border-white/15"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Overview</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={isStreetViewOpen ? closeStreetView : openStreetView}
+              className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 shadow-md border ${
+                isStreetViewOpen
+                  ? 'bg-sky-500 text-white border-sky-400 shadow-sky-500/30'
+                  : 'bg-white/15 hover:bg-white/25 text-white border-white/15'
+              }`}
+            >
+              {isStreetViewOpen ? <Map className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              <span>{isStreetViewOpen ? 'Map' : 'St. View'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={clearInspectedStep}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all active:scale-95 shadow-md border border-white/15"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Overview</span>
+            </button>
+          </div>
         </div>
       )}
 

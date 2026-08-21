@@ -10,12 +10,17 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
 } from 'lucide-react';
 import { MapboxCanvas } from './MapboxCanvas';
+import { StreetViewPanoramaView } from './StreetViewPanoramaView';
 import { LaneGuidance } from './LaneGuidance';
 import { ManeuverIcon } from './ManeuverIcon';
 import { RoadShield, ExitShield } from './RoadShield';
 import { GoogleMapsSearchCard } from './GoogleMapsSearchCard';
+import { calculateHeading } from '../../services/streetViewService';
 import { useNav } from '../../context/NavContext';
 
 export const NavDockedViewport: React.FC = () => {
@@ -30,6 +35,8 @@ export const NavDockedViewport: React.FC = () => {
     waypoints,
     eta,
     primaryManeuver,
+    inspectedStep,
+    allSteps,
     activeRoute,
     startNavigation,
     endNavigation,
@@ -37,20 +44,44 @@ export const NavDockedViewport: React.FC = () => {
     isRerouting,
     isVoiceMuted,
     toggleVoiceMute,
+    isStreetViewOpen,
+    closeStreetView,
+    nextInspectedStep,
+    prevInspectedStep,
   } = useNav();
 
   const trafficColorClass = activeRoute?.traffic?.colorClass || 'text-emerald-400';
+
+  // Active step for HUD and Street View
+  const currentStep = inspectedStep || primaryManeuver || allSteps[0];
+  const stepIdx = currentStep ? allSteps.findIndex((s) => s.id === currentStep.id) : 0;
+  const nextStep = allSteps[stepIdx + 1];
+  const currentStepCoords: [number, number] = currentStep?.location || [55.419909, 25.362693];
+  const currentStepHeading =
+    typeof currentStep?.bearingAfter === 'number'
+      ? currentStep.bearingAfter
+      : nextStep?.location
+      ? calculateHeading(currentStepCoords, nextStep.location)
+      : 0;
 
   return (
     <div
       className="w-full h-full relative rounded-[24px] overflow-hidden border border-white/10 shadow-2xl bg-[#090a0f] flex flex-col select-none"
     >
-      {/* 1. Full-bleed Live Mapbox Canvas (100% width & height) */}
-      <MapboxCanvas />
+      {/* 1. Base Canvas: Street View 360 Panorama OR Full-bleed Live Mapbox Canvas */}
+      {isStreetViewOpen ? (
+        <StreetViewPanoramaView
+          coordinates={currentStepCoords}
+          heading={currentStepHeading}
+          stepName={currentStep?.instruction || 'Step Preview'}
+        />
+      ) : (
+        <MapboxCanvas />
+      )}
 
       {/* 2. Top Floating Overlays */}
       <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between pointer-events-none z-20">
-        {/* Left Section: Turn Banner / Rerouting Pill / Search Button */}
+        {/* Left Section: Turn Banner (when Street View active OR expanded nav) / Rerouting Pill / Search Button */}
         <div className="flex flex-col space-y-2.5 max-w-[460px]">
           {/* Dynamic Off-Route Rerouting Status Badge */}
           {isRerouting && (
@@ -60,130 +91,180 @@ export const NavDockedViewport: React.FC = () => {
             </div>
           )}
 
-          {/* Active Navigation Turn Banner */}
-          {isNavExpanded && navStatus === 'navigating' && primaryManeuver ? (
+          {/* Turn Banner (shown in Street View mode OR Expanded Navigation mode) */}
+          {(isStreetViewOpen || (isNavExpanded && navStatus === 'navigating')) && currentStep ? (
             <div 
-              className="pointer-events-auto px-6 py-4 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex flex-col space-y-2.5 font-sf select-none"
+              className="pointer-events-auto px-5 py-3.5 rounded-3xl bg-black/90 border border-white/20 shadow-2xl backdrop-blur-md flex flex-col space-y-2 font-sf select-none"
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3.5">
                 <div className="flex-shrink-0 pt-0.5">
                   <ManeuverIcon
-                    type={primaryManeuver.type}
-                    modifier={primaryManeuver.modifier}
-                    instruction={primaryManeuver.instruction}
+                    type={currentStep.type}
+                    modifier={currentStep.modifier}
+                    instruction={currentStep.instruction}
                     size="lg"
                     className="text-white"
                   />
                 </div>
                 <div className="flex flex-col min-w-0 flex-1">
-                  <div className="flex items-center justify-between w-full space-x-4">
-                    <span className="text-3xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
-                      {primaryManeuver.distanceStr}
+                  <div className="flex items-center justify-between w-full space-x-3">
+                    <span className="text-2xl font-bold font-sf-display tabular-nums text-white tracking-tight leading-none flex-shrink-0">
+                      {currentStep.distanceStr || '500 m'}
                     </span>
-                    <div className="flex items-center space-x-2.5 ml-auto flex-shrink-0">
-                      {primaryManeuver.shield && (
-                        <RoadShield code={primaryManeuver.shield} size="md" />
+                    <div className="flex items-center space-x-2 ml-auto flex-shrink-0">
+                      {currentStep.shield && (
+                        <RoadShield code={currentStep.shield} size="sm" />
                       )}
-                      {primaryManeuver.exitNumber && (
-                        <ExitShield exitNumber={primaryManeuver.exitNumber} size="md" />
+                      {currentStep.exitNumber && (
+                        <ExitShield exitNumber={currentStep.exitNumber} size="sm" />
                       )}
                     </div>
                   </div>
-                  <span className="text-base font-bold text-white/95 mt-1.5 leading-snug line-clamp-2">
-                    {primaryManeuver.instruction}
+                  <span className="text-sm font-bold text-white/95 mt-1 leading-snug line-clamp-2">
+                    {currentStep.instruction}
                   </span>
                 </div>
               </div>
 
-              {/* Embedded Full-Width Lane Strip in Expanded Mode */}
-              {primaryManeuver.lanes && primaryManeuver.lanes.length > 0 && (
-                <div className="pt-2 border-t border-white/10 w-full">
-                  <LaneGuidance lanes={primaryManeuver.lanes} size="md" />
+              {/* Embedded Full-Width Lane Strip if available */}
+              {currentStep.lanes && currentStep.lanes.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-white/10 w-full">
+                  <LaneGuidance lanes={currentStep.lanes} size="sm" />
                 </div>
               )}
             </div>
-          ) : !isSearchOpen && navStatus !== 'navigating' ? (
-            /* Scaled-Up Search Button (Large Touch Target) */
+          ) : !isStreetViewOpen && !isNavExpanded && navStatus === 'idle' ? (
+            /* Scaled-Up Floating Search Trigger Button (Only in Idle Docked) */
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 setIsAddStopMode(false);
                 setIsSearchOpen(true);
               }}
               className="pointer-events-auto glass-btn w-13 h-13 sm:w-14 sm:h-14 text-white hover:text-white flex items-center justify-center transition-all shadow-2xl active:scale-90"
-              aria-label="Search Destinations"
-              title="Search Destinations"
+              aria-label="Search destination"
+              title="Search destination"
             >
-              <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              <Search className="w-6 h-6 sm:w-6.5 sm:h-6.5 text-white" />
             </button>
-          ) : (
-            <div />
-          )}
+          ) : null}
         </div>
 
-        {/* Action Controls: Recenter Button, Expand Toggle, and Active Voice Mute Button */}
-        <div 
-          className="flex flex-col items-end space-y-3 pointer-events-auto flex-shrink-0"
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {/* Top Button Group: Recenter & Expand/Collapse Toggle */}
-          <div className="flex items-center space-x-3">
-            {/* Scaled-Up Recenter Location Button */}
-            <button
-              type="button"
-              onClick={recenterMap}
-              className="glass-btn w-13 h-13 sm:w-14 sm:h-14 text-white hover:text-white flex items-center justify-center transition-all shadow-2xl active:scale-90"
-              aria-label="Recenter Location"
-              title="Recenter Location"
-            >
-              <Navigation className="w-6 h-6 sm:w-6.5 sm:h-6.5" />
-            </button>
+        {/* Right Section: Controls (Hidden during Street View mode) */}
+        {!isStreetViewOpen && (
+          <div 
+            className="flex flex-col space-y-3 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Top Button Group: Recenter & Expand/Collapse Toggle */}
+            <div className="flex items-center space-x-3">
+              {/* Recenter Location Button */}
+              <button
+                type="button"
+                onClick={recenterMap}
+                className="glass-btn w-13 h-13 sm:w-14 sm:h-14 text-white hover:text-white flex items-center justify-center transition-all shadow-2xl active:scale-90"
+                aria-label="Recenter Location"
+                title="Recenter Location"
+              >
+                <Navigation className="w-6 h-6 sm:w-6.5 sm:h-6.5" />
+              </button>
 
-            {/* Scaled-Up Expand / Collapse (Size) Button */}
-            <button
-              type="button"
-              onClick={() => setIsNavExpanded(!isNavExpanded)}
-              className="glass-btn w-13 h-13 sm:w-14 sm:h-14 text-white hover:text-white flex items-center justify-center transition-all shadow-2xl active:scale-90"
-              aria-label={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
-              title={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
-            >
-              {isNavExpanded ? (
-                <Minimize2 className="w-6 h-6 sm:w-6.5 sm:h-6.5" />
-              ) : (
-                <Maximize2 className="w-6 h-6 sm:w-6.5 sm:h-6.5" />
-              )}
-            </button>
+              {/* Expand / Collapse Button */}
+              <button
+                type="button"
+                onClick={() => setIsNavExpanded(!isNavExpanded)}
+                className="glass-btn w-13 h-13 sm:w-14 sm:h-14 text-white hover:text-white flex items-center justify-center transition-all shadow-2xl active:scale-90"
+                aria-label={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
+                title={isNavExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
+              >
+                {isNavExpanded ? (
+                  <Minimize2 className="w-6 h-6 sm:w-6.5 sm:h-6.5" />
+                ) : (
+                  <Maximize2 className="w-6 h-6 sm:w-6.5 sm:h-6.5" />
+                )}
+              </button>
+            </div>
+
+            {/* Voice Guidance Mute / Unmute Button */}
+            {navStatus === 'navigating' && (
+              <button
+                type="button"
+                onClick={toggleVoiceMute}
+                className={`glass-btn w-13 h-13 sm:w-14 sm:h-14 flex items-center justify-center transition-all shadow-2xl active:scale-90 ${
+                  isVoiceMuted
+                    ? 'text-white/40 border-white/10 hover:text-white hover:bg-white/10'
+                    : 'text-sky-300 border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25'
+                }`}
+                aria-label={isVoiceMuted ? 'Unmute Voice Guidance' : 'Mute Voice Guidance'}
+                title={isVoiceMuted ? 'Voice Guidance Muted' : 'Voice Guidance Active'}
+              >
+                {isVoiceMuted ? (
+                  <VolumeX className="w-6 h-6 sm:w-6.5 sm:h-6.5 text-white/50" />
+                ) : (
+                  <Volume2 className="w-6 h-6 sm:w-6.5 sm:h-6.5 text-sky-300" />
+                )}
+              </button>
+            )}
           </div>
-
-          {/* Scaled-Up Voice Guidance Mute / Unmute Button */}
-          {navStatus === 'navigating' && (
-            <button
-              type="button"
-              onClick={toggleVoiceMute}
-              className={`glass-btn w-13 h-13 sm:w-14 sm:h-14 flex items-center justify-center transition-all shadow-2xl active:scale-90 ${
-                isVoiceMuted
-                  ? 'text-white/40 border-white/10 hover:text-white hover:bg-white/10'
-                  : 'text-sky-300 border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25'
-              }`}
-              aria-label={isVoiceMuted ? 'Unmute Voice Guidance' : 'Mute Voice Guidance'}
-              title={isVoiceMuted ? 'Voice Guidance Muted (Click to Unmute)' : 'Voice Guidance Active (Click to Mute)'}
-            >
-              {isVoiceMuted ? (
-                <VolumeX className="w-6 h-6 sm:w-6.5 sm:h-6.5 text-white/50" />
-              ) : (
-                <Volume2 className="w-6 h-6 sm:w-6.5 sm:h-6.5 text-sky-300" />
-              )}
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* 3. Bottom Floating Route Preview / Active Navigation Live ETA Card */}
-      {(navStatus === 'preview' || navStatus === 'navigating') && (
+      {/* 3. Bottom Floating Controls (Street View Step Controls OR Navigation ETA Banner) */}
+      {isStreetViewOpen ? (
+        /* Street View Bottom Bar: < Prev, Step X of Y, Next >, Back to Map */
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center space-y-2 pointer-events-none z-30">
+          <div 
+            className="pointer-events-auto rounded-3xl bg-black/95 border border-white/20 shadow-2xl backdrop-blur-md px-5 py-2.5 flex items-center justify-between font-sf select-none w-full max-w-[520px]"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Step Switcher Controls */}
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={prevInspectedStep}
+                disabled={stepIdx <= 0}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:pointer-events-none text-white flex items-center justify-center transition-all active:scale-90 border border-white/15"
+                title="Previous step"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={nextInspectedStep}
+                disabled={stepIdx >= allSteps.length - 1}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:pointer-events-none text-white flex items-center justify-center transition-all active:scale-90 border border-white/15"
+                title="Next step"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+
+              <div className="flex flex-col ml-2">
+                <span className="text-xs font-bold text-sky-400 font-sf tabular-nums">
+                  Step {stepIdx + 1} of {allSteps.length}
+                </span>
+                <span className="text-[11px] text-white/50 truncate max-w-[200px] font-medium">
+                  {currentStep?.instruction || 'Maneuver point'}
+                </span>
+              </div>
+            </div>
+
+            {/* Back to Map / Exit Street View Button */}
+            <button
+              type="button"
+              onClick={closeStreetView}
+              className="h-10 px-4 rounded-full bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xl transition-all active:scale-95 border border-sky-400"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Map</span>
+            </button>
+          </div>
+        </div>
+      ) : (navStatus === 'preview' || navStatus === 'navigating') ? (
         <div className="absolute bottom-0 left-0 right-0 p-3.5 flex flex-col items-center space-y-2 pointer-events-none z-30">
           {/* Multi-Stop Action Strip (in preview mode) */}
           {navStatus === 'preview' && (
@@ -266,7 +347,7 @@ export const NavDockedViewport: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* 4. Google Maps Search & POI Overlay Modal */}
       <GoogleMapsSearchCard
