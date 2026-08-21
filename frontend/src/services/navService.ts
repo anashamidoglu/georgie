@@ -480,41 +480,6 @@ export async function fetchDirections(
                 );
                 legManeuvers.push(parsed);
                 allSteps.push(parsed);
-
-                // If this step is a roundabout, synthesize the intermediate Roundabout Exit maneuver step
-                if (
-                  parsed.type === 'roundabout' &&
-                  step.distance >= 15 &&
-                  sIdx < legRawSteps.length - 1
-                ) {
-                  const nextRaw = legRawSteps[sIdx + 1];
-                  const exitMatch = parsed.instruction.match(/(\d+(?:st|nd|rd|th)?)\s*exit/i);
-                  const exitOrdinal = exitMatch ? exitMatch[0] : 'exit';
-                  const exitRoad = nextRaw?.name || parsed.roadName || '';
-                  const exitInstruction = exitRoad
-                    ? `Take the ${exitOrdinal} onto ${exitRoad}`
-                    : `Take the ${exitOrdinal}`;
-
-                  const exitDistMeters = Math.round(step.distance);
-                  const exitDistStr =
-                    exitDistMeters >= 1000 ? `${(exitDistMeters / 1000).toFixed(1)} km` : `${exitDistMeters} m`;
-
-                  const exitManeuver: ManeuverInfo = {
-                    id: globalStepIdx++,
-                    instruction: exitInstruction,
-                    roadName: exitRoad,
-                    distanceStr: exitDistStr,
-                    distanceMeters: exitDistMeters,
-                    type: 'roundabout-exit',
-                    modifier: parsed.modifier || 'right',
-                    shield: parsed.shield,
-                    location: nextRaw?.maneuver?.location || parsed.location,
-                    legIndex: legIdx,
-                    bearingAfter: nextRaw?.maneuver?.bearing_after,
-                  };
-                  legManeuvers.push(exitManeuver);
-                  allSteps.push(exitManeuver);
-                }
               });
 
               legsInfo.push({

@@ -1,7 +1,7 @@
 /**
  * Georgie Carputer - Dev-Mode Route & Vehicle Kinematics Simulator (Option 3 Hybrid)
  * Supports realistic driver acceleration, braking, cruise control, polyline tracking,
- * clean road-confined detour divergence, and seamless step progression.
+ * and clean road-confined detour / wrong turn divergence for seamless auto-rerouting.
  */
 
 import type { RouteResult, ManeuverInfo } from './navService';
@@ -22,7 +22,6 @@ export interface SimulatorTick {
   isReversing: boolean;
   activeStepIndex: number;
   distanceToNextManeuver: number;
-  isInsideRoundabout: boolean;
   isFinished: boolean;
 }
 
@@ -124,7 +123,7 @@ export class RouteKinematicsEngine {
     }
     this.totalDistanceMeters = total;
 
-    // Map each step's target location along polyline
+    // Map each step's location to cumulative distance along the polyline
     this.stepCumulativeDistances = this.allSteps.map((step) => {
       if (!step.location) return 0;
       let closestDist = 0;
@@ -245,11 +244,12 @@ export class RouteKinematicsEngine {
     this.seekDistance(seekTo);
   }
 
+  // Turn into an intersecting road or drive straight past a junction
   public takeWrongTurn(angleDeg: number = 90) {
     this.isFreeSteering = true;
     this.heading = (this.heading + angleDeg + 360) % 360;
     if (this.speedMps < 5) {
-      this.speedMps = (45 * 1000) / 3600;
+      this.speedMps = (45 * 1000) / 3600; // 45 km/h driving down the deviating road
     }
     this.notify();
   }
@@ -386,10 +386,6 @@ export class RouteKinematicsEngine {
       this.distanceAlongRoute >= this.totalDistanceMeters - 5 &&
       !this.isFreeSteering;
 
-    const activeIdx = this.getActiveStepIndex();
-    const activeStep = this.allSteps[activeIdx];
-    const isInsideRoundabout = Boolean(activeStep?.type === 'roundabout-exit');
-
     return {
       coords: this.coords,
       heading: this.heading,
@@ -404,9 +400,8 @@ export class RouteKinematicsEngine {
       throttle: this.throttleInput,
       brake: this.brakeInput,
       isReversing: this.isReversing,
-      activeStepIndex: activeIdx,
+      activeStepIndex: this.getActiveStepIndex(),
       distanceToNextManeuver: Math.round(this.getDistanceToNextManeuver()),
-      isInsideRoundabout,
       isFinished,
     };
   }
