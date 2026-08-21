@@ -98,6 +98,15 @@ export class RouteKinematicsEngine {
     };
   }
 
+  public syncRealLocation(coords: [number, number], heading?: number) {
+    if (this.polyline.length === 0 || this.distanceAlongRoute === 0) {
+      this.coords = coords;
+      if (typeof heading === 'number') {
+        this.heading = heading;
+      }
+    }
+  }
+
   public loadRoute(route: RouteResult, initialCoords?: [number, number]) {
     this.allSteps = route.allSteps || [];
     this.polyline = route.rawGeometry?.coordinates || [];

@@ -181,16 +181,26 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const announcedMilestonesRef = useRef<{ [stepId: number]: { prep500: boolean; alert100: boolean; now: boolean } }>({});
   const arrivalAnnouncedRef = useRef<boolean>(false);
 
-  // Active vehicle coordinates (falls back to real GPS, advances with continuous simulator)
-  const vehicleCoords = simulatedCoords || position.coords;
-  const vehicleHeading = simulatedHeading || position.heading || 0;
+  // Active vehicle coordinates (prioritizes real GPS when idle, uses simulator during navigation)
+  const isSimulationActive = navStatus !== 'idle' && simulatedCoords !== null;
+  const vehicleCoords = isSimulationActive ? simulatedCoords : position.coords;
+  const vehicleHeading = isSimulationActive
+    ? (simulatedHeading || position.heading || 0)
+    : (position.heading || 0);
 
-  // Center map on user position as soon as real location is retrieved on start
+  // Keep routeSimulator synchronized to real GPS coordinates when in idle mode
   useEffect(() => {
-    if (mapInstance && position.isLocated && navStatus === 'idle' && !simulatedCoords) {
+    if (position.isLocated) {
+      routeSimulator.syncRealLocation(position.coords, position.heading || 0);
+    }
+  }, [position.coords[0], position.coords[1], position.heading, position.isLocated]);
+
+  // Center map on user's real GPS position when located in idle mode
+  useEffect(() => {
+    if (mapInstance && position.isLocated && navStatus === 'idle') {
       mapInstance.setCenter(position.coords);
     }
-  }, [mapInstance, position.isLocated, position.coords[0], position.coords[1]]);
+  }, [mapInstance, position.isLocated, position.coords[0], position.coords[1], navStatus]);
 
   // Voice Guidance (TTS) State
   const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(() => {
@@ -291,8 +301,10 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = routeSimulator.subscribe((tick) => {
       setSimTick(tick);
-      setSimulatedCoords(tick.coords);
-      setSimulatedHeading(tick.heading);
+      if (navStatus !== 'idle') {
+        setSimulatedCoords(tick.coords);
+        setSimulatedHeading(tick.heading);
+      }
 
       if (navStatus === 'navigating' && allSteps.length > 0) {
         // 1. Dynamic Step Transition
