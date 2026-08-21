@@ -420,7 +420,29 @@ export async function fetchDirections(
           const fastestDuration = data.routes[0].duration;
 
           const parsedRoutes: RouteResult[] = data.routes.map((route: any, routeIdx: number) => {
-            const durationSec = Math.round(route.duration);
+            // Calculate realistic real-world congestion delay from segment annotations
+            let totalCongestionDelaySec = 0;
+            const legs = route.legs || [];
+            const legDelays: number[] = [];
+
+            legs.forEach((leg: any) => {
+              let legDelay = 0;
+              const cList: string[] = leg.annotation?.congestion || [];
+              const dList: number[] = leg.annotation?.duration || [];
+              if (cList.length === dList.length) {
+                for (let i = 0; i < cList.length; i++) {
+                  const c = cList[i];
+                  const segDur = dList[i] || 0;
+                  if (c === 'severe') legDelay += segDur * 1.25;
+                  else if (c === 'heavy') legDelay += segDur * 0.85;
+                  else if (c === 'moderate') legDelay += segDur * 0.35;
+                }
+              }
+              legDelays.push(legDelay);
+              totalCongestionDelaySec += legDelay;
+            });
+
+            const durationSec = Math.round(route.duration + totalCongestionDelaySec);
             const distanceMeters = Math.round(route.distance);
 
             const distanceStr =
@@ -447,12 +469,13 @@ export async function fetchDirections(
             const allSteps: ManeuverInfo[] = [];
             let globalStepIdx = 0;
 
-            const legs = route.legs || [];
             legs.forEach((leg: any, legIdx: number) => {
               const legDistMeters = Math.round(leg.distance || 0);
               const legDistStr =
                 legDistMeters >= 1000 ? `${(legDistMeters / 1000).toFixed(1)} km` : `${legDistMeters} m`;
-              const legDurMin = Math.round((leg.duration || 0) / 60);
+              const legDelay = legDelays[legIdx] || 0;
+              const legDurSec = Math.round((leg.duration || 0) + legDelay);
+              const legDurMin = Math.round(legDurSec / 60);
               const legDurStr =
                 legDurMin >= 60
                   ? `${Math.floor(legDurMin / 60)} hr ${legDurMin % 60} min`
