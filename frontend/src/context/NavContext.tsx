@@ -157,6 +157,10 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const abortControllerRef = useRef<AbortController | null>(null);
   const wasExpandedBeforePreviewRef = useRef<boolean>(false);
 
+  // Synchronized refs to guarantee zero stale closures during driving simulation & rerouting
+  const allStepsRef = useRef<ManeuverInfo[]>([]);
+  const activeRouteRef = useRef<RouteResult | null>(null);
+
   // Off-Route Engine State
   const [isRerouting, setIsRerouting] = useState<boolean>(false);
   const consecutiveOffRouteCountRef = useRef<number>(0);
@@ -306,70 +310,88 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSimulatedHeading(tick.heading);
       }
 
-      if (navStatus === 'navigating' && allSteps.length > 0) {
-        // 1. Dynamic Step Transition
-        if (tick.activeStepIndex !== activeStepIndex) {
-          setActiveStepIndex(tick.activeStepIndex);
-          const currentStep = allSteps[tick.activeStepIndex];
-          if (currentStep) {
-            setPrimaryManeuver({
-              ...currentStep,
-              distanceMeters: tick.distanceToNextManeuver,
-              distanceStr: formatDistanceMetric(tick.distanceToNextManeuver),
-            });
-            setUpcomingSteps(allSteps.slice(tick.activeStepIndex + 1));
-          }
-        } else if (primaryManeuver) {
-          // 2. Dynamic Distance Countdown on Primary Maneuver
+      if (navStatus === 'navigating') {
+        // 1. Dynamic Live ETA Updating as you drive
+        const currentRoute = activeRouteRef.current;
+        if (currentRoute && currentRoute.totalDistanceMeters > 0) {
+          const remainingMeters = Math.max(0, currentRoute.totalDistanceMeters - tick.distanceAlongRoute);
+          const distFormatted = formatDistanceMetric(remainingMeters);
+
+          const progress = currentRoute.totalDistanceMeters > 0
+            ? tick.distanceAlongRoute / currentRoute.totalDistanceMeters
+            : 0;
+          const remainingSeconds = Math.max(0, Math.round(currentRoute.totalDurationSeconds * (1 - progress)));
+
+          const durationMin = Math.ceil(remainingSeconds / 60);
+          const durationFormatted = durationMin > 60
+            ? `${Math.floor(durationMin / 60)} hr ${durationMin % 60} min`
+            : `${durationMin} min`;
+
+          const arrivalDate = new Date(Date.now() + remainingSeconds * 1000);
+          const hours = arrivalDate.getHours();
+          const minutes = arrivalDate.getMinutes();
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          const formattedHours = hours % 12 || 12;
+          const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+          const arrivalFormatted = `${formattedHours}:${formattedMinutes} ${ampm}`;
+
+          setEta({
+            arrival: arrivalFormatted,
+            duration: durationFormatted,
+            distance: distFormatted,
+          });
+        }
+
+        // 2. Dynamic Turn Banner, Active Step & Upcoming Maneuvers
+        const steps = allStepsRef.current;
+        if (steps.length > 0) {
+          const targetStepIdx = Math.min(steps.length - 1, Math.max(0, tick.activeStepIndex));
+          const currentStep = steps[targetStepIdx];
           const distStr = formatDistanceMetric(tick.distanceToNextManeuver);
-          if (primaryManeuver.distanceStr !== distStr) {
-            setPrimaryManeuver((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    distanceMeters: tick.distanceToNextManeuver,
-                    distanceStr: distStr,
-                  }
-                : null
-            );
-          }
-        }
 
-        // 3. Dynamic Voice Milestone Announcements
-        const currentStep = allSteps[tick.activeStepIndex];
-        if (currentStep && !isVoiceMuted) {
-          const stepId = currentStep.id ?? tick.activeStepIndex;
-          if (!announcedMilestonesRef.current[stepId]) {
-            announcedMilestonesRef.current[stepId] = { prep500: false, alert100: false, now: false };
-          }
-          const milestones = announcedMilestonesRef.current[stepId];
-          const d = tick.distanceToNextManeuver;
+          setActiveStepIndex(targetStepIdx);
+          setPrimaryManeuver({
+            ...currentStep,
+            distanceMeters: tick.distanceToNextManeuver,
+            distanceStr: distStr,
+          });
+          setUpcomingSteps(steps.slice(targetStepIdx + 1));
 
-          if (d <= 550 && d > 350 && !milestones.prep500) {
-            milestones.prep500 = true;
-            const spoken = formatSpokenInstruction(currentStep, '500 meters');
-            speakTurn(spoken);
-          } else if (d <= 140 && d > 40 && !milestones.alert100) {
-            milestones.alert100 = true;
-            const spoken = formatSpokenInstruction(currentStep, '100 meters');
-            speakTurn(spoken);
-          } else if (d <= 25 && !milestones.now) {
-            milestones.now = true;
-            const spoken = formatSpokenInstruction(currentStep);
-            speakTurn(spoken);
-          }
-        }
+          // 3. Dynamic Voice Milestone Prompts (Prep -> Alert -> Turn Execution)
+          if (!isVoiceMuted && currentStep) {
+            const stepId = currentStep.id ?? targetStepIdx;
+            if (!announcedMilestonesRef.current[stepId]) {
+              announcedMilestonesRef.current[stepId] = { prep500: false, alert100: false, now: false };
+            }
+            const milestones = announcedMilestonesRef.current[stepId];
+            const d = tick.distanceToNextManeuver;
 
-        // 4. Destination Arrival Trigger
-        if (tick.isFinished && !arrivalAnnouncedRef.current) {
-          arrivalAnnouncedRef.current = true;
-          speakTurn(`You have reached your destination: ${destinationName || 'your destination'}`);
+            if (d <= 550 && d > 350 && !milestones.prep500) {
+              milestones.prep500 = true;
+              const spoken = formatSpokenInstruction(currentStep, '500 meters');
+              speakTurn(spoken);
+            } else if (d <= 140 && d > 40 && !milestones.alert100) {
+              milestones.alert100 = true;
+              const spoken = formatSpokenInstruction(currentStep, '100 meters');
+              speakTurn(spoken);
+            } else if (d <= 25 && !milestones.now) {
+              milestones.now = true;
+              const spoken = formatSpokenInstruction(currentStep);
+              speakTurn(spoken);
+            }
+          }
+
+          // 4. Destination Arrival Trigger
+          if (tick.isFinished && !arrivalAnnouncedRef.current) {
+            arrivalAnnouncedRef.current = true;
+            speakTurn(`You have reached your destination: ${destinationName || 'your destination'}`);
+          }
         }
       }
     });
 
     return () => unsubscribe();
-  }, [navStatus, activeStepIndex, allSteps, isVoiceMuted, destinationName, primaryManeuver]);
+  }, [navStatus, isVoiceMuted, destinationName]);
 
   // Internal routing calculation for a given destination + waypoints
   const calculateRoute = async (
@@ -397,6 +419,10 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         _destName || destinationName || 'Destination',
         activeWaypoints.map((w) => w.name)
       );
+
+      allStepsRef.current = res.activeRoute.allSteps;
+      activeRouteRef.current = res.activeRoute;
+
       setAvailableRoutes(res.routes);
       setSelectedRouteIndex(0);
       setActiveRoute(res.activeRoute);
@@ -545,6 +571,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetRoute = availableRoutes[index];
     setSelectedRouteIndex(index);
     setActiveRoute(targetRoute);
+    allStepsRef.current = targetRoute.allSteps;
+    activeRouteRef.current = targetRoute;
     setEta({
       arrival: targetRoute.arrivalStr,
       duration: targetRoute.durationStr,
@@ -579,6 +607,9 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (res.routes.length > 0) {
         const updated = res.routes[0];
+        allStepsRef.current = updated.allSteps;
+        activeRouteRef.current = updated;
+
         setAvailableRoutes(res.routes);
         setSelectedRouteIndex(0);
         setActiveRoute(updated);
@@ -592,9 +623,16 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUpcomingSteps(updated.upcomingSteps);
         setActiveStepIndex(0);
         announcedMilestonesRef.current = {};
+        arrivalAnnouncedRef.current = false;
 
-        // Seamlessly reload simulator on the new rerouted path from current vehicle location
-        routeSimulator.loadRoute(updated, currentPos);
+        // Re-announce the starting maneuver of the newly calculated path
+        if (!isVoiceMuted && updated.primaryManeuver) {
+          const spoken = formatSpokenInstruction(updated.primaryManeuver, updated.primaryManeuver.distanceStr);
+          speakTurn(`Rerouting. ${spoken}`, 'high');
+        }
+
+        // Seamlessly reload simulator on the new rerouted path from current vehicle location while preserving driving speed!
+        routeSimulator.loadRoute(updated, currentPos, true);
       }
     } catch (e) {
       console.warn('Off-route dynamic auto-reroute failed:', e);
@@ -624,41 +662,6 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [vehicleCoords[0], vehicleCoords[1], navStatus, activeRoute]);
 
-  // 60-second live background ETA & traffic recalculation during active navigation
-  useEffect(() => {
-    if (navStatus !== 'navigating' || !destination || !MAPBOX_TOKEN) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const currentCoords = positionRef.current.coords;
-        const wpCoords = waypoints.map((w) => w.coordinates);
-        const res = await fetchDirections(
-          currentCoords,
-          destination,
-          wpCoords,
-          MAPBOX_TOKEN,
-          undefined,
-          destinationName,
-          waypoints.map((w) => w.name)
-        );
-        if (res.routes.length > 0) {
-          const updatedRoute = res.routes[selectedRouteIndex] || res.activeRoute;
-          setAvailableRoutes(res.routes);
-          setActiveRoute(updatedRoute);
-          setEta({
-            arrival: updatedRoute.arrivalStr,
-            duration: updatedRoute.durationStr,
-            distance: updatedRoute.distanceStr,
-          });
-        }
-      } catch (e) {
-        console.warn('Background traffic recalculation failed:', e);
-      }
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [navStatus, destination, waypoints, selectedRouteIndex, destinationName]);
-
   // Step 3: Start live 3D driver follow navigation
   const startNavigation = () => {
     setNavStatus('navigating');
@@ -668,6 +671,8 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     announcedMilestonesRef.current = {};
 
     if (activeRoute) {
+      allStepsRef.current = activeRoute.allSteps;
+      activeRouteRef.current = activeRoute;
       setAllSteps(activeRoute.allSteps);
       setPrimaryManeuver(activeRoute.primaryManeuver);
       setUpcomingSteps(activeRoute.upcomingSteps);
@@ -803,11 +808,13 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWaypoints([]);
     setNavStatus('idle');
     setActiveRoute(null);
+    activeRouteRef.current = null;
     setAvailableRoutes([]);
     setSelectedRouteIndex(0);
     setPrimaryManeuver(null);
     setUpcomingSteps([]);
     setAllSteps([]);
+    allStepsRef.current = [];
     setInspectedStep(null);
     setActiveStepIndex(0);
     setSimulatedCoords(null);
@@ -878,7 +885,13 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Option 3 Simulator Controls
   const setSimulatorThrottle = (val: number) => routeSimulator.setThrottle(val);
   const setSimulatorBrake = (val: number) => routeSimulator.setBrake(val);
-  const setSimulatorSteering = (val: number) => routeSimulator.setSteering(val);
+  const setSimulatorSteering = (val: number) => {
+    if (val < -0.3) {
+      routeSimulator.steerDetour('left');
+    } else if (val > 0.3) {
+      routeSimulator.steerDetour('right');
+    }
+  };
   const setSimulatorReversing = (val: boolean) => routeSimulator.setReversing(val);
   const toggleSimulatorCruise = (targetKmh?: number) => routeSimulator.toggleCruise(targetKmh);
   const setSimulatorCruiseSpeed = (kmh: number) => routeSimulator.setCruiseSpeed(kmh);

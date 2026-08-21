@@ -1,7 +1,7 @@
 /**
  * Georgie Carputer - Dev-Mode Route & Vehicle Kinematics Simulator (Option 3 Hybrid)
  * Supports realistic driver acceleration, braking, cruise control, polyline tracking,
- * and breakaway free-steering for comprehensive turn-by-turn nav testing.
+ * and clean road-confined detour / wrong turn divergence for seamless auto-rerouting.
  */
 
 import type { RouteResult, ManeuverInfo } from './navService';
@@ -62,15 +62,13 @@ export class RouteKinematicsEngine {
   private heading: number = 0;
   private speedMps: number = 0; // meters per second
   private maxSpeedMps: number = (140 * 1000) / 3600; // max 140 km/h
-  private accelerationRate: number = 7.0; // m/s^2 when holding gas
+  private accelerationRate: number = 7.5; // m/s^2 when holding gas
   private brakingRate: number = 16.0; // m/s^2 when braking
   private naturalDrag: number = 1.8; // m/s^2 natural coasting slowdown
-  private steerRateDegPerSec: number = 65; // steering rotation speed
 
   // Driver Controls
   private throttleInput: number = 0; // 0 to 1
   private brakeInput: number = 0; // 0 to 1
-  private steerInput: number = 0; // -1 (left) to +1 (right)
   private isReversing: boolean = false;
   private isCruising: boolean = false;
   private targetCruiseSpeedKmh: number = 60;
@@ -91,7 +89,6 @@ export class RouteKinematicsEngine {
 
   public subscribe(listener: SimulatorListener): () => void {
     this.listeners.add(listener);
-    // Send immediate initial state
     listener(this.getSnapshot());
     return () => {
       this.listeners.delete(listener);
@@ -107,7 +104,11 @@ export class RouteKinematicsEngine {
     }
   }
 
-  public loadRoute(route: RouteResult, initialCoords?: [number, number]) {
+  public loadRoute(
+    route: RouteResult,
+    initialCoords?: [number, number],
+    preserveSpeed: boolean = false
+  ) {
     this.allSteps = route.allSteps || [];
     this.polyline = route.rawGeometry?.coordinates || [];
     this.totalDistanceMeters = route.totalDistanceMeters || 0;
@@ -139,7 +140,10 @@ export class RouteKinematicsEngine {
 
     this.distanceAlongRoute = 0;
     this.isFreeSteering = false;
-    this.speedMps = 0;
+
+    if (!preserveSpeed) {
+      this.speedMps = 0;
+    }
 
     if (this.polyline.length > 0) {
       this.coords = initialCoords || this.polyline[0];
@@ -159,17 +163,14 @@ export class RouteKinematicsEngine {
   public setBrake(val: number) {
     this.brakeInput = Math.max(0, Math.min(1, val));
     if (this.brakeInput > 0 && this.isCruising) {
-      // Tapping brake disengages cruise control like a real car
       this.isCruising = false;
     }
   }
 
-  public setSteering(val: number) {
-    this.steerInput = Math.max(-1, Math.min(1, val));
-    if (Math.abs(this.steerInput) > 0.3 && !this.isFreeSteering) {
-      // Active manual steering breaks out of route lock
-      this.isFreeSteering = true;
-    }
+  // SteerDetour triggers taking a side street / wrong turn at an intersection
+  public steerDetour(direction: 'left' | 'right') {
+    const angleDelta = direction === 'left' ? -90 : 90;
+    this.takeWrongTurn(angleDelta);
   }
 
   public setReversing(reversing: boolean) {
@@ -182,7 +183,6 @@ export class RouteKinematicsEngine {
       if (targetKmh) {
         this.targetCruiseSpeedKmh = targetKmh;
       } else if (this.speedMps > 3) {
-        // Set cruise to current speed
         this.targetCruiseSpeedKmh = Math.round((this.speedMps * 3600) / 1000);
       } else {
         this.targetCruiseSpeedKmh = 60;
@@ -206,7 +206,6 @@ export class RouteKinematicsEngine {
 
   public snapBackToRoute() {
     if (this.polyline.length === 0) return;
-    // Find closest vertex on the polyline
     let bestIdx = 0;
     let bestDist = Infinity;
     for (let i = 0; i < this.polyline.length; i++) {
@@ -245,11 +244,12 @@ export class RouteKinematicsEngine {
     this.seekDistance(seekTo);
   }
 
-  public takeWrongTurn(angleDeg: number = 85) {
+  // Turn into an intersecting road or drive straight past a junction
+  public takeWrongTurn(angleDeg: number = 90) {
     this.isFreeSteering = true;
     this.heading = (this.heading + angleDeg + 360) % 360;
     if (this.speedMps < 5) {
-      this.speedMps = (45 * 1000) / 3600; // Give it 45 km/h push down the wrong road
+      this.speedMps = (45 * 1000) / 3600; // 45 km/h driving down the deviating road
     }
     this.notify();
   }
@@ -276,7 +276,7 @@ export class RouteKinematicsEngine {
   }
 
   private tick(now: number) {
-    const dt = Math.min(0.1, (now - this.lastTickTime) / 1000); // delta time in seconds, max 100ms cap
+    const dt = Math.min(0.1, (now - this.lastTickTime) / 1000);
     this.lastTickTime = now;
 
     this.updatePhysics(dt);
@@ -293,7 +293,7 @@ export class RouteKinematicsEngine {
     if (this.isCruising) {
       const targetMps = (this.targetCruiseSpeedKmh * 1000) / 3600;
       if (this.speedMps < targetMps - 0.2) {
-        this.speedMps = Math.min(targetMps, this.speedMps + this.accelerationRate * 0.75 * dt);
+        this.speedMps = Math.min(targetMps, this.speedMps + this.accelerationRate * 0.8 * dt);
       } else if (this.speedMps > targetMps + 0.5) {
         this.speedMps = Math.max(targetMps, this.speedMps - this.naturalDrag * 2.0 * dt);
       }
@@ -307,7 +307,6 @@ export class RouteKinematicsEngine {
           this.speedMps + this.accelerationRate * this.throttleInput * dt
         );
       } else {
-        // Natural coasting deceleration
         this.speedMps = Math.max(0, this.speedMps - this.naturalDrag * dt);
       }
     }
@@ -315,34 +314,24 @@ export class RouteKinematicsEngine {
     const effectiveMps = this.isReversing ? -this.speedMps : this.speedMps;
     const distanceDelta = effectiveMps * dt;
 
-    if (distanceDelta === 0 && this.steerInput === 0) return;
+    if (distanceDelta === 0) return;
 
     // 3. Movement Execution
     if (!this.isFreeSteering && this.polyline.length > 1) {
-      // Route Constrained Mode
+      // Route Constrained Mode: 100% locked to road polyline
       this.distanceAlongRoute = Math.max(
         0,
         Math.min(this.totalDistanceMeters, this.distanceAlongRoute + distanceDelta)
       );
       this.updatePositionFromRouteDistance();
     } else {
-      // Free Steer / Breakaway Mode
-      if (this.steerInput !== 0) {
-        // Turn rate scales slightly with speed for natural handling
-        const speedFactor = Math.min(1.5, Math.max(0.4, this.speedMps / 15));
-        this.heading =
-          (this.heading + this.steerInput * this.steerRateDegPerSec * speedFactor * dt + 360) %
-          360;
-      }
-
-      if (distanceDelta !== 0) {
-        const headingRad = this.heading * (Math.PI / 180);
-        const dLat = (distanceDelta * Math.cos(headingRad)) / 111320;
-        const dLng =
-          (distanceDelta * Math.sin(headingRad)) /
-          (111320 * Math.cos(this.coords[1] * (Math.PI / 180)));
-        this.coords = [this.coords[0] + dLng, this.coords[1] + dLat];
-      }
+      // Detour Divergence Mode: Moves forward along the selected road heading
+      const headingRad = this.heading * (Math.PI / 180);
+      const dLat = (distanceDelta * Math.cos(headingRad)) / 111320;
+      const dLng =
+        (distanceDelta * Math.sin(headingRad)) /
+        (111320 * Math.cos(this.coords[1] * (Math.PI / 180)));
+      this.coords = [this.coords[0] + dLng, this.coords[1] + dLat];
     }
   }
 
@@ -351,7 +340,6 @@ export class RouteKinematicsEngine {
 
     const d = this.distanceAlongRoute;
 
-    // Find the segment
     let segIdx = 0;
     while (
       segIdx < this.cumulativeDistances.length - 1 &&
@@ -368,10 +356,7 @@ export class RouteKinematicsEngine {
     const p1 = this.polyline[segIdx];
     const p2 = this.polyline[segIdx + 1] || p1;
 
-    // Interpolate coords
     this.coords = [p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t];
-
-    // Bearing of current segment
     this.heading = calculateBearing(p1, p2);
   }
 
