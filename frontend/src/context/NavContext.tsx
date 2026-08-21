@@ -207,6 +207,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [mapInstance, position.isLocated, position.coords[0], position.coords[1], navStatus]);
 
   // Voice Guidance (TTS) State
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(() => {
     try {
       return localStorage.getItem('georgie_voice_muted') === 'true';
@@ -215,6 +216,15 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  const stopCurrentAudio = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.src = '';
+      currentAudioRef.current = null;
+    }
+    fetch('/api/nav/voice/stop', { method: 'POST' }).catch(() => {});
+  };
+
   const toggleVoiceMute = () => {
     setIsVoiceMuted((prev) => {
       const next = !prev;
@@ -222,32 +232,41 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.setItem('georgie_voice_muted', String(next));
       } catch {}
       if (next) {
-        fetch('/api/nav/voice/stop', { method: 'POST' }).catch(() => {});
+        stopCurrentAudio();
       }
       return next;
     });
   };
 
-  const speakTurn = async (text: string, priority: string = 'normal') => {
+  const speakTurn = async (text: string, _priority: string = 'normal') => {
     if (isVoiceMuted || !text || !text.trim()) return;
 
-    // 1. Immediate local browser speech synthesis for zero-latency, instantly interruptible speech
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Instantly cut off any previous speech
-      const utterance = new SpeechSynthesisUtterance(text.trim());
-      utterance.rate = 1.15; // Crisp, responsive speaking pace
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
+    // 1. Immediately cut off any previously playing Neural audio stream
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.src = '';
+      } catch {}
+      currentAudioRef.current = null;
     }
 
-    // 2. Dispatch to backend voice service (for Raspberry Pi / PipeWire audio ducking)
+    // 2. Play high-fidelity Microsoft Edge Neural TTS stream (JennyNeural)
     try {
-      fetch('/api/nav/voice/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.trim(), priority }),
-      }).catch(() => {});
-    } catch {}
+      const audioUrl = `/api/nav/voice/audio?text=${encodeURIComponent(text.trim())}`;
+      const audio = new Audio(audioUrl);
+      audio.playbackRate = 1.08; // Crisp, responsive playback pace
+      currentAudioRef.current = audio;
+
+      audio.play().catch(() => {});
+
+      audio.onended = () => {
+        if (currentAudioRef.current === audio) {
+          currentAudioRef.current = null;
+        }
+      };
+    } catch (err) {
+      console.warn('Neural audio playback error:', err);
+    }
   };
 
   // Helper to format concise, natural spoken navigation instructions
@@ -788,6 +807,7 @@ export const NavProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    stopCurrentAudio();
     routeSimulator.emergencyStop();
     setDestination(null);
     setDestinationName('');
