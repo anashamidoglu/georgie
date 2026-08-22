@@ -362,12 +362,44 @@ function parseManeuverStep(
   if (bannerSub?.components) {
     const laneComponents = bannerSub.components.filter((c: any) => c.type === 'lane');
     if (laneComponents.length > 0) {
-      lanes = laneComponents.map((lc: any) => ({
+      const parsedLanes: LaneInfo[] = laneComponents.map((lc: any) => ({
         active: Boolean(lc.active),
         valid: lc.valid !== false,
         directions: lc.directions || [lc.active_direction || 'straight'],
         activeDirection: lc.active_direction,
       }));
+
+      // Lane Guidance Accuracy & Quality Filter:
+      // Spec 5.2: "Silent fallback (no lane UI) when data is absent/invalid — expected default on local roads"
+      const isTurnManeuver = modifier !== 'straight' && type !== 'straight';
+      const allStraight = parsedLanes.every((l) =>
+        l.directions.every((d) => d.toLowerCase() === 'straight')
+      );
+      const allActive = parsedLanes.every((l) => l.active);
+      const noneActive = parsedLanes.every((l) => !l.active);
+
+      // 1. If all lanes are identical straight and ALL are marked active during a turn/exit, OSM data is incomplete -> silently hide
+      if (isTurnManeuver && allStraight && allActive) {
+        lanes = undefined;
+      } else if (noneActive || parsedLanes.length <= 1) {
+        // 2. If no lane is recommended or only 1 lane -> silently hide
+        lanes = undefined;
+      } else {
+        // 3. Align active lane glyphs with the maneuver turn direction if Mapbox omitted specific turn directions
+        if (isTurnManeuver && allStraight) {
+          const turnDir = modifier.includes('right')
+            ? 'slight right'
+            : modifier.includes('left')
+            ? 'slight left'
+            : modifier;
+          lanes = parsedLanes.map((l) => ({
+            ...l,
+            directions: l.active ? [turnDir] : ['straight'],
+          }));
+        } else {
+          lanes = parsedLanes;
+        }
+      }
     }
   }
 
